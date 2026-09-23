@@ -26,6 +26,7 @@ namespace Kairos {
   readonly Dictionary<ulong,GameObject> bodies=new Dictionary<ulong,GameObject>();
   readonly List<GameObject> pickups=new List<GameObject>();
   Texture2D walkers,creatures; float sendClock,connectionClock; bool joining,reported;
+  KairosVisuals visuals;
   string address="127.0.0.1",notice="Solo is available offline. LAN requires a native host.";
   int character; bool reducedMotion; InputFrame local=new InputFrame();
   public bool Authority=>!network.IsListening||network.IsServer;
@@ -35,7 +36,8 @@ namespace Kairos {
   static void Boot(){if(!FindFirstObjectByType<KairosRuntime>())new GameObject("Kairos").AddComponent<KairosRuntime>();}
   void Awake(){
    Application.targetFrameRate=60;
-   if(!Camera.main){var camera=new GameObject("KairosCamera").AddComponent<Camera>();camera.tag="MainCamera";camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=Color.black;camera.cullingMask=0;}
+   var camera=Camera.main;if(!camera)camera=new GameObject("KairosCamera").AddComponent<Camera>();camera.tag="MainCamera";camera.orthographic=true;camera.orthographicSize=350;camera.transform.position=new Vector3(450,250,-20);camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.04f,.06f,.08f);camera.cullingMask=~0;
+   visuals=gameObject.AddComponent<KairosVisuals>();visuals.runtime=this;
    walkers=Resources.Load<Texture2D>("Kairos/walk");creatures=Resources.Load<Texture2D>("Kairos/creatures");
    var obj=new GameObject("KairosNetwork");transport=obj.AddComponent<UnityTransport>();network=obj.AddComponent<NetworkManager>();
    network.NetworkConfig=new NetworkConfig{NetworkTransport=transport,EnableSceneManagement=false,ConnectionApproval=true};
@@ -141,6 +143,7 @@ namespace Kairos {
     else if(network.IsConnectedClient){Send("kairos-input",NetworkManager.ServerClientId,JsonUtility.ToJson(local));local.action=false;}
    }
    SyncColliders();
+   visuals?.Sync(round,Me);
    if(round.phase=="results"&&!reported){reported=true;var p=round.players.FirstOrDefault(x=>x.id==Me);if(p!=null){
     try{PlayerPrefs.SetInt("kairos.best."+round.gameId,Math.Max(PlayerPrefs.GetInt("kairos.best."+round.gameId),p.score));PlayerPrefs.Save();}catch(Exception){notice="Device storage unavailable.";}
     if(round.winner!="cancelled")KairosWebBridge.Complete(round.gameId,p.score);
@@ -215,12 +218,13 @@ namespace Kairos {
    GUI.DrawTextureWithTexCoords(rect,atlas,new Rect(col*.25f,(3-row)*.25f,.25f,.25f),true);
   }
   void DrawArena(){
-   Fill(new Rect(0,0,900,480),round.gameId=="galilee"?new Color(.04f,.25f,.4f):round.gameId=="pharaoh-chase"?new Color(.45f,.27f,.13f):new Color(.08f,.23f,.2f));
-   if(round.gameId=="ark-park"||round.gameId=="plague-party")for(int i=0;i<8;i++){
+   // Camera-backed visuals supply the world; IMGUI remains for labels and controls.
+   if(visuals==null)Fill(new Rect(0,0,900,480),round.gameId=="galilee"?new Color(.04f,.25f,.4f):round.gameId=="pharaoh-chase"?new Color(.45f,.27f,.13f):new Color(.08f,.23f,.2f));
+   if(visuals==null&&(round.gameId=="ark-park"||round.gameId=="plague-party"))for(int i=0;i<8;i++){
     Vector2 pos=Rules.Animal(i);Fill(new Rect(pos.x-43,pos.y-35,86,70),new Color(.38f,.48f,.23f));
     if(round.gameId=="ark-park"&&round.animalReady[i]<=round.time)Sprite(creatures,i%4,i/4,new Rect(pos.x-30,pos.y-35,60,65),Color.yellow);
    }
-   if(round.gameId=="lost-sheep"){
+   if(visuals==null&&round.gameId=="lost-sheep"){
     Fill(new Rect(402,372,96,96),new Color(.5f,.6f,.22f));GUI.Label(new Rect(422,438,80,30),"Fold");
     for(int i=0;i<8;i++){
      if(round.roleMode){var bush=Rules.Animal(i);Sprite(creatures,3,3,new Rect(bush.x-40,bush.y-40,80,80),Color.green);}
@@ -240,7 +244,7 @@ namespace Kairos {
     GUI.Label(new Rect(200,55,600,35),new[]{"Hold to cast","Release to cast","Waiting for a bite…","PULL! Hold now","Keep your bar near the fish"}[p.fishingPhase]);
     Fill(new Rect(200,150,500,35),Color.black);Fill(new Rect(200,150,500*(p.fishingPhase==1?p.cast:p.progress),35),new Color(.9f,.7f,.2f));
     if(p.fishingPhase==4){Fill(new Rect(200,240,500,50),new Color(.08f,.1f,.14f));Fill(new Rect(200+p.reel*400,240,100,50),new Color(.2f,.8f,.6f));Sprite(creatures,0,2,new Rect(200+(.5f+.33f*Mathf.Sin(p.fishingClock*2))*400,240,50,50),Color.white);}
-   }else foreach(var p in round.players){
+   }else if(visuals==null) foreach(var p in round.players){
     if(round.gameId=="lost-sheep"&&round.roleMode&&p.hiding&&p.id!=Me)continue;
     int frame=reducedMotion||!p.moving?0:Mathf.FloorToInt(round.time*7)%4;
     Sprite(walkers,frame,p.character,new Rect(p.x-30,p.y-50-p.jump*45,60,75),Color.magenta);
