@@ -38,6 +38,8 @@ namespace Kairos.Editor {
   }
   [MenuItem("Kairos/Build native LAN host (macOS)")]
   public static void Mac(){Prepare();Build("Builds/Kairos.app",BuildTarget.StandaloneOSX);}
+  [MenuItem("Kairos/Build native LAN host (Windows)")]
+  public static void Windows(){Prepare();Build("Builds/Windows/Kairos.exe",BuildTarget.StandaloneWindows64);}
   static void Build(string output,BuildTarget target){
    var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions{scenes=new[]{"Assets/Scenes/Kairos.unity"},locationPathName=output,target=target});
    if(report.summary.result!=BuildResult.Succeeded)throw new Exception("Kairos build failed: "+report.summary.result);

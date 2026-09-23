@@ -12,6 +12,7 @@
     "lan": "node tools/lan-relay.mjs",
     "test:arcade": "node tests/arcade-browser.mjs",
     "test:unity-web": "node tests/unity-browser.mjs",
+    "test:unity-export": "node tests/unity-export-browser.mjs",
     "unity:preview": "node tools/unity-preview.mjs",
     "unity:build": "node scripts/unity-build.mjs"
   },

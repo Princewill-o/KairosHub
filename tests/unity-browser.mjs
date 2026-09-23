@@ -1,8 +1,9 @@
-import {chromium} from 'playwright';
+import {chromium} from '@playwright/test';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch({headless:true,channel:'chrome'});
 const page=await browser.newPage({serviceWorkers:'block'});const errors=[];page.on('pageerror',e=>errors.push(e.message));
 try{
+ await page.route('**/unity-build/build.json',r=>r.fulfill({status:404,body:'No export in this fallback test'}));
  await page.goto('http://localhost:4173/#unity/ark-park');
  if(await page.locator('#intro-skip').count())await page.locator('#intro-skip').click();
  await page.locator('#unity-status').filter({hasText:'not installed'}).waitFor();
@@ -12,6 +13,7 @@ try{
  await page.getByRole('link',{name:'Play browser version',exact:true}).click();
  await page.locator('[data-mode="solo"]').click();await page.locator('canvas').waitFor();
  await page.goto('http://localhost:4173/#');
+ await page.unroute('**/unity-build/build.json');
  await page.route('**/unity-build/build.json',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({schema:1,engine:'unity',entry:'index.html'})}));
  await page.route('**/unity-build/index.html',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><title>Test build transport</title><body>Mock Unity frame</body>'}));
  await page.goto('http://localhost:4173/#unity/galilee');
@@ -25,6 +27,6 @@ try{
  assert.equal(await page.locator('#unity-status').textContent(),'Unity game ready.');
  await frame.evaluate(()=>parent.postMessage({type:'kairos:complete',gameId:'galilee',score:60,completed:true},location.origin));
  await page.locator('#unity-status').filter({hasText:'60 points'}).waitFor();
- await page.getByRole('link',{name:'Back to library',exact:true}).click();assert.equal(await page.locator('iframe').count(),0);
+ await page.getByRole('link',{name:'Back to library',exact:true}).click();await page.locator('iframe').waitFor({state:'detached'});assert.equal(await page.locator('iframe').count(),0);
  assert.deepEqual(errors,[]);console.log('PASS Unity fallback, mobile layout, browser game, mock bridge source validation, completion and disposal');
 }finally{await browser.close();}

@@ -4,7 +4,7 @@
 
 # KairosHub
 
-Unity source integration is under [`unity/`](unity/README.md). The **Unity preview** navigation link loads an installed export or offers the working browser game. Five prototype game loops and a direct-IP networking layer are present in source; Unity compilation and device/LAN verification remain pending. See the Unity README for exact feature gaps and build commands.
+Unity source integration is under [`unity/`](unity/README.md). The **Unity preview** navigation link loads an installed export or offers the working browser game. Five prototype game loops and a direct-IP networking layer are present. Unity 6000.0.52f1 compilation and 14 EditMode tests now pass, with real local WebGL and Windows exports; device/LAN verification remains pending. See the Unity README for exact feature gaps and build commands.
 
 A server-backed Scripture & Play game library with randomized solo rounds, two 2D adventures, and online multiplayer.
 

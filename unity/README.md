@@ -10,18 +10,18 @@ The website now has a **Unity preview** navigation link (`#unity/ark-park`). It 
 - Pharaoh Chase: three lanes, reusable timed obstacle positions, jumps, collision penalties and a 90-second score run. Original simplified 2D implementation; AwesomeRunner source/assets are not imported yet.
 - Lake Galilee: cast, wait, bite reaction and hold/release reel tracking. Original implementation of the reviewed interaction loop; CozyFishingGame scripts and audio are not copied.
 - Plague Party: four timed waves, safe islands, moving hail and hit penalties. Tumble Guys ragdolls, art and obstacle courses are not ported yet.
-- Lost Sheep: cooperative rescue of eight wandering sheep, proximity-checked calls, shared rescue state and a deadline. Wolf/player-sheep roles and hiding are not implemented yet.
+- Lost Sheep: solo/two-player cooperative rescue of eight wandering sheep. With 3–8 players, the host assigns a shepherd, a wolf and player sheep. Sheep hold the action button in bushes to hide, the wolf tags within range, and the shepherd calls nearby sheep toward the fold and frees tagged sheep. All sheep reaching the fold wins for the flock; the 180-second deadline wins for the wolf. Losing a required role cancels the round; restart assigns roles again. The pure role rules pass EditMode tests; network/device gameplay still requires verification.
 - Shared: four existing character sprites, host pause, restart, keyboard/on-screen controls, device-local best scores, direct-IP host/join and up to eight accepted connections.
 
 Networking uses NGO named messages with host-owned state, sender-bound inputs, bounded movement, stale-input expiry, no client score writes, no mid-round joins, connection timeout and explicit disconnect handling. Boss Room is an architectural reference, not a wholesale import. No Photon, cloud lobby or Relay account is required for native LAN. Host migration and compatibility with the JavaScript LAN relay are not implemented. IMGUI keyboard navigation and practical phone usability still need device verification; the browser games remain the accessibility baseline.
 
 ## Open and test with Unity
 
-1. Clone this **KairosGames** repository, open `unity/KairosAdventures` in Unity 6000.0.52f1, install native/Web build modules and let the pinned packages resolve.
+1. Clone this **KairosHub** repository, open `unity/KairosAdventures` in Unity 6000.0.52f1, install native/Web build modules and let the pinned packages resolve.
 2. Select **Kairos > Prepare playable scene**. This copies only the two existing PNG atlases into Resources and creates `Assets/Scenes/Kairos.unity`, leaving the originals untouched.
-3. Run **Window > General > Test Runner > EditMode**. `KairosRulesTests` covers scoring, invalid collectibles, bounded movement, non-finite input and fishing. These tests have not run here because Unity Editor is unavailable.
+3. Run **Window > General > Test Runner > EditMode**. `KairosRulesTests` covers scoring, invalid collectibles, bounded movement, non-finite input and fishing. On 2026-09-23, Unity 6000.0.52f1 compiled the project and passed all 14 EditMode tests, including nine Lost Sheep role tests.
 4. Enter Play, choose a character/game, and **Start adventure**. WASD/arrows move; Space/Enter performs the action. Touch buttons provide equivalent input. Escape pauses as host. Check all completion/restart paths.
-5. Build via **Kairos > Build native LAN host (macOS)** or Unity Build Profiles for another platform. Host in one copy, join its numeric LAN IP from another, and test shared state/pause, duplicate pickups, disconnect, eight slots and restart. Host/client transport toggles must match. UDP port 7777 is the default. Firewalls or Wi-Fi client isolation can block access.
+5. Build via **Kairos > Build native LAN host (Windows)** on this machine, **Kairos > Build native LAN host (macOS)**, or Unity Build Profiles for another platform. Host in one copy, join its numeric LAN IP from another, and test shared state/pause, duplicate pickups, disconnect, eight slots and restart. Host/client transport toggles must match. UDP port 7777 is the default. Firewalls or Wi-Fi client isolation can block access.
 
 ## Website export
 
@@ -35,6 +35,6 @@ For browser LAN clients, enable WebSockets on a native host and match the client
 
 ## Verification limits
 
-`tests/unity-browser.mjs` checks missing-build fallback, mobile layout, existing browser-game launch and a **mock** Unity frame's startup/completion messages, source validation and disposal. It does not execute Unity or prove LAN gameplay. No C# compilation, Unity Play Mode run, native/Web export or Unity multiplayer test has been possible here.
+`tests/unity-browser.mjs` checks missing-build fallback, mobile layout, existing browser-game launch and a **mock** Unity frame's startup/completion messages, source validation and disposal. It does not execute Unity or prove LAN gameplay. Unity 6000.0.52f1 now compiles this project; all 14 EditMode tests pass and actual WebGL, Windows and macOS exports have been produced. `npm run test:unity-export` requires a real export and exercises it through the website. Editor Play Mode, role gameplay over native LAN, eight-device networking and real phone touch usability remain separate verification requirements. See `VERIFICATION.md` for the dated results.
 
 See `THIRD_PARTY.md` for imported-code provenance and `TEMPLATES.md` for the reviewed forks. Larger upstream projects remain online to conserve storage.

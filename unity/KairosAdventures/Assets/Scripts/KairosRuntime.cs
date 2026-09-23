@@ -77,7 +77,7 @@ namespace Kairos {
   }
   void Disconnected(ulong id){
    inputs.Remove(id);inputAt.Remove(id);
-   if(network.IsServer)round.players=round.players.Where(p=>p.id!=id).ToArray();
+   if(network.IsServer){round.players=round.players.Where(p=>p.id!=id).ToArray();if(round.gameId=="lost-sheep")LostSheep.Resolve(round);}
    else {joining=false;notice="Disconnected. Return to Solo or reconnect. Host migration is not implemented.";round.phase="lobby";}
   }
   void Send(string name,ulong recipient,string json){
@@ -108,6 +108,7 @@ namespace Kairos {
   }
   void Begin(){
    round=new Round{gameId=round.gameId,phase="playing",players=round.players.Select(p=>new Adventurer{id=p.id,character=p.character,x=400,y=280}).ToArray(),message="Let's explore"};reported=false;
+   if(round.gameId=="lost-sheep")LostSheep.Begin(round);
   }
   void Update(){
    float dt=Mathf.Min(Time.unscaledDeltaTime,.05f);
@@ -130,7 +131,8 @@ namespace Kairos {
      input.action=false;
     }
     if(round.phase=="playing"&&!round.paused){round.time+=dt;
-     if(round.time>=Rules.Duration(round.gameId)||(round.gameId=="lost-sheep"&&round.sheepSaved.All(x=>x))){round.phase="results";round.message=round.gameId=="lost-sheep"&&!round.sheepSaved.All(x=>x)?"Round over. Some sheep still need finding.":"Adventure complete";}
+     if(round.gameId=="lost-sheep")LostSheep.Resolve(round);
+     else if(round.time>=Rules.Duration(round.gameId)){round.phase="results";round.message="Adventure complete";}
     }
    }
    sendClock+=dt;
@@ -141,7 +143,7 @@ namespace Kairos {
    SyncColliders();
    if(round.phase=="results"&&!reported){reported=true;var p=round.players.FirstOrDefault(x=>x.id==Me);if(p!=null){
     try{PlayerPrefs.SetInt("kairos.best."+round.gameId,Math.Max(PlayerPrefs.GetInt("kairos.best."+round.gameId),p.score));PlayerPrefs.Save();}catch(Exception){notice="Device storage unavailable.";}
-    KairosWebBridge.Complete(round.gameId,p.score);
+    if(round.winner!="cancelled")KairosWebBridge.Complete(round.gameId,p.score);
    }}
    if(round.phase=="playing")reported=false;
   }
@@ -202,11 +204,11 @@ namespace Kairos {
    GUI.enabled=!round.paused;
    touchX=(GUI.RepeatButton(new Rect(145,620,100,65),"Right")?1:0)-(GUI.RepeatButton(new Rect(25,620,100,65),"Left")?1:0);
    touchY=(GUI.RepeatButton(new Rect(385,620,100,65),"Down")?1:0)-(GUI.RepeatButton(new Rect(265,620,100,65),"Up")?1:0);
-   bool held=GUI.RepeatButton(new Rect(610,620,265,65),round.gameId=="galilee"?"Hold / release to fish":round.gameId=="lost-sheep"?"Call sheep":round.gameId=="pharaoh-chase"?"Jump":"Catch");
+   bool held=GUI.RepeatButton(new Rect(610,620,265,65),round.gameId=="galilee"?"Hold / release to fish":round.gameId=="lost-sheep"?(me?.role==SheepRole.Wolf?"Tag":me?.role==SheepRole.Sheep?"Hold to hide":"Call sheep"):round.gameId=="pharaoh-chase"?"Jump":"Catch");
    if(held&&!touchHeld)local.action=true;touchHeld=held;GUI.enabled=true;
    if(round.paused){Fill(new Rect(0,90,900,480),new Color(0,0,0,.95f));GUI.Label(new Rect(280,280,400,60),"Paused · host can resume");touchX=touchY=0;touchHeld=false;}
   }
-  string Help()=>round.gameId=="galilee"?"Cast, wait for PULL, then track the fish":round.gameId=="lost-sheep"?"Move near sheep and Call · rescue all eight":round.gameId=="plague-party"?"Frogs / water: stand on islands. Hail: dodge.":round.gameId=="ark-park"?"Walk into animals; every matching pair earns a bonus":"Left / right lanes · Space to jump";
+  string Help()=>round.gameId=="galilee"?"Cast, wait for PULL, then track the fish":round.gameId=="lost-sheep"?(round.roleMode?LostSheep.Controls(round.players.FirstOrDefault(p=>p.id==Me)):"Move near sheep and Call · rescue all eight"):round.gameId=="plague-party"?"Frogs / water: stand on islands. Hail: dodge.":round.gameId=="ark-park"?"Walk into animals; every matching pair earns a bonus":"Left / right lanes · Space to jump";
   static void Fill(Rect rect,Color color){Color old=GUI.color;GUI.color=color;GUI.DrawTexture(rect,Texture2D.whiteTexture);GUI.color=old;}
   void Sprite(Texture2D atlas,int col,int row,Rect rect,Color fallback){
    if(!atlas){Fill(rect,fallback);return;}
@@ -218,7 +220,13 @@ namespace Kairos {
     Vector2 pos=Rules.Animal(i);Fill(new Rect(pos.x-43,pos.y-35,86,70),new Color(.38f,.48f,.23f));
     if(round.gameId=="ark-park"&&round.animalReady[i]<=round.time)Sprite(creatures,i%4,i/4,new Rect(pos.x-30,pos.y-35,60,65),Color.yellow);
    }
-   if(round.gameId=="lost-sheep")for(int i=0;i<8;i++)if(!round.sheepSaved[i]){var pos=Rules.Sheep(i,round.time);Sprite(creatures,1,0,new Rect(pos.x-30,pos.y-30,60,60),Color.white);}
+   if(round.gameId=="lost-sheep"){
+    Fill(new Rect(402,372,96,96),new Color(.5f,.6f,.22f));GUI.Label(new Rect(422,438,80,30),"Fold");
+    for(int i=0;i<8;i++){
+     if(round.roleMode){var bush=Rules.Animal(i);Sprite(creatures,3,3,new Rect(bush.x-40,bush.y-40,80,80),Color.green);}
+     else if(!round.sheepSaved[i]){var pos=Rules.Sheep(i,round.time);Sprite(creatures,1,0,new Rect(pos.x-30,pos.y-30,60,60),Color.white);}
+    }
+   }
    if(round.gameId=="plague-party"){
     int wave=Mathf.FloorToInt(round.time/17.5f);GUI.Label(new Rect(20,10,500,30),new[]{"Frogs: climb the islands","Hail: keep moving","Night storm: watch the shadows","Rising water: climb the islands"}[Mathf.Clamp(wave,0,3)]);
     if(wave==1||wave==2)for(int i=0;i<12;i++){var pos=Rules.Hail(i,round.time);Sprite(creatures,1,3,new Rect(pos.x-15,pos.y-15,30,30),Color.cyan);}
@@ -233,9 +241,10 @@ namespace Kairos {
     Fill(new Rect(200,150,500,35),Color.black);Fill(new Rect(200,150,500*(p.fishingPhase==1?p.cast:p.progress),35),new Color(.9f,.7f,.2f));
     if(p.fishingPhase==4){Fill(new Rect(200,240,500,50),new Color(.08f,.1f,.14f));Fill(new Rect(200+p.reel*400,240,100,50),new Color(.2f,.8f,.6f));Sprite(creatures,0,2,new Rect(200+(.5f+.33f*Mathf.Sin(p.fishingClock*2))*400,240,50,50),Color.white);}
    }else foreach(var p in round.players){
+    if(round.gameId=="lost-sheep"&&round.roleMode&&p.hiding&&p.id!=Me)continue;
     int frame=reducedMotion||!p.moving?0:Mathf.FloorToInt(round.time*7)%4;
     Sprite(walkers,frame,p.character,new Rect(p.x-30,p.y-50-p.jump*45,60,75),Color.magenta);
-    GUI.Label(new Rect(p.x-30,p.y+22,100,28),p.score.ToString());
+    GUI.Label(new Rect(p.x-45,p.y+22,170,28),round.gameId=="lost-sheep"&&round.roleMode?(p.home?"Safe":p.tagged?"Tagged":p.hiding?"Hidden":p.role.ToString()):p.score.ToString());
    }
   }
  }

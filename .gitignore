@@ -42,3 +42,5 @@ node_modules/
 /public/unity-build/
 /unity/**/Builds/
 /unity/**/Assets/Resources/Kairos/
+/unity/**/Assets/Resources/PerformanceTestRun*.json*
+/tests/unity-export-*.png
