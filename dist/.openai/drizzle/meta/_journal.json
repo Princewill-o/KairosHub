@@ -8,6 +8,13 @@
       "when": 1789574076645,
       "tag": "0000_optimal_sleeper",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789899374874,
+      "tag": "0001_faithful_fat_cobra",
+      "breakpoints": true
     }
   ]
 }

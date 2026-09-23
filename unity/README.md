@@ -25,9 +25,11 @@ Networking uses NGO named messages with host-owned state, sender-bound inputs, b
 
 ## Website export
 
+The automated path is now `npm run unity:build`. It finds the pinned Editor (or uses the executable path in `UNITY_EDITOR`), runs EditMode tests, requires a nonempty passing test report, compiles WebGL, and validates the manifest, loader, framework, data and WebAssembly header. Logs are in `unity/KairosAdventures/Logs/`. This command stops with an explicit error when the Editor is missing; it never substitutes a mock build.
+
 Use **Kairos > Build Web for Hub** with Web Build Support installed. A successful build writes `unity-build/` at repository root, including `build.json`. Do not place the export in `public/`: the existing Worker embeds static files into JavaScript and is unsuitable for large Unity binary bundles.
 
-Run `npm run dev` and, in another terminal, `npm run unity:preview`. Open **http://localhost:4174/#unity/ark-park**. The preview serves Unity binaries with required MIME types while proxying the site to port 4173. Port 4173 alone still shows the missing-build fallback. The development proxy binds to loopback; external deployment requires separate static hosting. Exports are ignored by Git.
+Run `npm run dev` and open **http://localhost:4173/#unity/ark-park**. The development server now serves Unity exports on the same origin as the site, using a private Worker backend on port 4175. It streams large binaries with the required MIME types and preserves request host/origin for API checks. No second preview command or port switch is required. Without a compiled export the page still reports that it is missing. The development server binds to loopback; external deployment requires separate static hosting. Exports are ignored by Git. `npm run unity:preview` remains an optional secondary preview on port 4174.
 
 For browser LAN clients, enable WebSockets on a native host and match the client transport. Browsers cannot directly host LAN. The Hub launch currently starts a solo round; complete it to reach lobby controls. HTTPS hosting needs secure compatible networking; the loopback proxy is not a production solution.
 
