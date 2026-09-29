@@ -1,3 +1,5 @@
+> Unity is currently archived and disabled in the mobile website. The source and verification history below are retained from the other computer.
+
 # Kairos Unity integration — source prototype
 
 The website now has a **Unity preview** navigation link (`#unity/ark-park`). It detects an installed export, passes the selected guest character and reduced-motion preference, and receives completion messages only from that same-origin game frame. Without an export it offers the existing browser game. Unity scores are currently separate from browser/account inventory.

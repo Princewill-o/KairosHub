@@ -44,3 +44,6 @@ node_modules/
 /unity/**/Assets/Resources/Kairos/
 /unity/**/Assets/Resources/PerformanceTestRun*.json*
 /tests/unity-export-*.png
+/.vercel/
+.vercel
+.env*

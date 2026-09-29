@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import { unityLaunch, validUnityResult } from './public/library/unity.mjs';
+import { unityLaunch, validUnityResult } from './unity/legacy-web/unity.mjs';
 
 test('Unity launch accepts only known games and bounded character choices', () => {
   assert.equal(unityLaunch('lost-sheep', {character:3}).character, 3);
