@@ -73,7 +73,7 @@ p {
   padding: 0 30px;
   display: flex;
   align-items: center;
-  gap: 50px;
+  gap: 28px;
   border: 1px solid var(--line);
   border-radius: 22px;
   background: color-mix(in srgb, var(--paper) 94%, transparent);
@@ -82,7 +82,7 @@ p {
   z-index: 10;
   backdrop-filter: blur(16px);
 }
-.retro-nav .nav { position: relative; border: 2px solid transparent; border-radius: 7px; padding: 9px 13px; transition: background .2s ease, color .2s ease, transform .2s ease; }
+.retro-nav .nav { position: relative; border: 2px solid transparent; border-radius: 7px; padding: 7px 10px; font-size:12px; transition: background .2s ease, color .2s ease, transform .2s ease; }
 .retro-nav .nav:hover, .retro-nav .nav:focus-visible { background: var(--purple, #79609b); color: #fff; transform: translateY(-1px); }
 .retro-nav .nav.active { background: #2f263b; color: #fff; box-shadow: 3px 3px 0 #b99ad1; }
 .brand span { white-space: nowrap; }
