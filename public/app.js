@@ -1,10 +1,12 @@
+import {installScriptureReader} from './scripture.mjs';
 import { arcade } from './library/app.mjs';
-import { mountUnity } from './library/unity.mjs';
+import { mobileTabs } from './library/mobile.mjs';
 import { multiplayer } from "./multiplayer.mjs";
 import { freshRound } from "./random.mjs";
 import { games, verses } from "./content.mjs";
 import { freshProgress, recordCompletion } from "./learning-engine.mjs";
 import { launchGame } from "./games.mjs";
+import { mountBible } from "./bible/games.mjs";
 const icon = (name, cls = "") =>
   `<img class="icon ${cls}" src="assets/icons/${name}.png" alt="">`;
 const escapeHtml = (s) =>
@@ -72,11 +74,10 @@ function stop() {
   run = null;
 }
 function header(view = "home") {
-  return `<header class="topbar"><a class="brand" href="#">${icon("Books")}<span>kairos<span class="brand-sub">SCRIPTURE & PLAY</span></span></a><nav aria-label="Main navigation"><a class="nav ${view === "home" ? "active" : ""}" href="#">Adventures</a><a class="nav" href="#classics">Scripture games</a><a class="nav ${view === "multiplayer" ? "active" : ""}" href="#multiplayer">Play together</a><a class="nav ${view === "collection" ? "active" : ""}" href="#journey">My journey</a></nav><div class="top-tools"><span class="streak">${icon("Star")} ${progress.streak} day streak</span><select id="mode" aria-label="Difficulty mode" ${view === "play" ? "disabled" : ""}><option value="seeker" ${mode === "seeker" ? "selected" : ""}>Seeker / Kids</option><option value="growth" ${mode === "growth" ? "selected" : ""}>Growth</option></select><button class="theme-toggle" aria-label="Switch theme">${theme === "dark" ? "Light" : "Dark"}</button><button class="sound-toggle" aria-label="${sound ? "Mute" : "Enable"} sound" aria-pressed="${sound}">${icon("Sound")}</button></div></header>`;
+  return `<header class="topbar"><a class="brand" href="#bible" aria-label="KairosGames home"><span>KairosGames</span></a><nav class="retro-nav" aria-label="Main navigation"><a class="nav ${view === "home" || view === "bible" ? "active" : ""}" href="#bible">Games</a><a class="nav ${view === "multiplayer" ? "active" : ""}" href="#multiplayer">Play together</a><a class="nav ${view === "collection" ? "active" : ""}" href="#journey">My journey</a></nav><div class="top-tools"><span class="streak">${icon("Star")} ${progress.streak} day streak</span><select id="mode" aria-label="Difficulty mode" ${view === "play" ? "disabled" : ""}><option value="seeker" ${mode === "seeker" ? "selected" : ""}>Seeker / Kids</option><option value="growth" ${mode === "growth" ? "selected" : ""}>Growth</option></select><button class="theme-toggle" aria-label="Switch theme">${theme === "dark" ? "Light" : "Dark"}</button><button class="sound-toggle" aria-label="${sound ? "Mute" : "Enable"} sound" aria-pressed="${sound}">${icon("Sound")}</button></div></header>`;
 }
 function bindHeader() {
-  const unityLink=document.createElement('a');unityLink.className='nav';unityLink.href='#unity/ark-park';unityLink.textContent='Unity preview';
-  document.querySelector('.topbar nav').append(unityLink);
+  document.querySelector('#app').insertAdjacentHTML('beforeend',mobileTabs());
   document.querySelector("#mode").onchange = (e) => {
     mode = e.target.value;
     save();
@@ -91,7 +92,8 @@ function bindHeader() {
     );
     if (sound) chime(true);
   };
-  document.querySelector(".theme-toggle").onclick = () => { theme = theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = theme; save(); route(); };
+  document.documentElement.dataset.theme=theme;
+  document.querySelector(".theme-toggle").onclick = (e) => { theme = theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = theme; e.currentTarget.textContent=theme==='dark'?'Light':'Dark';save(); };
 }
 function footer() {
   return `<footer><span>Rooted in Scripture. Made for curious hearts.</span><span>${storageAvailable ? "Progress saved on this device." : "Storage unavailable — progress lasts for this visit."}</span></footer>`;
@@ -128,9 +130,9 @@ function classics() {
 }
 function home(view='home') {
  stop();
- document.querySelector('#app').innerHTML=`${header()}<main id="arcade-root"></main>`;
+ document.querySelector('#app').innerHTML=`${header("bible")}<main id="bible-root"></main>`;
  bindHeader();
- activeModule=arcade(document.querySelector('#arcade-root'),view,chime);
+ activeModule=mountBible(document.querySelector('#bible-root'));
 }
 function collection() {
   stop();
@@ -276,16 +278,18 @@ function party(code="") {
 }
 function route() {
   const hash = location.hash.slice(1);
-  if(hash.startsWith("unity/")){
-    stop();document.querySelector('#app').innerHTML=`${header()}<main id="unity-root"></main>`;bindHeader();
-    activeModule=mountUnity(document.querySelector('#unity-root'),hash.slice(6));
+  if(hash.startsWith("unity/")){location.replace('#bible');return;}
+  else if (hash === "bible" || hash.startsWith("bible/")) {
+    stop();
+    document.querySelector("#app").innerHTML = `${header("bible")}<main id="bible-root"></main>`;
+    bindHeader();
+    activeModule = mountBible(document.querySelector("#bible-root"), hash.slice(6));
   }
   else if (hash==="multiplayer") party();
   else if(/^room\/[A-Z2-9]{6}$/.test(hash)) party(hash.slice(5));
-  else if (hash.startsWith("arcade/")) home(hash.slice(7));
+  else if (hash.startsWith("arcade/") || hash.startsWith("play/")) location.replace("#bible");
   else if(hash==="profile") home("profile");
-  else if(hash==="classics") classics();
-  else if (hash.startsWith("play/")) play(hash.slice(5));
+  else if(hash==="classics") location.replace("#bible");
   else if (hash === "journey") collection();
   else home();
   window.scrollTo(0, 0);
@@ -294,3 +298,5 @@ window.addEventListener("hashchange", route);
 route();
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
+
+installScriptureReader(document.querySelector("#app"));

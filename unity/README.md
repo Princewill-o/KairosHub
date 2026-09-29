@@ -1,5 +1,7 @@
 # Kairos Unity integration — source prototype
 
+ARCHIVED: Unity is paused in favour of the mobile web version. This source is retained, but the website no longer serves the Unity launcher or exports. The instructions below describe the prior prototype; npm Unity commands have been removed from the active package scripts. See `../MOBILE.md` for the current application.
+
 The website now has a **Unity preview** navigation link (`#unity/ark-park`). It detects an installed export, passes the selected guest character and reduced-motion preference, and receives completion messages only from that same-origin game frame. Without an export it offers the existing browser game. Unity scores are currently separate from browser/account inventory.
 
 ## Implemented source

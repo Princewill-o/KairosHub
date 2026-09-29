@@ -11,12 +11,10 @@
     "db:generate": "drizzle-kit generate",
     "lan": "node tools/lan-relay.mjs",
     "test:arcade": "node tests/arcade-browser.mjs",
-    "test:unity-web": "node tests/unity-browser.mjs",
-    "unity:preview": "node tools/unity-preview.mjs",
-    "unity:build": "node scripts/unity-build.mjs"
+    "test:mobile": "node tests/mobile-web.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "1.56.1",
     "drizzle-kit": "0.30.6",
     "esbuild": "0.19.12",
     "prettier": "3.6.2",

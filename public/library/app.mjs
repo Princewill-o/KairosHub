@@ -1,3 +1,4 @@
+import {makeId,TouchDirections} from './mobile.mjs';
 import {arcadeGames,characters,animals,fish,ui,creatureArt,escapeHtml as esc} from './data.mjs';
 import {createMatch,stepMatch,act,dailySeed} from './engine.mjs';
 import {freshLibrary,normalizeLibrary,awardMatch,KEY} from './store.mjs';
@@ -6,7 +7,7 @@ import {LocalTransport} from './transport/local.mjs';
 import {LanTransport} from './transport/lan.mjs';
 let library=freshLibrary(),storage=true,account=false,accountStatus='Guest · saved on this device',accountLoaded=false,accountTimer;
 try{library=normalizeLibrary(JSON.parse(localStorage.getItem(KEY)||'null'));}catch{storage=false;}
-const clientId=crypto.randomUUID();
+const clientId=makeId();
 const day=()=>new Date().toISOString().slice(0,10);
 const daily=()=>dailySeed('pharaoh-chase',day());
 const buttonIcon=(n,label)=>`<img src="${ui(n)}" alt="">${label}`;
@@ -35,7 +36,7 @@ export function arcade(root,route='home',chime=()=>{}){
  }
  function members(){return[{id:clientId,name:library.profile.guestName,character:library.profile.character,hat:library.profile.hat},...(mode==='duo'?[{id:'local-p2',name:'Player 2',character:(library.profile.character+1)%4}]:[])];}
  function seed(){return game.id==='pharaoh-chase'?daily():crypto.getRandomValues(new Uint32Array(1))[0];}
- function startLocal(){networkMode=false;transport=new LocalTransport(game.id,seed(),members(),library.profile.ageBand,crypto.randomUUID());state=transport.state;localIds=members().map(m=>m.id);startView();}
+ function startLocal(){networkMode=false;transport=new LocalTransport(game.id,seed(),members(),library.profile.ageBand,makeId());state=transport.state;localIds=members().map(m=>m.id);startView();}
  function lanForm(){
  root.innerHTML=`<section class="lan-page"><button class="arcade-secondary" id="mode-back">← Game modes</button><h1>A living-room adventure.</h1><p>Open the laptop’s Kairos address on each device, then enter the same room code.</p><form id="lan-form"><label>Laptop address<input name="host" value="${esc(location.host)}" placeholder="192.168.1.24:17831" required></label><label>Room code<input name="code" pattern="[A-Za-z2-9]{6}" minlength="6" maxlength="6" placeholder="PEBBLE" required style="text-transform:uppercase"></label><button class="arcade-primary" type="submit">Join this Wi-Fi →</button><p id="lan-status" role="status"></p></form><details><summary>Parents: start a room on a laptop</summary><p>In the Kairos project folder, run <code>npm run lan</code>. Keep that window open. It prints a website address and six-character code. Open that address on each device using the same Wi-Fi. No account or internet is needed.</p><p>Guest Wi-Fi networks can block devices from seeing each other. If that happens, use your home network or 2P this device.</p></details></section>`;
  root.querySelector('#mode-back').onclick=()=>selectGame(game.id);
@@ -47,7 +48,7 @@ export function arcade(root,route='home',chime=()=>{}){
  root.innerHTML=`<section class="lan-page"><span class="eyebrow">THIS WI-FI · CONNECTED</span><h1>Gather your explorers.</h1><div class="room-code">${esc(room.code||'')}</div><p>${esc(location.host)} · ${room.members.length} / 8 players</p><ul class="member-list">${room.members.map(m=>`<li>${portrait(m.character)}<b>${esc(m.name)}</b><span>${m.id===room.hostId?'HOST':m.ready?'READY ✓':'Getting ready…'}</span></li>`).join('')}</ul>${room.hostId===clientId?`<label>Choose a game<select id="room-game">${arcadeGames.map(g=>`<option value="${g.id}" ${g.id===room.gameId?'selected':''}>${g.title}</option>`).join('')}</select></label><button id="start-room" class="arcade-primary">Start adventure →</button>`:'<button id="ready-room" class="arcade-primary">I’m ready ✓</button><p>The host will start the adventure.</p>'}<a href="#" class="arcade-secondary">Leave room</a></section>`;
  if(root.querySelector('#room-game'))root.querySelector('#room-game').onchange=e=>lan.send({t:'pick-game',gameId:e.target.value});
  if(root.querySelector('#ready-room'))root.querySelector('#ready-room').onclick=()=>lan.send({t:'ready',ready:true});
- if(root.querySelector('#start-room'))root.querySelector('#start-room').onclick=()=>{game=arcadeGames.find(g=>g.id===room.gameId);const s=createMatch(game.id,seed(),room.members,library.profile.ageBand,crypto.randomUUID());lan.send({t:'start',state:s});};
+ if(root.querySelector('#start-room'))root.querySelector('#start-room').onclick=()=>{game=arcadeGames.find(g=>g.id===room.gameId);const s=createMatch(game.id,seed(),room.members,library.profile.ageBand,makeId());lan.send({t:'start',state:s});};
  }
  function onLan(m){if(disposed)return;
  if(m.t==='welcome')room={code:m.code,hostId:m.hostId,members:[],gameId:game.id};
@@ -74,12 +75,16 @@ export function arcade(root,route='home',chime=()=>{}){
  root.querySelectorAll('[data-emote]').forEach(b=>b.onclick=()=>lan.send({t:'emote',kind:b.dataset.emote}));
  const action=(id,type)=>{if(type==='role'){const p=state.players.find(p=>p.id===id);type=p.role==='shepherd'?'call':p.role==='wolf'?'tag':'hide';}send(id,{type});};
  root.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>action(b.closest('[data-player]').dataset.player,b.dataset.action));
- root.querySelectorAll('[data-move]').forEach(b=>{const id=b.closest('[data-player]').dataset.player,[x,y]=b.dataset.move.split(',').map(Number);b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);if(game.id==='pharaoh-chase'&&x)send(id,{type:'lane',value:x});else send(id,{type:'move',x,y});};b.onpointerup=b.onpointercancel=()=>send(id,{type:'move',x:0,y:0});});
+ const pads=new Map();
+ root.querySelectorAll('[data-move]').forEach(b=>{const id=b.closest('[data-player]').dataset.player,[x,y]=b.dataset.move.split(',').map(Number);if(!pads.has(id))pads.set(id,new TouchDirections());const pad=pads.get(id);
+ const release=e=>{pad.remove(e.pointerId);send(id,{type:'move',...pad.value()});};
+ b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);if(game.id==='pharaoh-chase'&&x)send(id,{type:'lane',value:x});else{pad.set(e.pointerId,x,y);send(id,{type:'move',...pad.value()});}};
+ b.onpointerup=b.onpointercancel=b.onlostpointercapture=release;});
  const keys=new Set();const update=()=>{localIds.forEach((id,i)=>{const k=i?['ArrowLeft','ArrowRight','ArrowUp','ArrowDown']:['a','d','w','s'];send(id,{type:'move',x:Number(keys.has(k[1]))-Number(keys.has(k[0])),y:Number(keys.has(k[3]))-Number(keys.has(k[2]))});});};
  const keydown=e=>{if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)||document.querySelector('#site-intro'))return;const k=e.key.length===1?e.key.toLowerCase():e.key;const i=localIds.length===2&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter'].includes(k)?1:0;if(!['w','a','s','d',' ','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Escape'].includes(k))return;e.preventDefault();if(e.repeat)return;if(k==='Escape'){togglePause();return;}keys.add(k);if(k===' '||k==='Enter')action(localIds[i],catching?'catch':game.id==='lost-sheep'?'role':'jump');if(game.id==='pharaoh-chase'&&['a','d','ArrowLeft','ArrowRight'].includes(k))send(localIds[i],{type:'lane',value:['a','ArrowLeft'].includes(k)?-1:1});if(localIds.length===1){if(k==='ArrowLeft')keys.add('a');if(k==='ArrowRight')keys.add('d');if(k==='ArrowUp')keys.add('w');if(k==='ArrowDown')keys.add('s');}update();};
  const keyup=e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;keys.delete(k);if(localIds.length===1){const map={ArrowLeft:'a',ArrowRight:'d',ArrowUp:'w',ArrowDown:'s'};if(map[k])keys.delete(map[k]);}update();};
- const blur=()=>{keys.clear();for(const id of localIds)send(id,{type:'move',x:0,y:0});};
- window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',blur);keyboardCleanup=()=>{window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',blur);};
+ const blur=()=>{keys.clear();for(const pad of pads.values())pad.clear();for(const id of localIds)send(id,{type:'move',x:0,y:0});};
+ window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',blur);document.addEventListener('visibilitychange',blur);keyboardCleanup=()=>{window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',blur);document.removeEventListener('visibilitychange',blur);};
  let priorCatches=0,priorHits=0;
  const loop=now=>{if(disposed||finished)return;const dt=lastFrame?Math.min(.1,(now-lastFrame)/1000):0;lastFrame=now;
   if(!document.hidden&&!document.querySelector('#site-intro')&&!paused){if(countdown>0){countdown=Math.max(0,countdown-dt);root.querySelector('#countdown').textContent=Math.ceil(countdown)||'GO!';root.querySelector('#countdown').hidden=countdown===0;}else if(!networkMode||room.hostId===clientId){acc+=dt;while(acc>=1/20){if(networkMode)state=stepMatch(state,1/20,inputs);else state=transport.step(1/20);acc-=1/20;}if(networkMode){broadcastAcc+=dt;if(broadcastAcc>=1/15){lan.send({t:state.status==='results'?'results':'state',state});broadcastAcc=0;}}}}

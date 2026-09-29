@@ -4,7 +4,9 @@
 
 # KairosHub
 
-Unity source integration is under [`unity/`](unity/README.md). The **Unity preview** navigation link loads an installed export or offers the working browser game. Five prototype game loops and a direct-IP networking layer are present in source; Unity compilation and device/LAN verification remain pending. See the Unity README for exact feature gaps and build commands.
+Kairos is a mobile-first web app for Safari, iPhone, iPad and desktop browsers. It has a bottom tab bar, touch controls, safe-area spacing and a Home Screen manifest. On iPhone, use Safari’s Share menu and Add to Home Screen. It uses the existing web runtime, with an app-style interface; it is not a React Native binary.
+
+Unity is disabled in the website and development server. Its source and old integration are archived under `unity/` for possible future use. Old Unity links redirect to the corresponding browser games.
 
 A server-backed Scripture & Play game library with randomized solo rounds, two 2D adventures, and online multiplayer.
 
@@ -61,3 +63,13 @@ The checks cover randomized decks, generated map reachability and movement colli
 - `ARTWORK.md`: asset provenance and supplied license limitations.
 
 The old mini-game implementations, generated world/ark artwork, downloaded asset bundle, and obsolete tests have been removed. The unrelated `src/ChristmasGift.java` and IDE files are preserved.
+
+## Free Scripture reader
+
+Every main screen includes **Read Scripture**. Enter a chapter or passage (for example `John 3:16-18`) to read World English Bible text through the same-origin `/api/scripture` endpoint. Existing KJV game quotations and answer keys remain unchanged and retain their labels. The reader identifies WEB explicitly because wording differs.
+
+Source: [bible-api.com](https://bible-api.com), [MIT-licensed API source](https://github.com/seven1m/bible_api). WEB text is public domain. No API key, paid Bible subscription, copied Bible.com pages, or forked server is required. The public service currently limits requests to 15 per 30 seconds per IP and does not guarantee availability. Deployment hosting is separate from this free Scripture service.
+
+Successful passages receive a one-day edge-cache header and up to 40 passages are saved locally for offline reading. Storage failures do not prevent online reading. New uncached passages require internet; errors and rate limits allow retry. Existing games continue using bundled content, so an API outage does not block their rounds. The reader accepts one chapter or verse range per lookup; split cross-book or multi-chapter references into separate lookups.
+
+Checks: `node --test scripture.test.mjs` and `node tests/scripture-browser.mjs` (after `npm run build`; uses installed Chrome on a phone-sized viewport).

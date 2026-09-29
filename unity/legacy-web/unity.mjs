@@ -1,5 +1,6 @@
-import {arcadeGames,escapeHtml as esc} from './data.mjs';
-import {KEY,normalizeLibrary} from './store.mjs';
+// Archived integration; not served by the mobile website.
+import {arcadeGames,escapeHtml as esc} from '../../public/library/data.mjs';
+import {KEY,normalizeLibrary} from '../../public/library/store.mjs';
 export function unityLaunch(gameId,profile={},reducedMotion=false){
  if(!arcadeGames.some(g=>g.id===gameId))throw new Error('Unknown Unity game');
  return {type:'kairos:start',gameId,character:[0,1,2,3].includes(profile.character)?profile.character:0,reducedMotion:!!reducedMotion};

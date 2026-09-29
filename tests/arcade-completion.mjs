@@ -1,5 +1,5 @@
-import {chromium} from 'playwright';import assert from 'node:assert/strict';
-const b=await chromium.launch({headless:true,channel:'chrome'});const p=await b.newPage();const errors=[];p.on('pageerror',e=>errors.push(e.message));
+const {chromium,webkit,devices}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');import assert from 'node:assert/strict';
+const b=process.env.MOBILE_BROWSER==='webkit'?await webkit.launch(process.env.WEBKIT_EXECUTABLE?{executablePath:process.env.WEBKIT_EXECUTABLE}:{}):await chromium.launch({headless:true,channel:'chrome'});const p=await b.newPage(process.env.MOBILE_BROWSER==='webkit'?devices['iPhone 13']:{});const errors=[];p.on('pageerror',e=>errors.push(e.message));
 await p.addInitScript(()=>{let t=0;window.requestAnimationFrame=cb=>setTimeout(()=>cb(t+=100),0);window.cancelAnimationFrame=clearTimeout;});
 try{await p.goto('http://localhost:4173');await p.locator('#intro-skip').click();await p.locator('#site-intro').waitFor({state:'detached'});
 for(const mode of ['solo','duo'])for(const id of ['ark-park','galilee','pharaoh-chase','plague-party','lost-sheep']){await p.goto('http://localhost:4173/#arcade/'+id);await p.locator(`[data-mode="${mode}"]`).click();await p.locator('.arcade-results').waitFor({timeout:60000});assert.ok(await p.locator('#arcade-again').isVisible());console.log('PASS complete',mode,id);await p.goto('http://localhost:4173/#');}
