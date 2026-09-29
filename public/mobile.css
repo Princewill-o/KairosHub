@@ -15,7 +15,7 @@ button,a{touch-action:manipulation}button:focus-visible,a:focus-visible{outline:
 .dpad button,.d-pad button,.action-button,.catch-button{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 @media(max-width:1024px){
  body{padding-bottom:calc(var(--tab-height) + env(safe-area-inset-bottom) + 16px)}
- .topbar{height:auto;min-height:76px;padding:calc(12px + env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) 12px max(20px,env(safe-area-inset-left));background:var(--app-surface);border:0;gap:12px;flex-wrap:nowrap;max-width:none}
+ .topbar{height:auto;min-height:64px;margin:10px 12px 0;padding:calc(8px + env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) 8px max(14px,env(safe-area-inset-left));background:var(--app-surface);border:1px solid var(--app-line);border-radius:20px;box-shadow:0 10px 28px #20152d12;gap:12px;flex-wrap:nowrap;max-width:none}
  .topbar nav{display:none}.topbar .brand{font-size:26px;letter-spacing:-1px}.brand-sub{font-size:8px}.topbar .brand .icon{width:35px;height:35px}
  .top-tools{margin-left:auto;gap:8px}.top-tools select,.top-tools .streak{display:none}
  .top-tools button{min-width:44px;min-height:44px;border-radius:15px;box-shadow:none}.theme-toggle{background:var(--app-bg);color:var(--app-text);border:1px solid var(--app-line)}
