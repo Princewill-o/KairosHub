@@ -1,22 +1,22 @@
 // Original questions and summaries. Scripture quotations below are labelled KJV.
 export const bibleGames=[
- ['trivia','Bible Trivia','Say the answer','Type your answer. How much do you remember?','Knowledge','Books','#dacbf5'],
- ['quiz','Bible Quiz','Climb three levels','From familiar stories to a deeper challenge.','Knowledge','Star','#ffe4a6'],
- ['word-search','Bible Word Search','Find the hidden words','Trace a word, or tap its first and last letters.','Puzzles','Books','#c2e7d5'],
- ['crossword','Bible Crossword','Follow the clues','Six intersecting answers, one connected puzzle.','Puzzles','Books','#cbdcf8'],
- ['charades','Bible Charades','Act it out','Pass the phone. Act silently. Let your team guess.','Together','Star','#f7c9c0'],
- ['memory','Bible Memory Game','Find the pairs','Turn over the cards and train your memory.','Puzzles','Star','#dacbf5'],
- ['verse','Bible Verse Guessing','Name that verse','Recognise a passage from a short Scripture excerpt.','Knowledge','Books','#cbdcf8'],
- ['jeopardy','Bible Jeopardy','Choose your challenge','Three categories. Nine clues. Build your score.','Knowledge','Star','#ffe4a6'],
- ['pictionary','Bible Pictionary','Draw the story','A sketch pad, a secret prompt and your imagination.','Together','Books','#c2e7d5'],
- ['hangman','Bible Hangman','Reveal the word','Guess letters before your six chances run out.','Puzzles','Books','#f7c9c0'],
- ['bingo','Bible Bingo','Make a line','Read a clue and mark its answer on your board.','Puzzles','Star','#cbdcf8'],
- ['scavenger','Bible Scavenger Hunt','Open your Bible','Follow five Scripture references to find the answers.','Explore','Books','#ffe4a6'],
- ['character','Bible Character Guessing','Who am I?','Reveal clues one at a time. Fewer clues, more points.','Knowledge','Star','#dacbf5'],
- ['ordering','Bible Story Ordering','Put the story together','Arrange the events, from beginning to end.','Explore','Books','#c2e7d5'],
- ['map','Bible Map Games','Explore the Bible world','Find places on a simplified eastern Mediterranean map.','Explore','Globe','#cbdcf8'],
- ['escape','Bible Escape Room','Unlock the next room','Solve four Scripture puzzles in an imaginative archive.','Explore','Books','#f7c9c0'],
-].map(([id,title,tag,description,category,icon,color])=>({id,title,tag,description,category,icon,color}));
+ ['trivia','Bible Trivia','Type the answer','How much do you remember? Type each answer yourself.','Knowledge','Clock','#dccbfa','solo'],
+ ['quiz','Bible Quiz','Climb three levels','Start with stories you know, then take on harder questions.','Knowledge','trophy','#ffe3a3','solo'],
+ ['word-search','Bible Word Search','Find the hidden words','Drag across the letters, or tap the first and last letter.','Puzzles','Papyrus','#c6ebd3','solo'],
+ ['crossword','Bible Crossword','Fill the squares','Six Bible names that cross over each other.','Puzzles','Books','#c9e4fa','solo'],
+ ['charades','Bible Charades','Act it out','One person acts a Bible story without words. Everyone else guesses.','Together','strong','#ffd7b5','group'],
+ ['memory','Bible Memory Game','Find the pairs','Flip two cards at a time and match the Bible names.','Puzzles','Chest','#dccbfa','solo'],
+ ['verse','Bible Verse Guessing','Name that verse','Read a verse and choose where it comes from.','Knowledge','Heart','#c9e4fa','solo'],
+ ['jeopardy','Bible Jeopardy','Pick a clue','Three topics, nine clues. Harder clues win more points.','Knowledge','Crown','#ffe3a3','solo'],
+ ['pictionary','Bible Pictionary','Draw the story','Draw a secret Bible story while your team guesses.','Together','Pencil','#c6ebd3','group'],
+ ['hangman','Bible Hangman','Reveal the name','Guess the letters of a Bible name before your six hearts run out.','Puzzles','Wheel','#ffd7b5','solo'],
+ ['bingo','Bible Bingo','Make a line','Read each clue and find its answer on your board.','Puzzles','Star','#c9e4fa','solo'],
+ ['scavenger','Bible Scavenger Hunt','Open your Bible','Look up five verses to find the hidden answers.','Explore','boots','#ffe3a3','solo'],
+ ['character','Bible Character Guessing','Who am I?','Read the clues one by one. Guess early for more points.','Knowledge','Players','#dccbfa','solo'],
+ ['ordering','Bible Story Ordering','Put the story in order','Move the events into the right order, from beginning to end.','Explore','Flag','#c6ebd3','solo'],
+ ['map','Bible Map Games','Find the place','Find famous Bible places on a map of the Bible world.','Explore','Globe','#c9e4fa','solo'],
+ ['escape','Bible Escape Room','Open every lock','Solve four Bible puzzles to escape a make-believe library.','Explore','house','#ffd7b5','solo'],
+].map(([id,title,tag,description,category,icon,color,players])=>({id,title,tag,description,category,icon,color,players}));
 export const questions=[
  ['Who built an ark before the flood?','Noah','Moses|David|Jonah','Genesis 6:13–22',1,'People'],
  ['Who led Israel out of Egypt?','Moses','Noah|Solomon|Paul','Exodus 3:10',1,'People'],
@@ -49,6 +49,13 @@ export const questions=[
  ['Which letter asks Philemon to welcome Onesimus?','Philemon','Titus|Jude|Hebrews','Philemon 1:10–17',3,'Books'],
  ['Which book speaks of faith as the substance of things hoped for?','Hebrews','James|Acts|Ephesians','Hebrews 11:1',3,'Books'],
  ['Which book describes the valley of dry bones?','Ezekiel','Daniel|Isaiah|Amos','Ezekiel 37:1–10',3,'Books'],
+ ['Who stood up and preached to the crowd on the day of Pentecost?','Peter','Paul|James|Philip','Acts 2:14',1,'People'],
+ ['Which letter says “by grace are ye saved through faith”?','Ephesians','Romans|Galatians|Hebrews','Ephesians 2:8 (KJV)',2,'Books'],
+ ['Who heard the Lord say “My grace is sufficient for thee”?','Paul','Peter|John|Timothy','2 Corinthians 12:9 (KJV)',2,'People'],
+ ['In which city were Paul and Silas singing in prison when an earthquake shook it?','Philippi','Corinth|Athens|Rome','Acts 16:12,25–26',2,'Places'],
+ ['Which book has messages for seven churches?','Revelation','Acts|Hebrews|Jude','Revelation 1:11',2,'Books'],
+ ['Which church was told it had “left thy first love”?','Ephesus','Smyrna|Sardis|Laodicea','Revelation 2:1–4 (KJV)',3,'Places'],
+ ['Which church was told it was “neither cold nor hot”?','Laodicea','Philadelphia|Pergamos|Thyatira','Revelation 3:14–16 (KJV)',3,'Places'],
 ].map(([prompt,answer,distractors,ref,level,category],i)=>({id:'q'+i,prompt,answer,options:[answer,...distractors.split('|')],ref,level,category}));
 export const verses=[
  ['The LORD is my shepherd; I shall not want.','Psalm 23:1'],
@@ -59,6 +66,14 @@ export const verses=[
  ['Blessed are the peacemakers: for they shall be called the children of God.','Matthew 5:9'],
  ['The LORD bless thee, and keep thee:','Numbers 6:24'],
  ['For where your treasure is, there will your heart be also.','Matthew 6:21'],
+ ['For by grace are ye saved through faith; and that not of yourselves: it is the gift of God:','Ephesians 2:8'],
+ ['My grace is sufficient for thee: for my strength is made perfect in weakness.','2 Corinthians 12:9'],
+ ['And of his fulness have all we received, and grace for grace.','John 1:16'],
+ ['For God so loved the world, that he gave his only begotten Son,','John 3:16'],
+ ['Trust in the LORD with all thine heart; and lean not unto thine own understanding.','Proverbs 3:5'],
+ ['Suffer little children, and forbid them not, to come unto me:','Matthew 19:14'],
+ ['God is our refuge and strength, a very present help in trouble.','Psalm 46:1'],
+ ['Be kindly affectioned one to another with brotherly love;','Romans 12:10'],
 ].map(([excerpt,ref])=>({excerpt,ref}));
 export const wordSets=[['NOAH','MOSES','RUTH','DAVID','JONAH','MARY'],['FAITH','HOPE','LOVE','PEACE','JOY','GRACE'],['GENESIS','EXODUS','PSALMS','ACTS','JOHN','LUKE']];
 export const crossword=[
@@ -93,6 +108,8 @@ export const hunts=[
  {prompt:'Find Acts 16:14. What was the name of the seller of purple?',answer:'Lydia',ref:'Acts 16:14',excerpt:'And a certain woman named Lydia, a seller of purple'},
 ];
 export const locations=[
+ {name:'Philippi',lon:24.3,lat:41,prompt:'Lydia, a seller of purple cloth, heard Paul by the river near this city.',ref:'Acts 16:12–15'},
+ {name:'Ephesus',lon:27.3,lat:37.9,prompt:'Paul taught here for two years. Later the church here received a letter from him.',ref:'Acts 19:1–10; Ephesians 1:1'},
  {name:'Rome',lon:12.5,lat:41.9,prompt:'Paul lived here under guard while welcoming visitors.',ref:'Acts 28:16,30–31'},
  {name:'Athens',lon:23.7,lat:38,prompt:'Paul spoke at the Areopagus in this Greek city.',ref:'Acts 17:16–22'},
  {name:'Jerusalem',lon:35.2,lat:31.8,prompt:'Pentecost took place in this city.',ref:'Acts 2:1–5'},

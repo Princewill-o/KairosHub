@@ -1,4 +1,6 @@
 import {installScriptureReader} from './scripture.mjs';
+import {installColorMode} from './color-mode.mjs';
+import {mountLanding} from './landing.mjs';
 import { arcade } from './library/app.mjs';
 import { mobileTabs } from './library/mobile.mjs';
 import { multiplayer } from "./multiplayer.mjs";
@@ -6,7 +8,12 @@ import { freshRound } from "./random.mjs";
 import { games, verses } from "./content.mjs";
 import { freshProgress, recordCompletion } from "./learning-engine.mjs";
 import { launchGame } from "./games.mjs";
-import { mountBible } from "./bible/games.mjs";
+import { mountBible, readBibleProgress, readBibleMeta } from "./bible/games.mjs";
+import { bibleGames } from "./bible/content.mjs";
+import { bibleStars } from "./learning-engine.mjs";
+import { kai, CHARACTERS, currentCharacter, chooseCharacter } from "./bible/mascot.mjs";
+import { accounts } from "./accounts.mjs";
+import { mountWelcome, grownUpCheck } from "./welcome.mjs";
 const icon = (name, cls = "") =>
   `<img class="icon ${cls}" src="assets/icons/${name}.png" alt="">`;
 const escapeHtml = (s) =>
@@ -73,27 +80,67 @@ function stop() {
   activeModule = null;
   run = null;
 }
+function isKids() {
+  return accounts.active()?.band !== "adult";
+}
+function applyAudience() {
+  const p = accounts.active();
+  document.documentElement.dataset.audience = p ? (p.band === "adult" ? "adult" : "kids") : "welcome";
+  document.title = p?.band === "adult" ? "KairosGames — Bible games" : "KairosGames Kids — Bible games for kids";
+}
+function welcome() {
+  stop();
+  const app = document.querySelector("#app");
+  mountWelcome(app, {
+    onDone: () => {
+      applyAudience();
+      if (location.hash === "#bible") route();
+      else location.hash = "#bible";
+    },
+  });
+}
+function currentStreak() {
+  const meta = readBibleMeta();
+  if (!meta.lastDay) return 0;
+  const gap = Math.round((Date.parse(new Date().toLocaleDateString("en-CA")) - Date.parse(meta.lastDay)) / 86400000);
+  return gap <= 1 ? Number(meta.streak) || 0 : 0;
+}
+function streakLabel() {
+  const n = currentStreak();
+  return n ? `${n}-day streak` : "Start a streak";
+}
 function header(view = "home") {
-  return `<header class="topbar"><a class="brand" href="#bible" aria-label="KairosGames home"><span>KairosGames</span></a><nav class="retro-nav" aria-label="Main navigation"><a class="nav ${view === "home" || view === "bible" ? "active" : ""}" href="#bible">Games</a><a class="nav ${view === "multiplayer" ? "active" : ""}" href="#multiplayer">Play together</a><a class="nav ${view === "collection" ? "active" : ""}" href="#journey">My journey</a></nav><div class="top-tools"><span class="streak">${icon("Star")} ${progress.streak} day streak</span><select id="mode" aria-label="Difficulty mode" ${view === "play" ? "disabled" : ""}><option value="seeker" ${mode === "seeker" ? "selected" : ""}>Seeker / Kids</option><option value="growth" ${mode === "growth" ? "selected" : ""}>Growth</option></select><button class="theme-toggle" aria-label="Switch theme">${theme === "dark" ? "Light" : "Dark"}</button><button class="sound-toggle" aria-label="${sound ? "Mute" : "Enable"} sound" aria-pressed="${sound}">${icon("Sound")}</button></div></header>`;
+  const nav = [["bible", "#bible", "Games"], ["multiplayer", "#multiplayer", "Play together"], ["collection", "#journey", "My journey"]];
+  return `<header class="topbar"><a class="brand" href="#bible" aria-label="${isKids() ? "KairosGames Kids" : "KairosGames"} home"><img class="brand-mark" src="assets/brand/dove-badge.svg" alt="" width="48" height="48"><span>Kairos<b>Games</b>${isKids() ? '<i class="kids-tag">Kids</i>' : ""}</span></a><nav class="retro-nav" aria-label="Main navigation">${nav.map(([id, href, label]) => `<a class="nav ${view === id || (id === "bible" && (view === "home" || view === "play")) ? "active" : ""}" href="${href}" ${view === id ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</nav><div class="top-tools"><span class="streak" id="streak-pill">${icon("Star")} <span>${streakLabel()}</span></span>${isKids() ? `<button class="theme-toggle" aria-label="Switch to ${theme === "dark" ? "light" : "dark"} mode">${theme === "dark" ? "Light" : "Dark"}</button>` : ""}<a class="player-chip" href="#journey" aria-label="${escapeHtml(accounts.active()?.name || "")}, my journey">${kai("wave", { bust: true })}<span>${escapeHtml(accounts.active()?.name || "")}</span></a><button type="button" class="logout-button" id="logout-top">Log out</button><button class="sound-toggle" aria-label="${sound ? "Turn sound off" : "Turn sound on"}" aria-pressed="${sound}">${icon("Sound")}</button></div></header>`;
+}
+async function logOut() {
+  if (isKids() && !(await grownUpCheck(document.body))) return;
+  accounts.signOut();
+  location.hash = "#welcome";
 }
 function bindHeader() {
   document.querySelector('#app').insertAdjacentHTML('beforeend',mobileTabs());
-  document.querySelector("#mode").onchange = (e) => {
-    mode = e.target.value;
-    save();
-  };
+  const top = document.querySelector("#logout-top");
+  if (top) top.onclick = logOut;
+  const modeSelect = document.querySelector("#mode");
+  if (modeSelect)
+    modeSelect.onchange = (e) => {
+      mode = e.target.value;
+      save();
+    };
   document.querySelector(".sound-toggle").onclick = (e) => {
     sound = !sound;
     save();
     e.currentTarget.setAttribute("aria-pressed", sound);
     e.currentTarget.setAttribute(
       "aria-label",
-      sound ? "Mute sound" : "Enable sound",
+      sound ? "Turn sound off" : "Turn sound on",
     );
     if (sound) chime(true);
   };
   document.documentElement.dataset.theme=theme;
-  document.querySelector(".theme-toggle").onclick = (e) => { theme = theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = theme; e.currentTarget.textContent=theme==='dark'?'Light':'Dark';save(); };
+  const themeButton = document.querySelector(".theme-toggle");
+  if (themeButton) themeButton.onclick = (e) => { theme = theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = theme; e.currentTarget.textContent=theme==='dark'?'Light':'Dark'; e.currentTarget.setAttribute("aria-label", `Switch to ${theme === "dark" ? "light" : "dark"} mode`); save(); };
 }
 function footer() {
   return `<footer><span>Rooted in Scripture. Made for curious hearts.</span><span>${storageAvailable ? "Progress saved on this device." : "Storage unavailable — progress lasts for this visit."}</span></footer>`;
@@ -134,33 +181,78 @@ function home(view='home') {
  bindHeader();
  activeModule=mountBible(document.querySelector('#bible-root'));
 }
+function characterPage() {
+  stop();
+  let chosen = currentCharacter();
+  document.querySelector("#app").innerHTML =
+    `${header("collection")}<main class="kg-picker"><a href="#bible" class="kg-back">Games</a><header class="kg-picker-head"><h1>Choose your character</h1><p>Your character joins you in every game, cheers when you get it right and helps when you get stuck. You can change it at any time.</p></header><div class="kg-picker-layout"><section class="kg-picker-stage" aria-live="polite"><div id="picker-preview" class="kg-picker-preview"></div><h2 id="picker-name"></h2><p id="picker-about"></p><a class="kg-btn kg-btn-gold" href="#bible" id="picker-go">Play with ${escapeHtml(chosen.name)}</a></section><div class="kg-picker-grid" role="radiogroup" aria-label="Characters">${CHARACTERS.map(
+      (c) => `<button type="button" role="radio" class="kg-picker-card" data-character="${c.id}" aria-checked="${c.id === chosen.id}" tabindex="${c.id === chosen.id ? 0 : -1}" style="--card-tint:${c.top}"><span class="kg-picker-art">${kai("wave", { character: c.id })}</span><strong>${escapeHtml(c.name)}</strong></button>`,
+    ).join("")}</div></div><p class="kg-picker-status" id="picker-status" role="status"></p>${footer()}</main>`;
+  bindHeader();
+  const show = (c, celebrate) => {
+    document.querySelector("#picker-preview").innerHTML = kai(celebrate ? "cheer" : "wave", { character: c.id, label: `${c.name}, your character` });
+    document.querySelector("#picker-name").textContent = c.name;
+    document.querySelector("#picker-about").textContent = c.about;
+    document.querySelector("#picker-go").textContent = `Play with ${c.name}`;
+  };
+  const cards = [...document.querySelectorAll(".kg-picker-card")];
+  const pick = (card, focus = false) => {
+    const c = CHARACTERS.find((x) => x.id === card.dataset.character);
+    chosen = c;
+    cards.forEach((b) => {
+      b.setAttribute("aria-checked", String(b === card));
+      b.tabIndex = b === card ? 0 : -1;
+    });
+    if (focus) card.focus();
+    const saved = chooseCharacter(c.id);
+    show(c, true);
+    document.querySelector("#picker-status").textContent = saved
+      ? `${c.name} will join you in every game.`
+      : `${c.name} will join you until you close the page, because storage is turned off.`;
+  };
+  cards.forEach((card, i) => {
+    card.onclick = () => pick(card);
+    card.onkeydown = (e) => {
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!step) return;
+      e.preventDefault();
+      pick(cards[(i + step + cards.length) % cards.length], true);
+    };
+  });
+  show(chosen, false);
+}
 function collection() {
   stop();
+  const records = readBibleProgress();
+  const played = bibleGames.filter((g) => records[g.id]?.runs);
+  const stars = bibleGames.reduce((n, g) => n + bibleStars(records[g.id]), 0);
+  const rounds = bibleGames.reduce((n, g) => n + (Number(records[g.id]?.runs) || 0), 0);
+  const streak = currentStreak();
+  const starImgs = (n) => [0, 1, 2].map((i) => `<img src="assets/ui/yellow-star-filled.png" alt="" class="${i < n ? "on" : "off"}">`).join("");
+  const next = bibleGames.filter((g) => !records[g.id]?.runs).slice(0, 3);
   document.querySelector("#app").innerHTML =
-    `${header("collection")}<main class="collection"><span class="eyebrow">ONE SMALL STEP AT A TIME</span><h1>Your journey is growing.</h1><div class="stat-grid"><article>${icon("Star")}<b>${progress.streak}</b><span>day streak</span></article><article>${icon("Flag")}<b>${Object.keys(progress.games).length}/${games.length}</b><span>games explored</span></article><article>${icon("Books")}<b>${progress.mastered.length}</b><span>verses mastered</span></article><article>${icon("Plant")}<b>${Math.round((Object.values(progress.garden).reduce((a, b) => a + b, 0) / 27) * 100)}%</b><span>garden grown</span></article></div><section class="journal-section"><h2>Verses I know</h2><p class="muted">Earn a verse here with a perfect Growth reconstruction or a perfect final Psalm pass.</p>${
-      progress.mastered.length
-        ? progress.mastered
-            .map((id) => verses.find((v) => v.id === id))
-            .filter(Boolean)
-            .map(
-              (v) =>
-                `<blockquote>${v.text}<cite>${v.reference} · ${v.translation}</cite></blockquote>`,
-            )
-            .join("")
-        : '<div class="empty-state">Every familiar verse starts with a first attempt.<br><a href="#play/verse">Try Verse Rebuild →</a></div>'
-    }</section><section class="journal-section"><h2>Little reflections</h2><p class="muted">Private notes saved in this browser after you play.</p>${
+    `${header("collection")}<main class="collection kg-journey"><header class="kg-journey-head"><div><h1>${escapeHtml(accounts.active()?.name || "My")}’s journey</h1><p>Every game you finish earns stars. Come back each day to grow your streak.</p></div>${kai(played.length ? "cheer" : "wave", { cls: "kg-journey-kai" })}</header><a class="kg-my-character" href="#character">${kai("wave", { bust: true })}<span><small>Your character</small><strong>${escapeHtml(currentCharacter().name)}</strong></span><span class="kg-my-character-cta">Change</span></a><div class="kg-account-actions"><button type="button" class="kg-switch-player" id="switch-player">Switch player</button><button type="button" class="kg-switch-player kg-logout" id="logout-journey">Log out</button></div><div class="stat-grid"><article>${icon("Star")}<b>${stars}<small>/${bibleGames.length * 3}</small></b><span>stars earned</span></article><article>${icon("Flag")}<b>${played.length}<small>/${bibleGames.length}</small></b><span>games played</span></article><article>${icon("Clock")}<b>${streak}</b><span>day${streak === 1 ? "" : "s"} in a row</span></article><article>${icon("trophy")}<b>${rounds}</b><span>games finished</span></article></div>${
+      played.length
+        ? `<section class="journal-section"><h2>Games I’ve played</h2><div class="kg-journey-grid">${played
+            .map((g) => `<a class="kg-journey-card" href="#bible/${g.id}" style="--game-tint:${g.color}"><img class="kg-icon" src="assets/icons/${g.icon}.png" alt=""><span><strong>${escapeHtml(g.title)}</strong><small>Best ${Number(records[g.id].best) || 0}% · played ${Number(records[g.id].runs) || 0} time${Number(records[g.id].runs) === 1 ? "" : "s"}</small></span><span class="kg-stars small" role="img" aria-label="${bibleStars(records[g.id])} of 3 stars">${starImgs(bibleStars(records[g.id]))}</span></a>`)
+            .join("")}</div></section>`
+        : `<div class="empty-state kg-empty-journey">${kai("read", { cls: "kg-empty-kai" })}<p>Your journey starts with your first game.</p><a class="kg-btn kg-btn-gold" href="#bible">Choose a game</a></div>`
+    }${
+      next.length && played.length
+        ? `<section class="journal-section"><h2>Try something new</h2><div class="kg-journey-grid">${next.map((g) => `<a class="kg-journey-card is-new" href="#bible/${g.id}" style="--game-tint:${g.color}"><img class="kg-icon" src="assets/icons/${g.icon}.png" alt=""><span><strong>${escapeHtml(g.title)}</strong><small>${escapeHtml(g.tag)}</small></span></a>`).join("")}</div></section>`
+        : ""
+    }${
       progress.journal.length
-        ? progress.journal
+        ? `<section class="journal-section"><h2>My reflections</h2>${progress.journal
             .slice()
             .reverse()
-            .map(
-              (j) =>
-                `<article class="journal-entry"><small>${escapeHtml(j.day)} · ${escapeHtml(j.title)}</small><p>${escapeHtml(j.text)}</p></article>`,
-            )
-            .join("")
-        : '<div class="empty-state">Your reflections will appear here.</div>'
-    }</section>${footer()}</main>`;
+            .map((j) => `<article class="journal-entry"><small>${escapeHtml(j.day)} · ${escapeHtml(j.title)}</small><p>${escapeHtml(j.text)}</p></article>`)
+            .join("")}</section>`
+        : ""
+    }${footer()}</main>`;
   bindHeader();
+  document.querySelector("#switch-player").onclick = logOut;
+  document.querySelector("#logout-journey").onclick = logOut;
 }
 function play(id) {
   stop();
@@ -278,6 +370,24 @@ function party(code="") {
 }
 function route() {
   const hash = location.hash.slice(1);
+  if (!hash || hash === 'landing') {
+    stop();
+    document.documentElement.dataset.audience = 'landing';
+    activeModule = mountLanding(document.querySelector('#app'));
+    window.scrollTo(0,0);
+    return;
+  }
+  if (hash === "welcome") {
+    welcome();
+    window.scrollTo(0, 0);
+    return;
+  }
+  if (!accounts.active()) {
+    location.replace("#welcome");
+    welcome();
+    return;
+  }
+  applyAudience();
   if(hash.startsWith("unity/")){location.replace('#bible');return;}
   else if (hash === "bible" || hash.startsWith("bible/")) {
     stop();
@@ -288,14 +398,21 @@ function route() {
   else if (hash==="multiplayer") party();
   else if(/^room\/[A-Z2-9]{6}$/.test(hash)) party(hash.slice(5));
   else if (hash.startsWith("arcade/") || hash.startsWith("play/")) location.replace("#bible");
-  else if(hash==="profile") home("profile");
+  else if(hash==="profile") collection();
   else if(hash==="classics") location.replace("#bible");
   else if (hash === "journey") collection();
+  else if (hash === "character") characterPage();
   else home();
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", route);
+window.addEventListener("kairos:feedback", (e) => chime(!!e.detail?.ok));
+window.addEventListener("kairos:bible-complete", () => {
+  const pill = document.querySelector("#streak-pill span");
+  if (pill) pill.textContent = streakLabel();
+});
 route();
+installColorMode(theme,value=>{theme=value;save();});
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
 

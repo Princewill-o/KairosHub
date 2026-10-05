@@ -5,7 +5,7 @@ if(overlay){
  const showStatus=text=>{status.textContent=text;status.hidden=!text;};
  function finish(){
   if(leaving)return;leaving=true;clearTimeout(loadTimer);video.pause();overlay.classList.add('is-leaving');overlay.setAttribute('aria-hidden','true');overlay.inert=true;
-  const remove=()=>{if(!overlay.isConnected)return;overlay.remove();app.inert=false;document.body.classList.remove('intro-active');const focus=app.querySelector('main h1, main h2, main, a, button');if(focus){if(!focus.hasAttribute('tabindex')&&!focus.matches('a,button'))focus.setAttribute('tabindex','-1');focus.focus({preventScroll:true});}document.dispatchEvent(new CustomEvent('kairos:intro-complete'));};
+  const remove=()=>{if(!overlay.isConnected)return;overlay.remove();app.inert=false;document.body.classList.remove('intro-active');const focus=app.querySelector('main h1')||app.querySelector('main h2')||app.querySelector('main')||app.querySelector('a, button');if(focus){if(!focus.hasAttribute('tabindex')&&!focus.matches('a,button'))focus.setAttribute('tabindex','-1');focus.focus({preventScroll:true});}document.dispatchEvent(new CustomEvent('kairos:intro-complete'));};
   overlay.addEventListener('transitionend',e=>{if(e.target===overlay&&e.propertyName==='opacity')remove();});
   setTimeout(remove,matchMedia('(prefers-reduced-motion: reduce)').matches?0:950);
  }

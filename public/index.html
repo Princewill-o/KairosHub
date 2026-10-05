@@ -6,33 +6,27 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Kairos" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="apple-touch-icon" href="assets/icons/Books.png" />
+    <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <meta name="theme-color" content="#342a49" />
-    <title>Kairos — Little adventures. Lasting wisdom.</title>
+    <meta name="theme-color" content="#6b3fa0" />
+    <title>KairosGames — Bible games</title>
     <meta
       name="description"
-      content="Eighteen Bible-inspired adventures. Catch animals, race the desert, fish, play together and explore Scripture. Guest play, four explorers, and offline arcade games."
+      content="Sixteen Bible games for children and families: quizzes, puzzles, maps and party games to play alone or together."
     />
-    <link rel="icon" href="assets/icons/Books.png" />
+    <link rel="icon" href="assets/brand/dove-badge.svg" type="image/svg+xml" />
+    <link rel="icon" href="assets/brand/icon-192.png" sizes="192x192" type="image/png" />
     <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="intro.css" />
     <link rel="stylesheet" href="arcade.css" />
     <link rel="stylesheet" href="bible/styles.css" />
     <link rel="stylesheet" href="mobile.css" />
-    <link rel="preload" as="image" href="assets/intro/poster.webp" />
+    <link rel="stylesheet" href="theme.css" />
+    <link rel="stylesheet" href="audience.css" />
+    <link rel="stylesheet" href="landing.css" />
+    <link rel="stylesheet" href="color-mode.css" />
   </head>
-  <body class="intro-active">
-    <div id="site-intro" data-state="poster" role="dialog" aria-modal="true" aria-label="Welcome to Kairos Games">
-      <button id="intro-start" aria-label="Press anywhere to start the Kairos Games intro">
-        <img src="assets/intro/poster.webp" alt="Kairos Games. Press anywhere to start." fetchpriority="high" />
-      </button>
-      <video id="intro-video" data-src="assets/intro/intro.mp4" playsinline preload="none" aria-label="Kairos Games opening animation"></video>
-      <button id="intro-skip" type="button">Skip intro</button>
-      <p id="intro-status" role="status" aria-live="polite" hidden></p>
-    </div>
-    <div id="app" inert></div>
-    <script type="module" src="intro.mjs"></script>
+  <body>
+    <div id="app"></div>
     <script type="module" src="app.js"></script>
   </body>
 </html>

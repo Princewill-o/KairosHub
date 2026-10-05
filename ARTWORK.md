@@ -1,5 +1,9 @@
 # Supplied artwork
 
+## Landing screenshots (October 2026)
+
+`public/assets/previews/` contains actual browser captures of the library, Bible Quiz and Bible Memory Game using a fictional local “Explorer” profile. They illustrate the landing page and post-signup tutorial. The previous intro video is no longer mounted or played; its original assets remain available on disk.
+
 This rebuild uses the user's three local packs, rather than the previous generated illustrations.
 
 - `dist/assets/icons/`: selected, resized PNGs from `Free Cartoon Icon Pack (1)`. The source names are retained. No license text was included in the supplied folder; no additional rights are asserted here.
@@ -25,3 +29,11 @@ The user explicitly requested original sprites and then prohibited emoji icons. 
 `public/assets/handmade/asset-N.png` are unchanged copies of the supplied `Game_ui_pack_handmade_bakudas/PNG - shaded/Asset Nshaded_@2x.png`. Renamed for reliable URL handling. No license was supplied in that folder; no extra rights are asserted. Existing asset licenses are retained.
 
 Prompts: four original child explorers in a cel-shaded PS2-inspired storybook style; four consecutive walking poses for each explorer in a 4x4 atlas; a 4x4 sheet of lion, sheep, rabbit, fox, bear, owl, elephant, turtle, three fish, boot, frog, ice crystal, wolf and shrub; a colourful ark/meadow/lake/desert landscape. Full generation prompts are recorded in the task conversation. No generated image replaces the supplied opening movie.
+
+## Guide characters and the hero scene (October 2026)
+
+`public/bible/mascot.mjs` draws five original child characters (Kai, Ama, Leo, Mei and Theo), each with its own skin tone, hair style, outfit and details, as hand-written SVG paths: five poses (wave, cheer, think, encourage, read), a head-and-shoulders bust, a lamb companion and the library hero scene (hills, path, sun, clouds, olive tree). It was authored for this project at the user's request. It uses no supplied pack, emoji, icon font or generated bitmap, and it has no third-party licence restrictions. Colours and outline weight follow the tokens in `public/theme.css`.
+
+## Dove logo (October 2026)
+
+`public/assets/brand/dove.svg` and `dove-badge.svg` are vector traces of the dove-with-olive-branch line drawing the user supplied, keeping its exact shape and restyled in the site's cartoon look: white strokes, a plum outline and a hard offset shadow. `apple-touch-icon.png`, `icon-192.png` and `icon-512.png` are renders of the badge on a full violet square. They replace the Books icon as the site logo and app icon.

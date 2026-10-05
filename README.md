@@ -49,6 +49,8 @@ npm test
 npm run build
 node tests/api-check.mjs
 node tests/multiplayer-browser.mjs
+node tests/bible-browser.mjs
+node tests/welcome-browser.mjs
 ```
 
 The checks cover randomized decks, generated map reachability and movement collision, D1/API authorization and idempotency, hidden multiplayer answers, concurrent scoring, rejected chapter leaks, reconnection, host permissions, and browser multiplayer flows.

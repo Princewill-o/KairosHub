@@ -99,3 +99,23 @@ export function shuffle(items) {
   }
   return a;
 }
+// Bible collection helpers (pure, no DOM).
+export function bibleStars(record){
+ const runs=Number(record?.runs)||0,best=Number(record?.best)||0;
+ if(!runs)return 0;return best>=90?3:best>=60?2:1;
+}
+// Equirectangular projection for the simplified Bible-world map (lon 8–48°E, lat 28–46°N), as percentages.
+export const BIBLE_MAP={west:8,east:48,north:46,south:28,width:700,height:420};
+export function bibleMapPoint(lon,lat){
+ const {west,east,north,south}=BIBLE_MAP;
+ return {x:((lon-west)/(east-west))*100,y:((north-lat)/(north-south))*100};
+}
+export function bibleDailyPick(ids,day){
+ let h=0;for(const ch of String(day))h=(h*31+ch.charCodeAt(0))>>>0;return ids[h%ids.length];
+}
+export function bibleStreak(meta,day){
+ const prev=meta?.lastDay,streak=Number(meta?.streak)||0;
+ if(prev===day)return {...meta,streak:Math.max(1,streak),lastDay:day};
+ const diff=prev?Math.round((Date.parse(day)-Date.parse(prev))/86400000):0;
+ return {...meta,streak:diff===1?streak+1:1,lastDay:day};
+}
