@@ -6,6 +6,7 @@ namespace Kairos {
   public ulong id; public int character, score, hits, lane=1, saved; public bool moving;
   public float x=450,y=300,cooldown,jump,invulnerable;
   public int[] animals=new int[8];
+  public SheepRole role; public bool hiding,tagged,home;
   public int fishingPhase; public float fishingClock,cast,progress=.35f,reel=.5f;
  }
  [Serializable] public class InputFrame {
@@ -14,6 +15,7 @@ namespace Kairos {
  [Serializable] public class Round {
   public string gameId="ark-park",phase="lobby",message="Choose an adventure";
   public float time; public bool paused;
+  public bool roleMode; public string winner="";
   public Adventurer[] players=new Adventurer[0];
   public float[] animalReady=new float[8];
   public bool[] sheepSaved=new bool[8];
@@ -57,6 +59,7 @@ namespace Kairos {
    }
   }
   public static void Tick(Round r,Adventurer p,InputFrame input,float dt) {
+   if(r.phase!="playing"||r.paused||!Finite(dt)||dt<=0||!Finite(input.x)||!Finite(input.y))return;
    p.moving=Mathf.Abs(input.x)+Mathf.Abs(input.y)>.01f||r.gameId=="pharaoh-chase";
    p.cooldown=Mathf.Max(0,p.cooldown-dt);p.jump=Mathf.Max(0,p.jump-dt);p.invulnerable=Mathf.Max(0,p.invulnerable-dt);
    if(r.gameId=="galilee"){Fish(p,input.held,dt);return;}
@@ -67,11 +70,8 @@ namespace Kairos {
     for(int i=0;i<6;i++)if(i%3==p.lane&&Mathf.Abs(Mathf.Repeat(r.time*180+i*113,650)-100-p.y)<24&&p.jump<=0)Hit(p);
     p.score=Mathf.Max(0,Mathf.FloorToInt(r.time*10)-p.hits*25);return;
    }
-   Move(p,input.x,input.y,dt);
-   if(r.gameId=="lost-sheep"&&input.action&&p.cooldown<=0) {
-    p.cooldown=.4f;
-    for(int i=0;i<8;i++)if(!r.sheepSaved[i]&&Vector2.Distance(new Vector2(p.x,p.y),Sheep(i,r.time))<85){r.sheepSaved[i]=true;p.saved++;p.score+=50;r.message="A sheep is safe!";break;}
-   }
+   if(r.gameId!="lost-sheep"||(!p.tagged&&!p.home))Move(p,input.x,input.y,dt);
+   if(r.gameId=="lost-sheep")LostSheep.Act(r,p,input);
    if(r.gameId=="plague-party") {
     int wave=Mathf.FloorToInt(r.time/17.5f);
     bool safe=false;for(int i=0;i<8;i++)if(Vector2.Distance(new Vector2(p.x,p.y),Animal(i))<42)safe=true;

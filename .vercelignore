@@ -1,0 +1,11 @@
+.git
+.idea
+src
+*.iml
+node_modules
+dist
+unity
+artwork
+tests
+.wrangler
+.openai

@@ -75,3 +75,9 @@ Source: [bible-api.com](https://bible-api.com), [MIT-licensed API source](https:
 Successful passages receive a one-day edge-cache header and up to 40 passages are saved locally for offline reading. Storage failures do not prevent online reading. New uncached passages require internet; errors and rate limits allow retry. Existing games continue using bundled content, so an API outage does not block their rounds. The reader accepts one chapter or verse range per lookup; split cross-book or multi-chapter references into separate lookups.
 
 Checks: `node --test scripture.test.mjs` and `node tests/scripture-browser.mjs` (after `npm run build`; uses installed Chrome on a phone-sized viewport).
+
+## Vercel deployment
+
+`vercel.json` serves `public/` and runs `/api/gateway` as a Node function. `node scripts/build-vercel.mjs` refreshes the offline manifest without bundling Unity. Deploy with `npx vercel --prod` after signing in.
+
+Scripture lookup runs directly on Vercel. Online Guess the Chapter rooms use the existing public Kairos backend at `https://kairos-story-games.packzpackz50.chatgpt.site`; keep that service running. The proxy forwards only room requests and bearer room tokens, never client-supplied account identity headers. Solo games and guest progress work on Vercel. Account sign-in opens the original Kairos site; its account session and browser-local progress are not shared across domains. LAN arcade multiplayer still requires the local `npm run lan` server; Vercel does not host its WebSocket relay.

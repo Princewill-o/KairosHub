@@ -4,7 +4,7 @@
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
 import assert from 'node:assert/strict';
 const browser=await chromium.launch(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{});
-const page=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'}),errors=[];
+const page=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block',reducedMotion:'reduce'}),errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 const base=process.env.KAIROS_URL||'http://localhost:4173/';
 const setAge=async n=>{await page.locator('#age-bar').focus();await page.keyboard.press('Home');for(let i=4;i<n;i++)await page.keyboard.press('ArrowRight');assert.equal(await page.locator('#age-bar').getAttribute('aria-valuenow'),String(n));await page.locator('#age-next').click();};

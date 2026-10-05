@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';import assert from 'node:assert/strict';
+import {chromium} from '@playwright/test';import assert from 'node:assert/strict';
 const browser=await chromium.launch({headless:true,channel:'chrome'});const page=await browser.newPage({viewport:{width:1440,height:1100}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
 async function open(hash=''){await page.goto('http://localhost:4173/'+hash);if(await page.locator('#intro-skip').count())await page.locator('#intro-skip').click();await page.locator('#site-intro').waitFor({state:'detached'});}
 try{
