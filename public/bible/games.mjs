@@ -44,6 +44,28 @@ const primary = (label, action, extra = "") =>
   button(label, action, `class="kg-btn" ${extra}`);
 const gameIcon = (game, cls = "") =>
   `<img class="kg-icon ${cls}" src="/assets/icons/${game.icon}.png" alt="">`;
+const gameInstructions = {
+  charades: {
+    summary: "2+ players · One device",
+    steps: ["Give the actor the device. Only they read the secret story.", "Hide it, then act without talking. Everyone else guesses.", "Tap “We guessed it!” for a right guess. Pass the device for the next round."],
+  },
+  pictionary: {
+    summary: "2+ players · One device",
+    steps: ["Give the drawer the device. Only they read the secret story.", "Hide it, then draw on the device. No letters or numbers!", "Others guess. Tap “We guessed it!” for a right guess, then take turns."],
+  },
+  "word-search": {
+    summary: "6 words · No rush",
+    steps: ["Find the words listed above the grid.", "Drag across a word, or tap its first and last letters.", "Look across, down, diagonally or backwards."],
+  },
+  quiz: {
+    summary: "9 questions · 3 levels · No rush",
+    steps: ["Choose one answer for each question.", "Read the answer and Bible reference.", "Press Next question to keep going."],
+  },
+  memory: {
+    summary: "12 cards · 6 pairs · No rush",
+    steps: ["Tap two cards to flip them.", "Cards with the same Bible name stay face up.", "Different names? Remember their places and try again."],
+  },
+};
 const tick =
   '<svg class="kg-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const cross =
@@ -126,6 +148,14 @@ export function mountBible(root, id = "") {
   </div>
   <div class="kg-hero-scene">${heroScene()}</div>
 </header>
+
+
+<div class="bible-library-toolbar">
+  <div class="bible-player-filters" role="group" aria-label="Who is playing?">${[["all", "All games"], ["solo", "On my own"], ["group", "With friends"]].map(([value, label], i) => button(label, "players", `data-players="${value}" aria-pressed="${i === 0}" class="kg-chip"`)).join("")}</div>
+  <label class="bible-search"><span class="kg-visually-hidden">Search games</span><input id="bible-search" type="search" placeholder="Search games" autocomplete="off"></label>
+  <div class="bible-filters" role="group" aria-label="Show games by type">${["All", "Knowledge", "Puzzles", "Explore"].map((v, i) => button(v, "filter", `aria-pressed="${i === 0}" data-category="${v}" class="kg-chip kg-chip-${v.toLowerCase()}"`)).join("")}</div>
+</div>
+<div id="bible-grid" class="bible-game-grid"></div>
 <div class="kg-progress-strip" role="status">
   <span><b>${played}</b> of ${bibleGames.length} games played</span>
   <span class="kg-strip-stars"><img src="/assets/ui/yellow-star-filled.png" alt=""><b>${stars}</b> of ${bibleGames.length * 3} stars</span>
@@ -136,19 +166,15 @@ export function mountBible(root, id = "") {
   <div class="kg-soon-copy"><span class="kg-soon-tag">Coming soon</span><h2 id="soon-title">PlayMessages</h2><p>A bigger game is on its way. We’re still building it, so check back soon.</p></div>
   <svg class="kg-soon-lock" viewBox="0 0 48 56" aria-hidden="true"><path d="M13 24v-8a11 11 0 0 1 22 0v8" fill="none" stroke="#2e1a47" stroke-width="9" stroke-linecap="round"/><path d="M13 24v-8a11 11 0 0 1 22 0v8" fill="none" stroke="#f5b83d" stroke-width="4" stroke-linecap="round"/><rect x="4" y="22" width="40" height="30" rx="9" fill="#f5b83d" stroke="#2e1a47" stroke-width="3"/><circle cx="24" cy="35" r="4" fill="#2e1a47"/><path d="M24 37v6" stroke="#2e1a47" stroke-width="3" stroke-linecap="round"/></svg>
 </section>
-<div class="bible-library-toolbar">
-  <label class="bible-search"><span class="kg-visually-hidden">Search games</span><input id="bible-search" type="search" placeholder="Search games" autocomplete="off"></label>
-  <div class="bible-filters" role="group" aria-label="Show games by type">${["All", "Knowledge", "Puzzles", "Together", "Explore"].map((v, i) => button(v, "filter", `aria-pressed="${i === 0}" data-category="${v}" class="kg-chip kg-chip-${v.toLowerCase()}"`)).join("")}</div>
-</div>
-<div id="bible-grid" class="bible-game-grid"></div>
 <p class="bible-small">Questions and summaries are written for Kairos. Bible quotations are from the King James Version (KJV). Progress is saved on this device.</p>
 </section>`;
-    let category = "All";
+    let category = "All", players = "all";
     const draw = () => {
       const query = root.querySelector("#bible-search").value.toLowerCase().trim();
       const selected = bibleGames.filter(
         (g) =>
           (category === "All" || g.category === category) &&
+          (players === "all" || g.players === players) &&
           [g.title, g.description, g.tag].join(" ").toLowerCase().includes(query),
       );
       root.querySelector("#bible-grid").innerHTML = selected.length
@@ -158,8 +184,25 @@ export function mountBible(root, id = "") {
               return `<a class="bible-game-card" href="#bible/${g.id}" style="--game-tint:${g.color}"><span class="bible-card-art">${gameIcon(g)}</span><span class="bible-card-copy"><span class="kg-cat kg-cat-${g.category.toLowerCase()}">${esc(g.category)}</span><h2>${esc(g.title)}</h2><p>${esc(g.description)}</p><span class="kg-card-foot"><span class="kg-who">${g.players === "group" ? "With friends" : "On your own"}</span>${rec?.runs ? starRow(bibleStars(rec), "small") : '<span class="kg-new">New</span>'}</span></span></a>`;
             })
             .join("")
-        : `<div class="kg-empty" role="status">${kai("think", { bust: true })}<p>No games match that search. Try another word, or choose All.</p></div>`;
+        : `<div class="kg-empty" role="status">${kai("think", { bust: true })}<p>No games match your choices. Try another search or show all games.</p><button type="button" class="kg-btn" id="bible-reset">Show all games</button></div>`;
+      const reset = root.querySelector("#bible-reset");
+      if (reset) reset.onclick = () => {
+        category = "All";
+        players = "all";
+        root.querySelector("#bible-search").value = "";
+        root.querySelectorAll("[data-category]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.category === category)));
+        root.querySelectorAll("[data-players]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.players === players)));
+        draw();
+        root.querySelector("#bible-search").focus();
+      };
     };
+    root.querySelectorAll("[data-players]").forEach(b => {
+      b.onclick = () => {
+        players = b.dataset.players;
+        root.querySelectorAll("[data-players]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+        draw();
+      };
+    });
     root.querySelector("#bible-search").oninput = draw;
     root.querySelectorAll("[data-category]").forEach(
       (b) =>
@@ -273,7 +316,8 @@ export function mountBible(root, id = "") {
   if (!game) library();
   else {
     const rec = progress[game.id];
-    root.innerHTML = `<section class="bible-welcome" style="--game-tint:${game.color}"><a href="#bible" class="kg-back">Games</a><div class="kg-welcome-card"><div class="kg-welcome-kai">${kai(game.players === "group" ? "wave" : "read")}</div><div class="bible-welcome-art">${gameIcon(game)}</div><span class="kg-cat kg-cat-${game.category.toLowerCase()}">${esc(game.category)}</span><h1>${esc(game.title)}</h1><p class="kg-welcome-tag">${esc(game.tag)}</p><p>${esc(game.description)}</p>${rec?.runs ? `<p class="kg-welcome-best">${starRow(bibleStars(rec), "small")} Your best: ${Number(rec.best) || 0}%</p>` : ""}<button id="bible-start" class="kg-btn kg-btn-gold kg-btn-big">Play</button><p class="bible-small">${game.players === "group" ? "You need two or more people. One person acts or draws, and the others guess." : "Works with touch, mouse and keyboard. You can pause at any time."}</p>${id === "escape" ? '<p class="bible-small">The library is make-believe. The puzzles come from the Bible.</p>' : ""}</div></section>`;
+    const instructions = gameInstructions[id];
+    root.innerHTML = `<section class="bible-welcome" style="--game-tint:${game.color}"><a href="#bible" class="kg-back">Games</a><div class="kg-welcome-card${instructions ? " has-instructions" : ""}"><div class="kg-welcome-kai">${kai(game.players === "group" ? "wave" : "read")}</div><div class="bible-welcome-art">${gameIcon(game)}</div><span class="kg-cat kg-cat-${game.category.toLowerCase()}">${esc(game.category)}</span><h1>${esc(game.title)}</h1>${instructions ? `<section class="kg-how-to" aria-labelledby="game-how-to"><h2 id="game-how-to">How to play</h2><p class="kg-round-summary">${esc(instructions.summary)}</p><ol>${instructions.steps.map(step => `<li>${esc(step)}</li>`).join("")}</ol></section>` : `<p class="kg-welcome-tag">${esc(game.tag)}</p><p>${esc(game.description)}</p>`}${rec?.runs ? `<p class="kg-welcome-best">${starRow(bibleStars(rec), "small")} Your best: ${Number(rec.best) || 0}%</p>` : ""}<button id="bible-start" class="kg-btn kg-btn-gold kg-btn-big">Play</button><p class="bible-small">${game.players === "group" ? "5 rounds · 60 seconds each. Pause at any time." : instructions ? "You can pause at any time." : "Works with touch, mouse and keyboard. You can pause at any time."}</p>${id === "escape" ? '<p class="bible-small">The library is make-believe. The puzzles come from the Bible.</p>' : ""}</div></section>`;
     root.querySelector("#bible-start").onclick = start;
   }
   const interval = setInterval(() => {
@@ -337,15 +381,15 @@ function quizGame(c, kind) {
     let locked = false;
     c.step(index, deck.length);
     c.view(
-      heading(
+      (kind === "quiz" ? `<div class="bible-quiz-round"><div class="bible-quiz-heading"><span>Question ${index + 1} of ${deck.length}</span><span class="bible-quiz-level">Level ${q.level}</span></div><h2>${esc(q.prompt)}</h2><p class="bible-quiz-hint">Choose one answer. Take your time.</p>` : heading(
         `Question ${index + 1} of ${deck.length}${kind === "quiz" ? " · Level " + q.level : ""}`,
         q.prompt,
-      ) +
+      )) +
         (q.excerpt
           ? `<blockquote>${esc(q.excerpt)}<cite>King James Version</cite></blockquote>`
           : "") +
-        (kind === "trivia" ? answerForm() : options(shuffle(q.options))) +
-        `<div id="bible-next" class="kg-next"></div>`,
+        (kind === "trivia" ? answerForm() : kind === "quiz" ? `<div class="bible-options">${shuffle(q.options).map((v, i) => button(`<span class="bible-answer-letter" aria-hidden="true">${"ABCD"[i]}</span><span class="bible-answer-text">${esc(v)}</span>`, "answer", `data-value="${esc(v)}"`)).join("")}</div><div id="quiz-response" class="bible-quiz-response" hidden aria-hidden="true"></div>` : options(shuffle(q.options))) +
+        `<div id="bible-next" class="kg-next"></div>${kind === "quiz" ? "</div>" : ""}`,
     );
     c.say("");
     if (kind === "trivia") c.stage().querySelector("input").focus({ preventScroll: true });
@@ -365,6 +409,12 @@ function quizGame(c, kind) {
           : `Good try. The answer is ${q.answer}. Read ${q.ref}.`,
         correct ? "good" : "retry",
       );
+      if (kind === "quiz") {
+        const response = c.stage().querySelector("#quiz-response");
+        response.hidden = false;
+        response.classList.add(correct ? "is-correct" : "is-learning");
+        response.innerHTML = `<span class="bible-quiz-response-icon">${correct ? tick : '<svg class="kg-mark" viewBox="0 0 24 24"><path d="M4 5h6l2 2 2-2h6v14h-6l-2 2-2-2H4zM12 7v14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'}</span><div><strong>${correct ? "You got it!" : "A little more to discover"}</strong><p>${correct ? "The answer is " : "Good try. The answer is "}<b>${esc(q.answer)}</b>.</p><span>Read it in your Bible: ${esc(q.ref)}</span></div>`;
+      }
       c.stage().querySelector("#bible-next").innerHTML = primary(
         index === deck.length - 1 ? "See my score" : "Next question",
         "next",
@@ -399,9 +449,8 @@ function wordSearch(c) {
     dragFrom = null,
     dragTo = null;
   c.view(
-    heading("Hidden in the letters", "Find six words") +
-      "<p>Drag across a word, or tap its first letter and then its last letter. Words can go across, down, diagonally or backwards.</p>" +
-      `<div class="bible-word-list">${words.map((w) => `<span data-word="${w}">${w}</span>`).join("")}</div><div class="bible-word-grid">${grid
+    `<div class="bible-word-round"><div class="word-round-heading"><div>${heading("Hidden in the letters", "Find six words")}</div><span id="word-found-count" class="word-found-count">0 of 6 found</span></div><p class="word-round-hint">Drag across a word, or tap its first and last letters. Look across, down, diagonally or backwards.</p>` +
+      `<div class="word-workspace"><div class="word-list-panel"><h3>Words to find</h3><ul class="bible-word-list">${words.map((w) => `<li data-word="${w}"><span>${w}</span>${tick}</li>`).join("")}</ul></div><div class="word-board"><div class="bible-word-grid">${grid
         .flat()
         .map((v, i) =>
           button(
@@ -410,7 +459,7 @@ function wordSearch(c) {
             `data-cell="${i}" aria-label="Row ${Math.floor(i / n) + 1}, column ${(i % n) + 1}: ${v}"`,
           ),
         )
-        .join("")}</div>`,
+        .join("")}</div></div></div></div>`,
   );
   c.step(0, words.length);
   const gridEl = c.stage().querySelector(".bible-word-grid");
@@ -436,7 +485,10 @@ function wordSearch(c) {
       return;
     }
     found.add(word);
-    c.stage().querySelector(`[data-word="${word}"]`).classList.add("found");
+    const wordItem = c.stage().querySelector(`[data-word="${word}"]`);
+    wordItem.classList.add("found");
+    wordItem.setAttribute("aria-label", `${word}, found`);
+    c.stage().querySelector("#word-found-count").textContent = `${found.size} of ${words.length} found`;
     lineCells(start, end).forEach((i) => cell(i).classList.add("found"));
     c.step(found.size, words.length);
     c.say(`You found ${word}! ${found.size} of ${words.length}.`, "good");
@@ -583,9 +635,10 @@ function memory(c) {
     matched = new Set(),
     moves = 0,
     locked = false;
+  const stats = () => `<span class="memory-turns"><b>${moves}</b> ${moves === 1 ? "turn" : "turns"}</span><span class="memory-pairs"><strong>${matched.size / 2} of 6 pairs</strong><span class="memory-pair-track" aria-hidden="true">${Array.from({length:6}, (_, i) => `<span class="memory-pair-dot ${i < matched.size / 2 ? "is-filled" : ""}">${i < matched.size / 2 ? tick : ""}</span>`).join("")}</span></span>`;
   c.view(
-    heading("Look closely", "Find the matching names") +
-      `<p id="memory-moves" class="kg-counter">0 turns · 0 of 6 pairs</p><div class="bible-memory">${deck.map((name, i) => `<button type="button" data-do="card" data-index="${i}" class="kg-flip" aria-label="Card ${i + 1}, face down"><span class="kg-face kg-face-back" aria-hidden="true"><img src="/assets/icons/Star.png" alt=""></span><span class="kg-face kg-face-front" aria-hidden="true">${esc(name)}</span></button>`).join("")}</div>`,
+    `<div class="bible-memory-round">` + heading("Look closely", "Find the matching names") +
+      `<div id="memory-moves" class="memory-scoreboard">${stats()}</div><div class="bible-memory">${deck.map((name, i) => `<button type="button" data-do="card" data-index="${i}" class="kg-flip" aria-label="Card ${i + 1}, face down"><span class="kg-face kg-face-back" aria-hidden="true"><span class="memory-back-medallion"><img src="/assets/icons/Star.png" alt=""></span><span class="memory-card-number">${i + 1}</span></span><span class="kg-face kg-face-front" aria-hidden="true"><span class="memory-initial">${esc(name[0])}</span><span class="memory-name">${esc(name)}</span><span class="memory-match-mark">${tick}</span></span></button>`).join("")}</div></div>`,
   );
   c.step(0, 6);
   const el = (i) => c.stage().querySelector(`[data-index="${i}"]`);
@@ -602,6 +655,7 @@ function memory(c) {
         matched.add(index);
         el(index).classList.add("found");
         el(index).disabled = true;
+        el(index).setAttribute("aria-label", `${deck[index]}, matched`);
       });
       c.say(`A pair! You found ${deck[open[0]]}.`, "good");
       open = [];
@@ -622,8 +676,7 @@ function memory(c) {
         locked = false;
       });
     }
-    c.stage().querySelector("#memory-moves").textContent =
-      `${moves} turns · ${matched.size / 2} of 6 pairs`;
+    c.stage().querySelector("#memory-moves").innerHTML = stats();
   });
 }
 
@@ -1014,8 +1067,8 @@ function partyGame(c, drawing = false) {
     strokes = [];
     c.step(index, deck.length);
     c.view(
-      heading(`Round ${index + 1} of ${deck.length}`, drawing ? "Pass the device to the drawer" : "Pass the device to the actor") +
-        `<p>Only the ${drawing ? "drawer" : "actor"} should look now. Everyone else, close your eyes!</p>${button("Show the secret story", "reveal", 'class="kg-btn kg-btn-soft"')}<div class="bible-secret" id="party-secret" hidden><small>Your secret story</small><strong>${esc(deck[index].answer)}</strong>${note(deck[index].ref)}${primary("Hide it and start the timer", "ready")}</div><div id="party-action"></div>`,
+      `<div id="party-setup">` + heading(`Round ${index + 1} of ${deck.length}`, drawing ? "Pass the device to the drawer" : "Pass the device to the actor") +
+        `<p>Only the ${drawing ? "drawer" : "actor"} should look now. Everyone else, close your eyes!</p>${button("Show the secret story", "reveal", 'class="kg-btn kg-btn-soft"')}<div class="bible-secret" id="party-secret" hidden><small>Your secret story</small><strong>${esc(deck[index].answer)}</strong>${note(deck[index].ref)}${primary("Hide it and start the timer", "ready")}</div></div><div id="party-action"></div>`,
     );
     c.say("");
     c.on("reveal", (b) => {
@@ -1024,8 +1077,10 @@ function partyGame(c, drawing = false) {
       c.on("ready", () => {
         c.stage().querySelector("#party-secret").hidden = true;
         active = true;
+        if (drawing) c.stage().querySelector("#party-setup").hidden = true;
+        color = "#2e1a47";
         c.stage().querySelector("#party-action").innerHTML =
-          `<div class="kg-timer"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17"/><circle id="timer-ring" cx="20" cy="20" r="17" pathLength="100"/></svg><p id="party-clock" class="bible-party-clock">60</p></div>${drawing ? '<p>Draw with your finger or a mouse. No letters or numbers!</p><canvas id="bible-drawing" width="700" height="420" aria-label="Drawing pad"></canvas><div class="bible-draw-tools"><span class="kg-swatches" role="group" aria-label="Pen colour">' + ["#2e1a47", "#6b3fa0", "#e8506a", "#2f9e6b", "#2e7fd1", "#f2a91d"].map((col, k) => `<button type="button" class="kg-swatch" data-color="${col}" style="--swatch:${col}" aria-label="Pen colour ${k + 1}" aria-pressed="${k === 0}"></button>`).join("") + "</span>" + button("Undo", "undo") + button("Clear", "clear") + "</div>" : "<p>Act it out without talking. Your team shouts their guesses.</p>"}<div class="bible-party-buttons">${primary("We guessed it!", "correct")}${button("Skip and show the answer", "pass")}</div>`;
+          ` ${drawing ? `<div class="bible-drawing-room"><div class="bible-draw-heading"><div><span class="bible-kicker">Round ${index + 1} of ${deck.length}</span><h2>Draw now</h2><p>Bring the story to life. Your friends guess!</p></div><div class="bible-draw-countdown" role="timer" aria-label="Seconds remaining"><strong id="party-clock" class="bible-party-clock">60</strong><span>seconds left</span></div></div><div class="bible-draw-workspace">` : `<div class="kg-timer"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17"/><circle id="timer-ring" cx="20" cy="20" r="17" pathLength="100"/></svg><p id="party-clock" class="bible-party-clock">60</p></div>`}${drawing ? '<div class="bible-draw-paper"><div class="bible-paper-label"><span>Your canvas</span><span>No letters or numbers</span></div><canvas id="bible-drawing" width="700" height="420" aria-label="Drawing pad"></canvas></div><div class="bible-draw-tools"><div class="bible-pen-heading"><strong>Choose a pen</strong><span id="pen-status" role="status">Ink selected</span></div><span class="kg-swatches" role="group" aria-label="Pen colour">' + [["Ink", "#2e1a47"], ["Purple", "#6b3fa0"], ["Rose", "#e8506a"], ["Green", "#2f9e6b"], ["Blue", "#2e7fd1"], ["Gold", "#f2a91d"]].map(([name, col], k) => `<button type="button" class="kg-swatch" data-color="${col}" data-color-name="${name}" style="--swatch:${col}" aria-label="${name} pen" aria-pressed="${k === 0}"><span class="kg-pen-dot" aria-hidden="true">${tick}</span><span>${name}</span></button>`).join("") + '</span><div class="bible-draw-actions">' + button("Undo", "undo") + button("Clear", "clear") + "</div></div></div>" : "<p>Act it out without talking. Your team shouts their guesses.</p>"}<div class="bible-party-buttons">${primary("We guessed it!", "correct")}${button("Skip and show the answer", "pass")}</div>${drawing ? "</div>" : ""}`;
         if (drawing) bindCanvas();
         c.on("correct", () => end(true));
         c.on("pass", () => end(false));
@@ -1074,6 +1129,7 @@ function partyGame(c, drawing = false) {
     c.stage().querySelectorAll(".kg-swatch").forEach((s) => {
       s.onclick = () => {
         color = s.dataset.color;
+        c.stage().querySelector("#pen-status").textContent = `${s.dataset.colorName} selected`;
         c.stage().querySelectorAll(".kg-swatch").forEach((x) => x.setAttribute("aria-pressed", String(x === s)));
       };
     });
