@@ -111,7 +111,7 @@ function streakLabel() {
 }
 function header(view = "home") {
   const nav = [["bible", "#bible", "Games"], ["multiplayer", "#multiplayer", "Play together"], ["collection", "#journey", "My journey"]];
-  return `<header class="topbar"><a class="brand" href="#bible" aria-label="${isKids() ? "KairosGames Kids" : "KairosGames"} home"><img class="brand-mark" src="assets/brand/dove-badge.svg" alt="" width="48" height="48"><span>Kairos<b>Games</b>${isKids() ? '<i class="kids-tag">Kids</i>' : ""}</span></a><nav class="retro-nav" aria-label="Main navigation">${nav.map(([id, href, label]) => `<a class="nav ${view === id || (id === "bible" && (view === "home" || view === "play")) ? "active" : ""}" href="${href}" ${view === id ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</nav><div class="top-tools"><span class="streak" id="streak-pill">${icon("Star")} <span>${streakLabel()}</span></span>${isKids() ? `<button class="theme-toggle" aria-label="Switch to ${theme === "dark" ? "light" : "dark"} mode">${theme === "dark" ? "Light" : "Dark"}</button>` : ""}<a class="player-chip" href="#journey" aria-label="${escapeHtml(accounts.active()?.name || "")}, my journey">${kai("wave", { bust: true })}<span>${escapeHtml(accounts.active()?.name || "")}</span></a><button type="button" class="logout-button" id="logout-top">Log out</button><button class="sound-toggle" aria-label="${sound ? "Turn sound off" : "Turn sound on"}" aria-pressed="${sound}">${icon("Sound")}</button></div></header>`;
+  return `<header class="topbar"><a class="brand" href="#bible" aria-label="${isKids() ? "KairosGames Kids" : "KairosGames"} home"><img class="brand-mark" src="assets/brand/dove-badge.svg" alt="" width="48" height="48"><span>Kairos<b>Games</b>${isKids() ? '<i class="kids-tag">Kids</i>' : ""}</span></a><nav class="retro-nav" aria-label="Main navigation">${nav.map(([id, href, label]) => `<a class="nav ${view === id || (id === "bible" && (view === "home" || view === "play")) ? "active" : ""}" href="${href}" ${view === id ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</nav><div class="top-tools"><span class="streak" id="streak-pill">${icon("Star")} <span>${streakLabel()}</span></span><a class="player-chip" href="#journey" aria-label="${escapeHtml(accounts.active()?.name || "")}, my journey">${kai("wave", { bust: true })}<span>${escapeHtml(accounts.active()?.name || "")}</span></a><details class="header-settings"><summary>Settings</summary><div class="header-settings-panel"><button type="button" class="theme-toggle" aria-label="Switch to ${theme === "dark" ? "light" : "dark"} mode">${theme === "dark" ? "Use light mode" : "Use dark mode"}</button><button type="button" class="sound-toggle" aria-label="${sound ? "Turn sound off" : "Turn sound on"}" aria-pressed="${sound}">${icon("Sound")}<span class="sound-label">Sound ${sound ? "on" : "off"}</span></button><button type="button" class="logout-button" id="logout-top">Log out</button></div></details></div></header>`;
 }
 async function logOut() {
   if (isKids() && !(await grownUpCheck(document.body))) return;
@@ -120,6 +120,16 @@ async function logOut() {
 }
 function bindHeader() {
   document.querySelector('#app').insertAdjacentHTML('beforeend',mobileTabs());
+  const settings = document.querySelector(".header-settings");
+  settings?.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      settings.open = false;
+      settings.querySelector("summary").focus();
+    }
+  });
+  settings?.addEventListener("focusout", (e) => {
+    if (!settings.contains(e.relatedTarget)) settings.open = false;
+  });
   const top = document.querySelector("#logout-top");
   if (top) top.onclick = logOut;
   const modeSelect = document.querySelector("#mode");
@@ -136,11 +146,12 @@ function bindHeader() {
       "aria-label",
       sound ? "Turn sound off" : "Turn sound on",
     );
+    e.currentTarget.querySelector(".sound-label").textContent = `Sound ${sound ? "on" : "off"}`;
     if (sound) chime(true);
   };
   document.documentElement.dataset.theme=theme;
   const themeButton = document.querySelector(".theme-toggle");
-  if (themeButton) themeButton.onclick = (e) => { theme = theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = theme; e.currentTarget.textContent=theme==='dark'?'Light':'Dark'; e.currentTarget.setAttribute("aria-label", `Switch to ${theme === "dark" ? "light" : "dark"} mode`); save(); };
+  if (themeButton) themeButton.onclick = (e) => { theme = theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = theme; e.currentTarget.textContent=theme==='dark'?'Use light mode':'Use dark mode'; e.currentTarget.setAttribute("aria-label", `Switch to ${theme === "dark" ? "light" : "dark"} mode`); save(); };
 }
 function footer() {
   return `<footer><span>Rooted in Scripture. Made for curious hearts.</span><span>${storageAvailable ? "Progress saved on this device." : "Storage unavailable — progress lasts for this visit."}</span></footer>`;
