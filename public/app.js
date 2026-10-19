@@ -1,9 +1,10 @@
+import {mountKairosWorld,worldJourney} from './kairos-world.mjs';
 import {installScriptureReader} from './scripture.mjs';
 import {installColorMode} from './color-mode.mjs';
 import {mountLanding} from './landing.mjs';
 import { arcade } from './library/app.mjs';
 import { mobileTabs } from './library/mobile.mjs';
-import { multiplayer } from "./multiplayer.mjs";
+
 import { freshRound } from "./random.mjs";
 import { games, verses } from "./content.mjs";
 import { freshProgress, recordCompletion } from "./learning-engine.mjs";
@@ -177,7 +178,7 @@ function world() {
 function classics() {
   stop();
   document.querySelector("#app").innerHTML =
-    `${header()}<main><section class="play-welcome"><div><span class="eyebrow">CHOOSE YOUR NEXT ADVENTURE</span><h1>A little play. <em>A bigger story.</em></h1><p>Explore a new meadow, discover a fresh question, or gather your friends.</p></div><button class="secondary" id="surprise">Surprise me →</button></section><section class="featured-games" aria-label="New games"><a class="feature-card feature-meadow" href="#play/shepherd"><div class="feature-scene">${world()}</div><div class="feature-copy"><span class="eyebrow">NEW · 2D ADVENTURE</span><h2>Shepherd’s Meadow</h2><p>WASD / arrows to explore. Bring every sheep home.</p><span class="feature-cta">Enter the meadow →</span></div></a><a class="feature-card feature-scrolls" href="#play/scrolls"><div class="feature-art">${icon("Papyrus")}${icon("Books")}</div><div class="feature-copy"><span class="eyebrow">NEW · 2D ADVENTURE</span><h2>Scroll Quest</h2><p>A new map. Six scrolls. Fresh Bible discoveries.</p><span class="feature-cta">Start your quest →</span></div></a><a class="feature-card feature-party" href="#multiplayer"><div class="feature-art">${icon("Players")}</div><div class="feature-copy"><span class="eyebrow">NEW · 2–8 PLAYERS ONLINE</span><h2>Guess the Chapter</h2><p>Describe the story. Keep the chapter secret.</p><span class="feature-cta">Create or join a room →</span></div></a></section><section class="library"><div class="section-heading"><div><span class="eyebrow">PICK A PATH</span><h2>What will you discover today?</h2></div><span class="count">${Object.keys(progress.games).length} / ${games.length} solo games explored</span></div><div class="game-grid">${games.filter(g=>!["shepherd","scrolls"].includes(g.id))
+    `${header()}<main><section class="play-welcome"><div><span class="eyebrow">CHOOSE YOUR NEXT ADVENTURE</span><h1>A little play. <em>A bigger story.</em></h1><p>Explore a new meadow, discover a fresh question, or gather your friends.</p></div><button class="secondary" id="surprise">Surprise me →</button></section><section class="featured-games" aria-label="New games"><a class="feature-card feature-meadow" href="#play/shepherd"><div class="feature-scene">${world()}</div><div class="feature-copy"><span class="eyebrow">NEW · 2D ADVENTURE</span><h2>Shepherd’s Meadow</h2><p>WASD / arrows to explore. Bring every sheep home.</p><span class="feature-cta">Enter the meadow →</span></div></a><a class="feature-card feature-scrolls" href="#play/scrolls"><div class="feature-art">${icon("Papyrus")}${icon("Books")}</div><div class="feature-copy"><span class="eyebrow">NEW · 2D ADVENTURE</span><h2>Scroll Quest</h2><p>A new map. Six scrolls. Fresh Bible discoveries.</p><span class="feature-cta">Start your quest →</span></div></a><a class="feature-card feature-party" href="#multiplayer"><div class="feature-art">${icon("Players")}</div><div class="feature-copy"><span class="eyebrow">EXPLORE · BIBLE ADVENTURES</span><h2>Kairos World</h2><p>Explore London and step into Bible stories.</p><span class="feature-cta">Enter Kairos World →</span></div></a></section><section class="library"><div class="section-heading"><div><span class="eyebrow">PICK A PATH</span><h2>What will you discover today?</h2></div><span class="count">${Object.keys(progress.games).length} / ${games.length} solo games explored</span></div><div class="game-grid">${games.filter(g=>!["shepherd","scrolls"].includes(g.id))
       .map((g, i) => {
         const played = progress.games[g.id];
         return `<a class="game-card ${g.color}" href="#play/${g.id}"><div class="card-art">${icon(g.icon)}<span class="card-number">${String(i + 1).padStart(2, "0")}</span>${played ? `<span class="progress-ring" style="--progress:${played.best}%" aria-label="Best score ${played.best} percent"><b>${played.best}</b></span>` : ""}</div><div class="card-copy"><span class="tag">${g.tag}</span><h3>${g.title}</h3><p>${g.goal}</p><div class="card-bottom"><span>${played ? "Play again" : "Start exploring"}</span><span class="round-arrow">→</span></div></div></a>`;
@@ -242,7 +243,7 @@ function collection() {
   const starImgs = (n) => [0, 1, 2].map((i) => `<img src="assets/ui/yellow-star-filled.png" alt="" class="${i < n ? "on" : "off"}">`).join("");
   const next = bibleGames.filter((g) => !records[g.id]?.runs).slice(0, 3);
   document.querySelector("#app").innerHTML =
-    `${header("collection")}<main class="collection kg-journey"><header class="kg-journey-head"><div><h1>${escapeHtml(accounts.active()?.name || "My")}’s journey</h1><p>Every game you finish earns stars. Come back each day to grow your streak.</p></div>${kai(played.length ? "cheer" : "wave", { cls: "kg-journey-kai" })}</header><a class="kg-my-character" href="#character">${kai("wave", { bust: true })}<span><small>Your character</small><strong>${escapeHtml(currentCharacter().name)}</strong></span><span class="kg-my-character-cta">Change</span></a><div class="kg-account-actions"><button type="button" class="kg-switch-player" id="switch-player">Switch player</button><button type="button" class="kg-switch-player kg-logout" id="logout-journey">Log out</button></div><div class="stat-grid"><article>${icon("Star")}<b>${stars}<small>/${bibleGames.length * 3}</small></b><span>stars earned</span></article><article>${icon("Flag")}<b>${played.length}<small>/${bibleGames.length}</small></b><span>games played</span></article><article>${icon("Clock")}<b>${streak}</b><span>day${streak === 1 ? "" : "s"} in a row</span></article><article>${icon("trophy")}<b>${rounds}</b><span>games finished</span></article></div>${
+    `${header("collection")}<main class="collection kg-journey"><header class="kg-journey-head"><div><h1>${escapeHtml(accounts.active()?.name || "My")}’s journey</h1><p>Every game you finish earns stars. Come back each day to grow your streak.</p></div>${kai(played.length ? "cheer" : "wave", { cls: "kg-journey-kai" })}</header><a class="kg-my-character" href="#character">${kai("wave", { bust: true })}<span><small>Your character</small><strong>${escapeHtml(currentCharacter().name)}</strong></span><span class="kg-my-character-cta">Change</span></a><div class="kg-account-actions"><button type="button" class="kg-switch-player" id="switch-player">Switch player</button><button type="button" class="kg-switch-player kg-logout" id="logout-journey">Log out</button></div><div class="stat-grid"><article>${icon("Star")}<b>${stars}<small>/${bibleGames.length * 3}</small></b><span>stars earned</span></article><article>${icon("Flag")}<b>${played.length}<small>/${bibleGames.length}</small></b><span>games played</span></article><article>${icon("Clock")}<b>${streak}</b><span>day${streak === 1 ? "" : "s"} in a row</span></article><article>${icon("trophy")}<b>${rounds}</b><span>games finished</span></article></div>${worldJourney(accounts.active())}${
       played.length
         ? `<section class="journal-section"><h2>Games I’ve played</h2><div class="kg-journey-grid">${played
             .map((g) => `<a class="kg-journey-card" href="#bible/${g.id}" style="--game-tint:${g.color}"><img class="kg-icon" src="assets/icons/${g.icon}.png" alt=""><span><strong>${escapeHtml(g.title)}</strong><small>Best ${Number(records[g.id].best) || 0}% · played ${Number(records[g.id].runs) || 0} time${Number(records[g.id].runs) === 1 ? "" : "s"}</small></span><span class="kg-stars small" role="img" aria-label="${bibleStars(records[g.id])} of 3 stars">${starImgs(bibleStars(records[g.id]))}</span></a>`)
@@ -373,11 +374,11 @@ function complete(
   document.querySelector(".result h2").setAttribute("tabindex", "-1");
   document.querySelector(".result h2").focus();
 }
-function party(code="") {
+function party() {
   stop();
-  document.querySelector("#app").innerHTML=`${header("multiplayer")}<main class="party-main"><div id="party-root"></div>${footer()}</main>`;
+  document.querySelector("#app").innerHTML=`${header("multiplayer")}<main class="party-main"><a href="#world" class="world-invitation"><img src="/world/kharis-manor-preview.png" alt="Kharis Church in Kairos World" loading="lazy"><div><span class="eyebrow">TOGETHER · EXPLORE & DISCOVER</span><h1>Kairos World</h1><p>Step into London, meet your neighbours and travel to LTBS to live through four Bible story adventures.</p><p>Your world progress is saved for this player on this device.</p><strong>Enter Kairos World →</strong></div></a>${footer()}</main>`;
   bindHeader();
-  activeModule=multiplayer(document.querySelector("#party-root"),code);
+
 }
 function route() {
   const hash = location.hash.slice(1);
@@ -406,8 +407,9 @@ function route() {
     bindHeader();
     activeModule = mountBible(document.querySelector("#bible-root"), hash.slice(6));
   }
-  else if (hash==="multiplayer") party();
-  else if(/^room\/[A-Z2-9]{6}$/.test(hash)) party(hash.slice(5));
+  else if(hash==="world") {stop();document.querySelector('#app').innerHTML='<main id="kairos-world-root"></main>';activeModule=mountKairosWorld(document.querySelector('#kairos-world-root'),accounts.active());}
+  else if (hash==="multiplayer"||hash==="together") party();
+  else if(/^room\/[A-Z2-9]{6}$/.test(hash)) location.replace('#multiplayer');
   else if (hash.startsWith("arcade/") || hash.startsWith("play/")) location.replace("#bible");
   else if(hash==="profile") collection();
   else if(hash==="classics") location.replace("#bible");

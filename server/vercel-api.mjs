@@ -1,9 +1,11 @@
 import {handleScripture} from './scripture.mjs';
+import {handleWorldScripture} from './world-scripture.mjs';
 const backend='https://kairos-story-games.packzpackz50.chatgpt.site';
 export async function handleVercelApi(request, fetcher=fetch) {
  const url=new URL(request.url),origin=request.headers.get('origin');
  if(origin && origin!==url.origin)return Response.json({error:'Please open the game on its own site.'},{status:403});
  if(url.pathname==='/api/scripture')return handleScripture(request,fetcher);
+ if(url.pathname.startsWith('/api/scripture/'))return handleWorldScripture(request,{},fetcher);
  if(url.pathname==='/api/profile')return Response.json({signedIn:false,error:'Guest progress is saved on this device. Account saves are available on the original Kairos site.'},{status:401,headers:{'Cache-Control':'no-store'}});
  if(!/^\/api\/(?:health|rooms(?:\/[A-Z2-9]{6}(?:\/(?:join|action))?)?)$/.test(url.pathname))return Response.json({error:'Not found.'},{status:404});
  if(!['GET','POST'].includes(request.method))return Response.json({error:'Method not allowed.'},{status:405});

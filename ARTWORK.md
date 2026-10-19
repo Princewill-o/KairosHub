@@ -37,3 +37,9 @@ Prompts: four original child explorers in a cel-shaded PS2-inspired storybook st
 ## Dove logo (October 2026)
 
 `public/assets/brand/dove.svg` and `dove-badge.svg` are vector traces of the dove-with-olive-branch line drawing the user supplied, keeping its exact shape and restyled in the site's cartoon look: white strokes, a plum outline and a hard offset shadow. `apple-touch-icon.png`, `icon-192.png` and `icon-512.png` are renders of the badge on a full violet square. They replace the Books icon as the site logo and app icon.
+
+## Kairos World assets (20 October 2026)
+
+`public/world3d`, `public/world`, `public/characters`, `public/campaign`, and `public/brand/kharis-mark.png` were copied from the user's local KairosLife project for this integration. Original Blender sources for the church, bus, mountains, toy residents and four Bible scenes are retained in `world-runtime/art-sources/`, alongside their generation scripts. The reference-based Kharis model and Kharis mark retain the original project's provenance; this integration asserts no new rights over church branding or user-supplied references. The preview on Together is a render of the imported church model.
+
+Kenney kit license files supplied with the original assets are retained in `world-runtime/art-sources/licenses/`. World artwork is used within the game and is not distributed as a standalone asset pack. Existing KairosHub artwork and license files remain intact.

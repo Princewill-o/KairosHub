@@ -81,3 +81,7 @@ Checks: `node --test scripture.test.mjs` and `node tests/scripture-browser.mjs` 
 `vercel.json` serves `public/` and runs `/api/gateway` as a Node function. `node scripts/build-vercel.mjs` refreshes the offline manifest without bundling Unity. Deploy with `npx vercel --prod` after signing in.
 
 Scripture lookup runs directly on Vercel. Online Guess the Chapter rooms use the existing public Kairos backend at `https://kairos-story-games.packzpackz50.chatgpt.site`; keep that service running. The proxy forwards only room requests and bearer room tokens, never client-supplied account identity headers. Solo games and guest progress work on Vercel. Account sign-in opens the original Kairos site; its account session and browser-local progress are not shared across domains. LAN arcade multiplayer still requires the local `npm run lan` server; Vercel does not host its WebSocket relay.
+
+## Kairos World integration
+
+Together now includes **Kairos World**, imported from the local KairosLife game. Run `npm run dev` and open `http://127.0.0.1:4173/#multiplayer`. Choose a player, then enter the world. KairosHub's existing landing page is preserved. See [world-runtime/README.md](world-runtime/README.md) for builds, source models, local progress, and backend limitations.

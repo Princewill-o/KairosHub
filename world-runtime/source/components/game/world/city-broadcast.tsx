@@ -1,0 +1,5 @@
+"use client";
+export interface CityHeadline {title:string;url:string;published:string|null}
+const headlines:CityHeadline[]=[{title:'Kharis Church · worship, prayer and fellowship',url:'https://kharis.org/k-events/',published:null}];
+export function useCityNews(){return {headlines,updated:null,offline:false};}
+export function CityBroadcast(_:ReturnType<typeof useCityNews>){return <details className="pointer-events-auto absolute bottom-28 right-3 z-50 w-[min(320px,calc(100%-24px))] rounded-2xl border border-[#c8b182]/50 bg-[#251735]/95 text-[#fff3d8] shadow-xl"><summary className="cursor-pointer px-4 py-3 text-xs font-black">Kharis gatherings</summary><div className="space-y-3 px-4 pb-4 text-xs"><p>Discover worship, prayer and fellowship at Kharis Church. Check the church’s website for current dates and locations.</p><a href="https://kharis.org/k-events/" target="_blank" rel="noopener noreferrer" className="block rounded-lg bg-white/10 p-3 font-bold">View Kharis events ↗</a></div></details>;}

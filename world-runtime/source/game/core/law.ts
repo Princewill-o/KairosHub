@@ -1,0 +1,68 @@
+/**
+ * London-world wellbeing and traffic rules. Grace remains game currency; getting
+ * unwell and getting better, and the law. Start a scuffle and you get wanted
+ * stars; the police respond, you may get a court hearing, and if
+ * you're found guilty you serve a short fictional sentence. Pure functions;
+ * the browser keeps the state.
+ */
+
+export const SHOP = {
+  drink: { name: "Energy drink", price: 3, blurb: "+35 Energy" },
+  meal: { name: "Meal deal", price: 6, blurb: "+45 Hunger, +10 Energy" },
+  coffee: { name: "Flat white", price: 2, blurb: "+15 Energy, +10 Focus" },
+  medicine: { name: "Medicine", price: 1, blurb: "+30 Energy, helps you feel better" },
+} as const;
+export type ShopItem = keyof typeof SHOP;
+
+export interface LifeState {
+  stars: number;
+  /** When the last star was earned (stars fade one at a time after). */
+  heatAt: number;
+  /** The latest driving charge, retained for a later hearing. Old saves omit it. */
+  lastOffence?: string | null;
+  sick: boolean;
+  /** Prison release time (ms), or 0. */
+  jailUntil: number;
+  /** A court hearing is waiting. */
+  hearing: { stars: number; charge: string } | null;
+  /** Prevents an overdue bank loan from reopening the same hearing. */
+  bankCourtSeen?: boolean;
+}
+
+export const freshLife = (): LifeState => ({ stars: 0, heatAt: 0, lastOffence: null, sick: false, jailUntil: 0, hearing: null, bankCourtSeen: false });
+
+export const STAR_FADE_MS = 60_000;
+export const MAX_STARS = 5;
+
+/** Stars fade one every minute you keep out of trouble. */
+export function cooled(s: LifeState, now: number): LifeState {
+  if (!s.stars || s.stars >= 2) return s;
+  const gone = Math.floor((now - s.heatAt) / STAR_FADE_MS);
+  if (gone <= 0) return s;
+  const stars = Math.max(0, s.stars - gone);
+  return { ...s, stars, heatAt: stars ? s.heatAt + gone * STAR_FADE_MS : 0, lastOffence: stars ? s.lastOffence : null };
+}
+
+export function addStar(s: LifeState, now: number, offence?: string): LifeState {
+  const c = cooled(s, now);
+  return { ...c, stars: Math.min(MAX_STARS, c.stars + 1), heatAt: now, lastOffence: offence?.slice(0, 160) ?? null };
+}
+
+export const clearWanted = (s: LifeState): LifeState => ({ ...s, stars: 0, heatAt: 0, lastOffence: null });
+
+const CHARGES = ["Causing a scuffle on Oxford Street", "Shoving a commuter at Bank", "Starting a fight by the river", "Disorderly behaviour near Big Ben", "Barging people outside the Tube"];
+export const chargeFor = (stars: number) => CHARGES[(stars * 3 + new Date().getMinutes()) % CHARGES.length];
+export const wantedCharge = (s: LifeState) => typeof s.lastOffence === "string" && s.lastOffence.trim() ? s.lastOffence.slice(0, 160) : chargeFor(s.stars);
+
+/** Odds of a not-guilty verdict when you plead not guilty. */
+export const acquittalChance = (stars: number) => Math.max(0.1, 0.65 - stars * 0.12);
+/** Sentence length: 45 seconds per star (it's a game, not a life sentence). */
+export const sentenceMs = (stars: number) => Math.max(1, stars) * 45_000;
+
+/** The orange jumpsuit while you're inside. */
+export const PRISON_LOOK = { top: "top-tracksuit", topColor: "topcol-orange", bottom: "bottom-joggers", bottomColor: "botcol-orange", hat: "hat-none", held: "held-none" } as const;
+
+/** Every prison exit starts a clean wanted record. */
+export function releaseFromPrison(s: LifeState): LifeState {
+  return { ...clearWanted(s), jailUntil: 0, hearing: null };
+}
