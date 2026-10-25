@@ -97,3 +97,32 @@ export const trivia=[
 ['Who said, “Speak; for thy servant heareth”?','Samuel',['Saul','Solomon'],'1 Samuel 3:10'],
 ['What did Jesus say to do for enemies?','Love them',['Humiliate them','Ignore every need'],'Matthew 5:44']
 ].map(([question,answer,decoys,reference],id)=>({id:'trail-'+id,question,answer,decoys,reference}));
+
+// Share the enlarged Scripture bank with Scroll Quest and the older verse games.
+import {questions as libraryQuestions,verses as libraryVerses} from './bible/content.mjs';
+const knownTrivia=new Set(trivia.map(q=>q.question.toLowerCase()));
+trivia.push(...libraryQuestions.filter(q=>!knownTrivia.has(q.prompt.toLowerCase())).map(q=>({id:'library-'+q.id,question:q.prompt,answer:q.answer,decoys:q.options.filter(a=>a!==q.answer),reference:q.ref})));
+const knownVerses=new Set(extraVerses.map(v=>v.reference));
+extraVerses.push(...libraryVerses.filter(v=>!knownVerses.has(v.ref)).map((v,i)=>({id:'library-verse-'+i,reference:v.ref,text:v.excerpt,keywords:v.excerpt.toLowerCase().replace(/[^a-z ]/g,'').split(/\s+/).filter(w=>w.length>4).slice(0,3),translation:'KJV',themes:['faith'],difficulty:1})));
+
+const newArmorScenarios={
+ truth:['You hear a rumour about a classmate. You check what is true before repeating it.','A report makes your team look better than it really did. You choose an accurate account.','You are asked to copy an answer and pretend it is your own. You choose honesty.','A friend shares a misleading quotation. You look up what the passage actually says.'],
+ righteousness:['Someone offers you an unfair advantage in a competition. You choose to follow the rules.','You notice a younger child is being treated unfairly. You stand up for what is right.','You could hide a mistake that cost the group time. You take responsibility and help put it right.','A shop gives you too much change. You return what is not yours.'],
+ peace:['A new neighbour is anxious about joining a church gathering. You offer a gentle welcome.','Two friends are speaking past one another. You help them listen without taking sides.','Your group disagrees about a plan. You make room for a calm conversation.','You prepare to share the good news with someone respectfully rather than picking an argument.'],
+ faith:['A plan has changed and you feel unsettled. You remember God’s faithfulness while taking the next wise step.','You are trying something worthwhile but fear failure. You trust God rather than demanding certainty.','A difficult week tempts you to give up hope. You remember that God can be trusted.','You face a hard choice without every answer. You pray and keep trusting God.'],
+ salvation:['A past failure makes you feel beyond help. You remember the hope of God’s saving work.','You worry that you are only as valuable as your achievements. You remember the salvation God offers.','You feel crushed by shame and turn toward God’s promise of rescue.','You need hope that rests in God’s saving work rather than your own impressive record.'],
+ spirit:['An unkind joke seems acceptable until you remember a passage about loving your neighbour.','You need guidance and open Scripture rather than following a convenient slogan.','A tempting shortcut conflicts with a passage you have been learning. You let that word shape your response.','You compare a dramatic claim about God with what the Bible actually teaches.'],
+};
+for(const [key,items]of Object.entries(newArmorScenarios))armorAlternates[key].push(...items);
+const newFruitScenarios={
+ love:['You include someone whose interests are different from yours.','You make time for a lonely neighbour without expecting anything back.','You share your best supplies rather than only your leftovers.','You celebrate a friend even when you hoped to receive the same award.'],
+ joy:['You take delight in a small sign of God’s goodness during a difficult week.','You join a friend’s celebration with a glad and generous heart.','You remember an answered prayer and give thanks with delight.','You notice something good in an ordinary day and share your gladness.'],
+ peace:['You speak calmly when a group chat becomes heated.','You help friends clear up a misunderstanding without spreading it.','You apologise and seek to restore a strained friendship.','You listen carefully before responding to a sharp remark.'],
+ patience:['A younger child needs the instructions repeated. You explain them again without irritation.','You wait for a slow reader to finish rather than rushing them.','A plan takes longer than expected. You keep helping without grumbling.','You allow someone time to learn a skill instead of demanding instant success.'],
+ kindness:['You offer a seat to someone who is tired.','You help a classmate gather the books they dropped.','You notice a newcomer has nobody to sit with and invite them over.','You leave an encouraging note for someone facing a hard day.'],
+ goodness:['You report an error even though hiding it would benefit you.','You choose a fair way to divide the shared supplies.','You return a lost item without taking anything from it.','You refuse to join in a dishonest plan even when friends approve.'],
+ faithfulness:['You keep turning up to help with a quiet weekly task.','You complete the responsibility you promised to do.','You care for a shared garden even after the excitement has worn off.','You remember a commitment when a more tempting invitation arrives.'],
+ gentleness:['You explain a mistake without embarrassing the person who made it.','You lower your voice when someone is frightened.','You respond to a younger child’s question with care.','You give honest feedback in a way that respects the other person.'],
+ self_control:['You pause before sending a message written in anger.','You stop playing when your agreed break time arrives.','You resist taking more than your fair share.','You take a breath before reacting to a frustrating mistake.'],
+};
+for(const [key,items]of Object.entries(newFruitScenarios))fruitAlternates[key].push(...items);

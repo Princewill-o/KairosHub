@@ -702,7 +702,7 @@ export const fruits = [
 ];
 
 import {extraVerses,extraPrayers,extraWisdom,extraParables} from './extra-content.mjs';
-verses.push(...extraVerses);prayers.push(...extraPrayers);wisdom.push(...extraWisdom);parables.push(...extraParables);
+verses.push(...extraVerses.filter(v=>!verses.some(existing=>existing.reference===v.reference)));prayers.push(...extraPrayers);wisdom.push(...extraWisdom);parables.push(...extraParables);
 games.push(
 {id:'shepherd',title:'Shepherd’s Meadow',tag:'2D ADVENTURE',goal:'Explore the meadow. Bring every lost sheep home.',icon:'Players',color:'sage',ref:'Luke 15:3–7',reflect:'What does seeking one lost sheep tell you about care for each person?'},
 {id:'scrolls',title:'Scroll Quest',tag:'2D ADVENTURE',goal:'Find hidden scrolls and solve fresh Bible questions.',icon:'Papyrus',color:'sand',ref:'Psalm 119:105',reflect:'Which discovery from your journey would you like to explore in Scripture?'}

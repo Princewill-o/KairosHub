@@ -37,7 +37,8 @@ export async function handleFamilyBackend(request, env = {}, fetcher = fetch) {
       signal: AbortSignal.timeout(12000),
       redirect: "manual",
     });
-    if (response.status >= 300 && response.status < 400) throw Error("Unexpected family redirect");
+    if (response.status >= 300 && response.status < 400)
+      throw Error("Unexpected family redirect");
     if (!response.headers.get("content-type")?.includes("application/json"))
       throw Error("Invalid family response");
     const outgoing = new Headers({
@@ -45,7 +46,16 @@ export async function handleFamilyBackend(request, env = {}, fetcher = fetch) {
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
     });
-    const session = response.headers.get("set-cookie");
+    const cookies =
+      typeof response.headers.getSetCookie === "function"
+        ? response.headers.getSetCookie()
+        : typeof response.headers.getAll === "function"
+          ? response.headers.getAll("Set-Cookie")
+          : [response.headers.get("set-cookie") || ""];
+    const session = cookies
+      .flatMap((value) => value.split(/,(?=\s*[^;,=]+=)/))
+      .map((value) => value.trim())
+      .find((value) => value.startsWith("kairos_family="));
     if (session?.startsWith("kairos_family="))
       outgoing.set("set-cookie", session);
     return new Response(await response.text(), {

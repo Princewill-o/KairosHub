@@ -1,4 +1,7 @@
-import { freshRound, shuffleWith } from "./random.mjs";
+import { shuffleWith } from "./random.mjs";
+import {createReplayDecks} from "./bible/replay.mjs";
+import {accounts} from "./accounts.mjs";
+const freshRound=createReplayDecks({playerId:()=>accounts.active()?.id});
 import { armorAlternates, fruitAlternates } from "./extra-content.mjs";
 import { adventureGame } from "./adventure.mjs";
 import {

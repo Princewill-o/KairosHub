@@ -111,8 +111,37 @@ test("edge wrapper rejects unapproved hosts and maps the trusted origin for exis
   );
 });
 
-test('family relay never follows redirects with a password or session cookie',async()=>{
- let redirect;
- const r=await handleFamilyBackend(new Request('http://localhost:4173/api/family'),{},async(_url,options)=>{redirect=options.redirect;return Response.json({message:'moved'},{status:302,headers:{Location:'https://other.test'}});});
- assert.equal(redirect,'manual');assert.equal(r.status,503);
+test("family relay never follows redirects with a password or session cookie", async () => {
+  let redirect;
+  const r = await handleFamilyBackend(
+    new Request("http://localhost:4173/api/family"),
+    {},
+    async (_url, options) => {
+      redirect = options.redirect;
+      return Response.json(
+        { message: "moved" },
+        { status: 302, headers: { Location: "https://other.test" } },
+      );
+    },
+  );
+  assert.equal(redirect, "manual");
+  assert.equal(r.status, 503);
+});
+
+test("Supabase gateway cookies cannot hide or corrupt the family session cookie", async () => {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  headers.append("Set-Cookie", "__cf_bm=gateway; Path=/; Secure");
+  headers.append(
+    "Set-Cookie",
+    "kairos_family=abc; Path=/; HttpOnly; SameSite=Strict",
+  );
+  const r = await handleFamilyBackend(
+    new Request("http://localhost:4173/api/family"),
+    {},
+    async () => new Response("{}", { headers }),
+  );
+  assert.equal(
+    r.headers.get("set-cookie"),
+    "kairos_family=abc; Path=/; HttpOnly; SameSite=Strict",
+  );
 });

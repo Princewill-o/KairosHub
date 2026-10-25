@@ -1,10 +1,13 @@
+import {createReplayDecks} from './replay.mjs';
 import {cloudProgress, syncStatus} from '../family-client.mjs';
 import {
   bibleGames,
   questions,
+  crosswords,
+  memoryLabels,
+  hangmanWords,
   verses,
   wordSets,
-  crossword,
   prompts,
   characters,
   stories,
@@ -29,6 +32,7 @@ import { kai, heroScene, currentCharacter, isAdultAudience } from "./mascot.mjs"
 
 import { accounts } from "../accounts.mjs";
 // Progress is kept per player on this device.
+const drawReplay = createReplayDecks({playerId:()=>accounts.active()?.id});
 const storeKey = () => accounts.progressKey("kairos-bible-v1");
 const metaKey = () => accounts.progressKey("kairos-bible-meta-v1");
 const esc = (s) =>
@@ -169,7 +173,7 @@ export function mountBible(root, id = "") {
   <div class="kg-soon-copy"><span class="kg-soon-tag">Coming soon</span><h2 id="soon-title">PlayMessages</h2><p>A bigger game is on its way. We’re still building it, so check back soon.</p></div>
   <svg class="kg-soon-lock" viewBox="0 0 48 56" aria-hidden="true"><path d="M13 24v-8a11 11 0 0 1 22 0v8" fill="none" stroke="#2e1a47" stroke-width="9" stroke-linecap="round"/><path d="M13 24v-8a11 11 0 0 1 22 0v8" fill="none" stroke="#f5b83d" stroke-width="4" stroke-linecap="round"/><rect x="4" y="22" width="40" height="30" rx="9" fill="#f5b83d" stroke="#2e1a47" stroke-width="3"/><circle cx="24" cy="35" r="4" fill="#2e1a47"/><path d="M24 37v6" stroke="#2e1a47" stroke-width="3" stroke-linecap="round"/></svg>
 </section>
-<p class="bible-small">Questions and summaries are written for Kairos. Bible quotations are from the King James Version (KJV). ${accounts.active()?.cloud ? "Progress syncs to your family account." : "Progress is saved on this device."}</p>
+<p class="bible-small"><strong>${questions.length} questions · ${verses.length} KJV excerpts · ${prompts.length} story prompts.</strong> Questions and summaries are written for Kairos. Bible quotations are from the King James Version (KJV). ${accounts.active()?.cloud ? "Progress syncs to your family account." : "Progress is saved on this device."}</p>
 </section>`;
     let category = "All", players = "all";
     const draw = () => {
@@ -324,7 +328,7 @@ export function mountBible(root, id = "") {
   else {
     const rec = progress[game.id];
     const instructions = gameInstructions[id];
-    root.innerHTML = `<section class="bible-welcome" style="--game-tint:${game.color}"><a href="#bible" class="kg-back">Games</a><div class="kg-welcome-card${instructions ? " has-instructions" : ""}"><div class="kg-welcome-kai">${kai(game.players === "group" ? "wave" : "read")}</div><div class="bible-welcome-art">${gameIcon(game)}</div><span class="kg-cat kg-cat-${game.category.toLowerCase()}">${esc(game.category)}</span><h1>${esc(game.title)}</h1>${instructions ? `<section class="kg-how-to" aria-labelledby="game-how-to"><h2 id="game-how-to">How to play</h2><p class="kg-round-summary">${esc(instructions.summary)}</p><ol>${instructions.steps.map(step => `<li>${esc(step)}</li>`).join("")}</ol></section>` : `<p class="kg-welcome-tag">${esc(game.tag)}</p><p>${esc(game.description)}</p>`}${rec?.runs ? `<p class="kg-welcome-best">${starRow(bibleStars(rec), "small")} Your best: ${Number(rec.best) || 0}%</p>` : ""}<button id="bible-start" class="kg-btn kg-btn-gold kg-btn-big">Play</button><p class="bible-small">${game.players === "group" ? "5 rounds · 60 seconds each. Pause at any time." : instructions ? "You can pause at any time." : "Works with touch, mouse and keyboard. You can pause at any time."}</p>${id === "escape" ? '<p class="bible-small">The library is make-believe. The puzzles come from the Bible.</p>' : ""}</div></section>`;
+    root.innerHTML = `<section class="bible-welcome" style="--game-tint:${game.color}"><a href="#bible" class="kg-back">Games</a><div class="kg-welcome-card${instructions ? " has-instructions" : ""}"><div class="kg-welcome-kai">${kai(game.players === "group" ? "wave" : "read")}</div><div class="bible-welcome-art">${gameIcon(game)}</div><span class="kg-cat kg-cat-${game.category.toLowerCase()}">${esc(game.category)}</span><h1>${esc(game.title)}</h1>${instructions ? `<section class="kg-how-to" aria-labelledby="game-how-to"><h2 id="game-how-to">How to play</h2><p class="kg-round-summary">${esc(instructions.summary)}</p><ol>${instructions.steps.map(step => `<li>${esc(step)}</li>`).join("")}</ol></section>` : `<p class="kg-welcome-tag">${esc(game.tag)}</p><p>${esc(game.description)}</p>`}${rec?.runs ? `<p class="kg-welcome-best">${starRow(bibleStars(rec), "small")} Your best: ${Number(rec.best) || 0}%</p>` : ""}<p class="bible-small kg-resource-count">${esc(game.resources)} · Fresh selections on repeat plays.</p><button id="bible-start" class="kg-btn kg-btn-gold kg-btn-big">Play</button><p class="bible-small">${game.players === "group" ? "5 rounds · 60 seconds each. Pause at any time." : instructions ? "You can pause at any time." : "Works with touch, mouse and keyboard. You can pause at any time."}</p>${id === "escape" ? '<p class="bible-small">The library is make-believe. The puzzles come from the Bible.</p>' : ""}</div></section>`;
     root.querySelector("#bible-start").onclick = start;
   }
   const interval = setInterval(() => {
@@ -363,14 +367,13 @@ function quizGame(c, kind) {
   let deck =
       kind === "quiz"
         ? [1, 2, 3].flatMap((level) =>
-            shuffle(questions.filter((q) => q.level === level)).slice(0, 3),
+            drawReplay(`quiz-level-${level}`, questions.filter((q) => q.level === level), 3),
           )
-        : shuffle(questions.filter((q) => q.level < 3)).slice(0, 8),
+        : drawReplay("trivia", questions.filter((q) => q.level < 3), 8),
     index = 0,
     score = 0;
   if (kind === "verse")
-    deck = shuffle(verses)
-      .slice(0, 6)
+    deck = drawReplay("verse", verses, 6)
       .map((v) => ({
         prompt: "Where is this verse from?",
         excerpt: v.excerpt,
@@ -448,7 +451,7 @@ function quizGame(c, kind) {
 }
 
 function wordSearch(c) {
-  const words = shuffle(wordSets)[0],
+  const words = drawReplay("word-search", wordSets, 1)[0],
     { grid } = bibleWordGrid(words),
     n = grid.length,
     found = new Set();
@@ -561,6 +564,7 @@ function wordSearch(c) {
 }
 
 function crosswordGame(c) {
+  const crossword = drawReplay("crossword", crosswords, 1)[0];
   const board = bibleCrossword(crossword);
   c.view(
     heading("Across and down", "Bible names crossword") +
@@ -636,7 +640,7 @@ function crosswordGame(c) {
 }
 
 function memory(c) {
-  const labels = shuffle(["Noah", "Ruth", "David", "Mary", "Moses", "Esther", "Jonah", "Daniel"]).slice(0, 6),
+  const labels = drawReplay("memory", memoryLabels, 6),
     deck = shuffle(labels.flatMap((name) => [name, name]));
   let open = [],
     matched = new Set(),
@@ -692,7 +696,7 @@ function jeopardy(c) {
     deck = categories.flatMap((category) =>
       [1, 2, 3].map(
         (level) =>
-          shuffle(questions.filter((q) => q.category === category && q.level === level))[0],
+          drawReplay(`jeopardy-${category}-${level}`, questions.filter((q) => q.category === category && q.level === level), 1)[0],
       ),
     );
   let used = new Set(),
@@ -754,7 +758,7 @@ function jeopardy(c) {
 }
 
 function hangman(c) {
-  const words = shuffle(wordSets[0]).slice(0, 3);
+  const words = drawReplay("hangman", hangmanWords, 3);
   let round = 0,
     won = 0;
   function draw() {
@@ -818,7 +822,8 @@ function hangman(c) {
 }
 
 function bingo(c) {
-  const deck = shuffle(questions.filter((q) => q.level === 1)).slice(0, 9),
+  const pool = [...new Map(questions.filter(q=>q.level===1).map(q=>[q.answer,q])).values()];
+  const deck = drawReplay("bingo", pool, 9),
     calls = shuffle(deck),
     marked = [];
   let index = 0;
@@ -857,7 +862,7 @@ function bingo(c) {
 }
 
 function textQuest(c, kind) {
-  const deck = kind === "character" ? shuffle(characters).slice(0, 4) : kind === "scavenger" ? shuffle(hunts) : escapeRooms;
+  const deck = kind === "character" ? drawReplay("character", characters, 4) : kind === "scavenger" ? drawReplay("scavenger", hunts, 5) : drawReplay("escape", escapeRooms, 4);
   let i = 0,
     points = 0,
     misses = 0;
@@ -931,7 +936,7 @@ function textQuest(c, kind) {
 }
 
 function ordering(c) {
-  const deck = shuffle(stories);
+  const deck = drawReplay("ordering", stories, 3);
   let i = 0,
     mistakes = 0;
   function draw() {
@@ -1013,7 +1018,7 @@ const shape = (pts, close = true) => "M" + pts.map(toXY).join("L") + (close ? "Z
 const MAP_SVG = `<svg viewBox="0 0 ${BIBLE_MAP.width} ${BIBLE_MAP.height}" role="img" aria-label="Map of the Bible world around the Mediterranean Sea"><rect width="700" height="420" class="kg-land"/><path class="kg-water" d="${shape(SEA)} ${shape(BLACK_SEA)} ${shape(RED_SEA)} ${shape(AQABA)}"/>${ISLANDS.map((i) => `<path class="kg-land kg-island" d="${shape(i)}"/>`).join("")}${[NILE, EUPHRATES, TIGRIS].map((r) => `<path class="kg-river" d="${shape(r, false)}"/>`).join("")}<text x="190" y="300" class="kg-map-label">Mediterranean Sea</text><text x="420" y="78" class="kg-map-label">Black Sea</text><text x="600" y="330" class="kg-map-label kg-small" transform="rotate(-38 600 330)">Euphrates</text><text x="455" y="400" class="kg-map-label kg-small">Nile</text></svg>`;
 
 function mapGame(c) {
-  const deck = shuffle(locations).slice(0, 6);
+  const deck = drawReplay("map", locations, 6);
   let i = 0,
     misses = 0;
   function draw() {
@@ -1023,7 +1028,7 @@ function mapGame(c) {
     const choices = shuffle([q, ...shuffle(locations.filter((p) => p !== q)).slice(0, 3)]);
     c.view(
       heading(`Place ${i + 1} of ${deck.length}`, q.prompt) +
-        `<div class="bible-map">${MAP_SVG}${locations
+        `<div class="bible-map">${MAP_SVG}${choices
           .map((place) => {
             const { x, y } = bibleMapPoint(place.lon, place.lat);
             return `<button class="map-pin" style="left:${x}%;top:${y}%" data-do="pin" data-place="${esc(place.name)}" aria-label="Map pin"><span></span></button>`;
@@ -1060,7 +1065,7 @@ function mapGame(c) {
 }
 
 function partyGame(c, drawing = false) {
-  const deck = shuffle(prompts).slice(0, 5);
+  const deck = drawReplay(drawing ? "pictionary" : "charades", prompts, 5);
   let index = 0,
     correct = 0,
     remaining = 60,

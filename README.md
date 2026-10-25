@@ -38,7 +38,7 @@ The supplied specification informs content and interactions. The user's explicit
 
 ## Progress
 
-Device-only profiles retain local progress. Family accounts save the 16 Bible games’ per-child results, best scores, stars and streaks in D1, with an offline retry queue. Legacy solo mode, sound preference, garden growth, mastered verses and optional reflections remain in this browser under `kairos-learning-v2`. Multiplayer room state, scores, messages, rate limits, expiry, and reconnect sessions are stored in Cloudflare D1. Secret chapter cards are only returned to the describer or after reveal.
+Device-only profiles retain local progress. Family accounts save the 16 Bible games’ per-child results, best scores, stars and streaks in the Kharis Supabase Postgres database, with an offline retry queue. Legacy solo mode, sound preference, garden growth, mastered verses and optional reflections remain in this browser under `kairos-learning-v2`. Multiplayer room state, scores, messages, rate limits, expiry, and reconnect sessions are stored in Cloudflare D1. Secret chapter cards are only returned to the describer or after reveal.
 
 Seeker mode has no deadline. Growth adds an elapsed-time indicator, a verse score time penalty, timed wisdom sorting, and timed Psalm recall. Pause and hidden tabs suspend game clocks; prayer speech pauses with the pause control. The garden, geography, and prayer games retain forgiving retries.
 
@@ -80,17 +80,17 @@ Checks: `node --test scripture.test.mjs` and `node tests/scripture-browser.mjs` 
 
 `vercel.json` serves `public/` and runs `/api/gateway` as a Node function. `node scripts/build-vercel.mjs` refreshes the offline manifest without bundling Unity. Deploy with `npx vercel --prod` after signing in.
 
-Scripture lookup runs directly on Vercel. Online Guess the Chapter rooms use the existing public Kairos backend at `https://kairos-story-games.packzpackz50.chatgpt.site`; keep that service running. The proxy forwards only room requests and bearer room tokens, never client-supplied account identity headers. Solo games, device-only profiles and the family dashboard work on Vercel once the updated Worker and family migration are deployed. The separate arcade account sign-in opens the original Kairos site; its account session and browser-local progress are not shared across domains. LAN arcade multiplayer still requires the local `npm run lan` server; Vercel does not host its WebSocket relay.
+Scripture lookup runs directly on Vercel. Online Guess the Chapter rooms use the existing public Kairos backend at `https://kairos-story-games.packzpackz50.chatgpt.site`; keep that service running. The room proxy forwards bearer room tokens, never client-supplied account identity headers. The separate family relay forwards only its dedicated family cookie and validated origin. Solo games and device-only profiles work on Vercel. The family dashboard uses Supabase; add the exact deployed Vercel origin to the Edge Function’s `KAIROS_ALLOWED_ORIGINS` setting before using it there. The separate arcade account sign-in opens the original Kairos site; its account session and browser-local progress are not shared across domains. LAN arcade multiplayer still requires the local `npm run lan` server; Vercel does not host its WebSocket relay.
 
 ## Family accounts and dashboards
 
 Choose **I’m a parent or guardian** on the welcome screen, or open `#family` for sign-in (`#family/signup` for registration). A parent creates an email/password account, records consent, and adds children aged 4–17 using a nickname, age and guide character. The dashboard shows each child’s game results, stars, category coverage, streak and recent activity across all 16 Bible games. Children use **My journey**; starting a child session locks parent access until the password is entered again. Family accounts do not depend on ChatGPT sign-in.
 
-`server/family.mjs` uses the existing Cloudflare D1 binding. `drizzle/0002_family.sql` adds accounts, children, scoped sessions, individual game results and authentication rate limits. Passwords use salted PBKDF2; session tokens are random and only hashes are stored. Cookies are HttpOnly, SameSite=Strict and Secure on HTTPS. Write requests require the same origin. Reads and writes check family ownership and child scope. Repeated result IDs count once. Dates and streaks in family accounts use UTC. Offline completion times come from the device clock, capped to the past year; results are practice scores reported by the game, not an independently verified assessment.
+`server/family.mjs` runs in the deployed `kairos-family` Supabase Edge Function. `server/family-postgres.mjs` binds its queries to the private `kairos_games` schema. `supabase/migrations/20261025220759_kairos_games_family.sql` adds accounts, children, scoped sessions, individual game results and authentication rate limits. The existing family password/session system is retained; it is independent of the older Kharis application’s Supabase Auth users. Passwords use salted PBKDF2; session tokens are random and only hashes are stored. Cookies are HttpOnly, SameSite=Strict and Secure on HTTPS. Write requests require the same origin. Reads and writes check family ownership and child scope. Repeated result IDs count once. Dates and streaks in family accounts use UTC. Offline completion times come from the device clock, capped to the past year; results are practice scores reported by the game, not an independently verified assessment.
 
 Completed games queue locally when offline and retry when the connection returns or **Sync now** is selected. If browser storage is blocked, pending results remain in memory only until the page closes. Older device-only profiles remain available and are not silently uploaded or merged into new family profiles. Email ownership verification and password recovery are not connected; keep the family password safe. Device-only profiles and their grown-up maths check remain a separate option.
 
-`npm run dev` applies the migration to local D1. A production release must apply `0002_family.sql` to the production `DB` binding and deploy the rebuilt Worker. Building alone does not update the live website. Vercel forwards the family API and its dedicated cookie to the original Kairos Worker; deploy that Worker and its migration first. Sessions are separate on each site hostname, but signing in with the same family credentials retrieves the same children and results. `/api/profile` continues to use the separate hosted arcade identity.
+`npm run dev` applies local D1 migrations for multiplayer and starts the app connected to the real Supabase family backend. Both the Worker and Vercel relay family requests to Supabase. The Kharis project (`yrqkafiqwllkphroztqk`) is restored and the family migration and Edge Function are deployed. Building alone does not update the public website; deploy the merged frontend/Worker separately. Sessions are separate on each site hostname, but signing in with the same family credentials retrieves the same children and results. `/api/profile` continues to use the separate hosted arcade identity.
 
 Additional checks:
 
@@ -104,3 +104,29 @@ The browser flow covers family registration, parent locking, offline results, re
 ## Kairos World integration
 
 Together now includes **Kairos World**, imported from the local KairosLife game. Run `npm run dev` and open `http://127.0.0.1:4173/#multiplayer`. Choose a player, then enter the world. KairosHub's existing landing page is preserved. See [world-runtime/README.md](world-runtime/README.md) for builds, source models, local progress, and backend limitations.
+
+
+## Expanded game resources and replay
+
+All 16 Bible games use larger bundled banks and per-player replay bags saved under `kairos-replay-v1:`. A bag uses its available content before reshuffling; reloading the page does not restart the rotation. Storage failure falls back to memory. Questions, clues and story summaries are original paraphrases with Scripture references. KJV verse and scavenger-hunt excerpts were checked against the public-domain KJV text served by [HelloAO](https://bible.helloao.org/api/eng_kjv/books.json).
+
+| Resource | Previous | Expanded |
+| --- | ---: | ---: |
+| Quiz / Trivia / Jeopardy questions | 38 | 220 |
+| KJV excerpts | 16 | 56 |
+| Word-search sets | 3 | 29 |
+| Crossword boards | 1 | 12 |
+| Charades / Pictionary prompts | 12 | 70 |
+| Character clue sets | 6 | 48 |
+| Ordered stories | 3 | 28 |
+| Scripture hunts | 5 | 36 |
+| Map locations | 8 | 31 |
+| Escape puzzles | 4 | 40 |
+| Memory names | 8 | 65 |
+| Hangman names | 6 | 63 |
+
+Bingo draws distinct answer tiles. Map rounds show four candidate pins to keep the expanded atlas usable on phones. Crosswords rotate complete boards, rather than repeating the same six clues. Round sizes remain 9 Quiz questions, 8 Trivia questions, 6 verse/map rounds, 5 hunts or party prompts, 4 character/escape rounds, 3 story sequences or hangman names, and 6 Memory pairs. Difficulty levels remain separate in Quiz and Jeopardy.
+
+Scroll Quest shares the larger question bank (253 questions), older verse games have 60 passages, and Armor Up and Fruit Garden each have seven scenarios per item or virtue. The latest Kairos World integration is retained; its 24-chapter story campaign and world saves remain separate, device-local features.
+
+Run `node --test content-expansion.test.mjs supabase.test.mjs` and `node tests/content-browser.mjs` alongside the existing checks.

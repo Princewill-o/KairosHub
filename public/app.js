@@ -461,7 +461,11 @@ window.addEventListener("kairos:bible-complete", () => {
 window.addEventListener('kairos:sync', () => {
   document.querySelectorAll('[data-family-sync]').forEach(el => el.textContent = syncStatus());
 });
-restoreFamily().finally(route);
+if ((accounts.active() && !accounts.active().cloud) || location.hash.startsWith('#family')) route();
+else {
+  document.querySelector('#app').innerHTML = '<main><p role="status">Opening your journey…</p></main>';
+  restoreFamily().finally(route);
+}
 installColorMode(theme,value=>{theme=value;save();});
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});

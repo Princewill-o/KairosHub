@@ -1,5 +1,8 @@
 import {makeWorld,movePlayer,COLS,ROWS} from './adventure-engine.mjs';
-import {freshRound,shuffleWith} from './random.mjs';
+import {shuffleWith} from './random.mjs';
+import {createReplayDecks} from './bible/replay.mjs';
+import {accounts} from './accounts.mjs';
+const freshRound=createReplayDecks({playerId:()=>accounts.active()?.id});
 import {trivia} from './extra-content.mjs';
 export function adventureGame(c,kind){
  let world,player,questions,keys=new Set(),paused=false,disposed=false,raf,last=0,near=null,steps=0,missteps=0,activeQuestion=false,path=[],collected=0;

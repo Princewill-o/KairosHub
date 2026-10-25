@@ -123,3 +123,26 @@ export const escapeRooms=[
  {title:'The letter shelf',prompt:'Unscramble the name on the letter: L U A P',answer:'Paul',ref:'Romans 1:1'},
  {title:'The final doorway',prompt:'The inscription says: “The LORD is my ____.” Complete the line to open the door.',answer:'shepherd',ref:'Psalm 23:1 (KJV)'},
 ];
+
+import {extraQuestions,extraVerses,extraWordSets,extraPrompts,extraCharacters,extraStories,extraHunts,extraLocations,extraCrosswords,extraEscapeRooms,extraNames} from './extra-content.mjs';
+questions.push(...extraQuestions);
+verses.push(...extraVerses);
+wordSets.push(...extraWordSets);
+prompts.push(...extraPrompts);
+characters.push(...extraCharacters);
+stories.push(...extraStories);
+hunts.push(...extraHunts);
+locations.push(...extraLocations);
+escapeRooms.push(...extraEscapeRooms);
+export const crosswords=[crossword,...extraCrosswords];
+export const memoryLabels=[...new Set(['Noah','Ruth','David','Mary','Moses','Esther','Jonah','Daniel',...extraNames])];
+export const hangmanWords=[...new Set(memoryLabels.filter(name=>/^[A-Za-z]{3,12}$/.test(name)).map(name=>name.toUpperCase()))];
+
+const resources={
+ trivia:`${questions.filter(q=>q.level<3).length} questions`,quiz:`${questions.length} questions`,jeopardy:`${questions.length} clues`,
+ 'word-search':`${wordSets.length} word sets`,crossword:`${crosswords.length} crosswords`,memory:`${memoryLabels.length} names to match`,
+ verse:`${verses.length} KJV excerpts`,charades:`${prompts.length} story prompts`,pictionary:`${prompts.length} drawing prompts`,
+ hangman:`${hangmanWords.length} Bible names`,bingo:`${new Set(questions.filter(q=>q.level===1).map(q=>q.answer)).size} possible answers`,
+ scavenger:`${hunts.length} Scripture hunts`,character:`${characters.length} clue sets`,ordering:`${stories.length} story sequences`,map:`${locations.length} places`,escape:`${escapeRooms.length} puzzles`,
+};
+for(const game of bibleGames)game.resources=resources[game.id];
