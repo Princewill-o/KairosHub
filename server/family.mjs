@@ -92,7 +92,7 @@ async function throttle(db, key) {
   const now = Date.now();
   await db
     .prepare(
-      "INSERT INTO family_auth_limits (key,count,expires_at) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN expires_at < ? THEN 1 ELSE count+1 END, expires_at=CASE WHEN expires_at < ? THEN excluded.expires_at ELSE expires_at END",
+      "INSERT INTO family_auth_limits (key,count,expires_at) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN family_auth_limits.expires_at < ? THEN 1 ELSE family_auth_limits.count+1 END, expires_at=CASE WHEN family_auth_limits.expires_at < ? THEN excluded.expires_at ELSE family_auth_limits.expires_at END",
     )
     .bind(key, now + 15 * 60000, now, now)
     .run();
@@ -376,6 +376,7 @@ export async function handleFamily(request, env) {
     }
     return json({ error: "Not found." }, 404);
   } catch (error) {
+    if (!error.status) console.error("Family database failure", error.code || error.name);
     return json(
       {
         error: error.status

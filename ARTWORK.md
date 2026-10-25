@@ -41,3 +41,9 @@ Prompts: four original child explorers in a cel-shaded PS2-inspired storybook st
 ## Individual Bible game badges (October 2026)
 
 `public/assets/games/*.svg` contains 16 original hand-authored vector emblems, created in response to the request for better individual game logos. The reproducible source is `scripts/game-badges.mjs`. These use SVG paths, geometric shapes and short letter labels rather than an icon font, emoji or generated bitmap. They share the parchment, plum, violet and gold palette with the existing site. No third-party artwork is embedded, and no supplied pack or provenance/license file was modified. The original supplied PNG icons remain available for shared interface elements.
+
+## Kairos World assets (20 October 2026)
+
+`public/world3d`, `public/world`, `public/characters`, `public/campaign`, and `public/brand/kharis-mark.png` were copied from the user's local KairosLife project for this integration. Original Blender sources for the church, bus, mountains, toy residents and four Bible scenes are retained in `world-runtime/art-sources/`, alongside their generation scripts. The reference-based Kharis model and Kharis mark retain the original project's provenance; this integration asserts no new rights over church branding or user-supplied references. The preview on Together is a render of the imported church model.
+
+Kenney kit license files supplied with the original assets are retained in `world-runtime/art-sources/licenses/`. World artwork is used within the game and is not distributed as a standalone asset pack. Existing KairosHub artwork and license files remain intact.

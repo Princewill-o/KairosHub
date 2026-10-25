@@ -5,9 +5,10 @@ export function installColorMode(initial,onChange){
   if(!host)return;
   let button=host.querySelector('.theme-toggle');
   if(!button){button=document.createElement('button');button.type='button';button.className='theme-toggle';host.append(button);}
-  const label=mode==='dark'?'Light':'Dark';
+  const modeName=mode==='dark'?'Light':'Dark';
+  const label=button.closest('.header-settings')?`Use ${modeName.toLowerCase()} mode`:modeName;
   if(button.textContent!==label)button.textContent=label;
-  const aria=`Switch to ${label.toLowerCase()} mode`;
+  const aria=`Switch to ${modeName.toLowerCase()} mode`;
   if(button.getAttribute('aria-label')!==aria)button.setAttribute('aria-label',aria);
  };
  document.documentElement.dataset.theme=mode;

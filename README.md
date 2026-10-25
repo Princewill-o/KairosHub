@@ -100,3 +100,7 @@ node tests/family-browser.mjs
 ```
 
 The browser flow covers family registration, parent locking, offline results, retries, reloads, a second browser, sibling isolation, logout, offline reloads, blocked browser storage and phone/desktop layouts. Run it against the local development server; it creates fictional test families. It requires an installed Playwright Chromium browser (`npx playwright install chromium --only-shell`).
+
+## Kairos World integration
+
+Together now includes **Kairos World**, imported from the local KairosLife game. Run `npm run dev` and open `http://127.0.0.1:4173/#multiplayer`. Choose a player, then enter the world. KairosHub's existing landing page is preserved. See [world-runtime/README.md](world-runtime/README.md) for builds, source models, local progress, and backend limitations.
