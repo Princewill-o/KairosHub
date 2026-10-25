@@ -17,7 +17,7 @@ export function mountWelcome(app, { onDone }) {
   document.documentElement.dataset.audience = "welcome";
 
   const shell = (inner, { back = true } = {}) => {
-    app.innerHTML = `<main class="wl"><header class="wl-top">${back && state.history.length ? '<button type="button" class="wl-back" data-act="back">Back</button>' : "<span></span>"}<span class="wl-brand">${dove}<span>Kairos<b>Games</b></span></span><span></span></header><section class="wl-card" aria-live="polite">${inner}</section><p class="wl-small">KairosGames keeps children’s details to a first name or nickname. Grown-ups manage accounts for players under 16.</p></main>`;
+    app.innerHTML = `<main class="wl"><header class="wl-top">${back && state.history.length ? '<button type="button" class="wl-back" data-act="back">Back</button>' : "<span></span>"}<span class="wl-brand">${dove}<span>Kairos<b>Games</b></span></span><span></span></header><p class="wl-small"><a href="#family">Parent dashboard · Family sign in</a></p><section class="wl-card" aria-live="polite">${inner}</section><p class="wl-small">KairosGames keeps children’s details to a first name or nickname. Grown-ups manage accounts for players under 16.</p></main>`;
     app.querySelector('[data-act="back"]')?.addEventListener("click", back_);
     const h = app.querySelector("h1");
     if (h) {
@@ -51,9 +51,9 @@ export function mountWelcome(app, { onDone }) {
           : `<p class="wl-lead">Bible games for the whole family. Tell us who’s here and we’ll set things up.</p>`
       }
       <div class="wl-choices">
-        <button type="button" class="wl-choice" data-act="self"><span class="wl-choice-art">${guide("cheer", { character: "ama", age: "kid" })}</span><strong>I’m playing</strong><small>Set up your player</small></button>
-        <button type="button" class="wl-choice" data-act="parent"><span class="wl-choice-art">${guide("wave", { character: "theo", age: "adult" })}</span><strong>I’m a parent or guardian</strong><small>Set up your family</small></button>
-      </div>`,
+        <button type="button" class="wl-choice" data-act="self"><span class="wl-choice-art">${guide("cheer", { character: "ama", age: "kid" })}</span><strong>I’m playing</strong><small>Play on this device</small></button>
+        <button type="button" class="wl-choice" data-act="parent"><span class="wl-choice-art">${guide("wave", { character: "theo", age: "adult" })}</span><strong>I’m a parent or guardian</strong><small>Save online · Track their progress</small></button>
+      </div><p class="wl-small"><button class="kg-link" type="button" data-act="local-family">Set up a device-only family instead</button></p>`,
       { back: false },
     );
     app.querySelectorAll("[data-player]").forEach((b) =>
@@ -66,7 +66,8 @@ export function mountWelcome(app, { onDone }) {
       state.mode = "self";
       go("age");
     };
-    app.querySelector('[data-act="parent"]').onclick = () => {
+    app.querySelector('[data-act="parent"]').onclick = () => { location.hash = "#family/signup"; };
+    app.querySelector('[data-act="local-family"]').onclick = () => {
       state.mode = "parent";
       state.age = Math.max(state.age, 30);
       go("age");
@@ -93,7 +94,8 @@ export function mountWelcome(app, { onDone }) {
       out = app.querySelector("#age-value");
     let current = value,
       target = null,
-      settle = 0;
+      settle = 0,
+      initialized = false;
     const cell = () => bar.querySelector("[data-age]").getBoundingClientRect().width;
     const show = (n) => {
       current = Math.max(AGE.min, Math.min(AGE.max, n));
@@ -103,6 +105,7 @@ export function mountWelcome(app, { onDone }) {
       bar.querySelectorAll("[data-age]").forEach((b) => b.classList.toggle("on", Number(b.dataset.age) === current));
     };
     const scrollTo = (n, smooth = true) => {
+      initialized = true;
       show(n);
       target = current;
       clearTimeout(settle);
@@ -128,7 +131,7 @@ export function mountWelcome(app, { onDone }) {
     });
     bar.querySelectorAll("[data-age]").forEach((b) => (b.onclick = () => scrollTo(Number(b.dataset.age))));
     app.querySelectorAll("[data-step]").forEach((b) => (b.onclick = () => scrollTo(current + Number(b.dataset.step))));
-    requestAnimationFrame(() => scrollTo(value, false));
+    requestAnimationFrame(() => { if (!initialized) scrollTo(value, false); });
     app.querySelector("#age-next").onclick = () => {
       if (forChild) {
         state.childAge = current;
@@ -203,8 +206,8 @@ export function mountWelcome(app, { onDone }) {
   function parentForm(error = "") {
     const d = state.draft;
     shell(
-      `<h1>Set up your family</h1><p class="wl-lead">Use your email for the grown-up profile. Your child needs only a nickname and age for their player profile.</p>${error ? errorBox(error) : ""}
-      <details class="wl-parent-guidance"><summary>Before your child starts playing</summary><p>Play together for the first few rounds and choose an appropriate break time. Use a nickname that does not reveal your child’s full name, school or location.</p><p>Charades and Pictionary are played with people beside you. Online rooms include messages from other players: supervise these games and share room codes only with people you know.</p><p>This version saves profiles on this device. Its grown-up question is a shared-device check, not identity verification or a secure parental account. Verified online accounts are not connected yet.</p></details>
+      `<h1>Set up a device-only family</h1><p><a class="wl-btn" href="#family/signup">Save online with a family account</a></p><p class="wl-lead">This option saves profiles on this device. Use your email for the grown-up profile. Your child needs only a nickname and age for their player profile.</p>${error ? errorBox(error) : ""}
+      <details class="wl-parent-guidance"><summary>Before your child starts playing</summary><p>Play together for the first few rounds and choose an appropriate break time. Use a nickname that does not reveal your child’s full name, school or location.</p><p>Charades and Pictionary are played with people beside you. Online rooms include messages from other players: supervise these games and share room codes only with people you know.</p><p>Device-only profiles stay in this browser. The grown-up question is a shared-device check. Choose a family account above for password-protected access and online progress.</p></details>
       <form class="wl-form" novalidate>
         ${field("name", "Your first name", "text", d.pname, 'autocomplete="given-name" maxlength="20" required')}
         ${field("email", "Your email address", "email", d.pemail, 'autocomplete="email" required')}

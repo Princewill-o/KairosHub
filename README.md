@@ -38,7 +38,7 @@ The supplied specification informs content and interactions. The user's explicit
 
 ## Progress
 
-Solo mode, sound preference, best scores, completion counts, daily streaks, garden growth, mastered verses, and optional reflections are stored in this browser under `kairos-learning-v2`. Multiplayer room state, scores, messages, rate limits, expiry, and reconnect sessions are stored in Cloudflare D1. Secret chapter cards are only returned to the describer or after reveal.
+Device-only profiles retain local progress. Family accounts save the 16 Bible games’ per-child results, best scores, stars and streaks in D1, with an offline retry queue. Legacy solo mode, sound preference, garden growth, mastered verses and optional reflections remain in this browser under `kairos-learning-v2`. Multiplayer room state, scores, messages, rate limits, expiry, and reconnect sessions are stored in Cloudflare D1. Secret chapter cards are only returned to the describer or after reveal.
 
 Seeker mode has no deadline. Growth adds an elapsed-time indicator, a verse score time penalty, timed wisdom sorting, and timed Psalm recall. Pause and hidden tabs suspend game clocks; prayer speech pauses with the pause control. The garden, geography, and prayer games retain forgiving retries.
 
@@ -80,4 +80,23 @@ Checks: `node --test scripture.test.mjs` and `node tests/scripture-browser.mjs` 
 
 `vercel.json` serves `public/` and runs `/api/gateway` as a Node function. `node scripts/build-vercel.mjs` refreshes the offline manifest without bundling Unity. Deploy with `npx vercel --prod` after signing in.
 
-Scripture lookup runs directly on Vercel. Online Guess the Chapter rooms use the existing public Kairos backend at `https://kairos-story-games.packzpackz50.chatgpt.site`; keep that service running. The proxy forwards only room requests and bearer room tokens, never client-supplied account identity headers. Solo games and guest progress work on Vercel. Account sign-in opens the original Kairos site; its account session and browser-local progress are not shared across domains. LAN arcade multiplayer still requires the local `npm run lan` server; Vercel does not host its WebSocket relay.
+Scripture lookup runs directly on Vercel. Online Guess the Chapter rooms use the existing public Kairos backend at `https://kairos-story-games.packzpackz50.chatgpt.site`; keep that service running. The proxy forwards only room requests and bearer room tokens, never client-supplied account identity headers. Solo games, device-only profiles and the family dashboard work on Vercel once the updated Worker and family migration are deployed. The separate arcade account sign-in opens the original Kairos site; its account session and browser-local progress are not shared across domains. LAN arcade multiplayer still requires the local `npm run lan` server; Vercel does not host its WebSocket relay.
+
+## Family accounts and dashboards
+
+Choose **I’m a parent or guardian** on the welcome screen, or open `#family` for sign-in (`#family/signup` for registration). A parent creates an email/password account, records consent, and adds children aged 4–17 using a nickname, age and guide character. The dashboard shows each child’s game results, stars, category coverage, streak and recent activity across all 16 Bible games. Children use **My journey**; starting a child session locks parent access until the password is entered again. Family accounts do not depend on ChatGPT sign-in.
+
+`server/family.mjs` uses the existing Cloudflare D1 binding. `drizzle/0002_family.sql` adds accounts, children, scoped sessions, individual game results and authentication rate limits. Passwords use salted PBKDF2; session tokens are random and only hashes are stored. Cookies are HttpOnly, SameSite=Strict and Secure on HTTPS. Write requests require the same origin. Reads and writes check family ownership and child scope. Repeated result IDs count once. Dates and streaks in family accounts use UTC. Offline completion times come from the device clock, capped to the past year; results are practice scores reported by the game, not an independently verified assessment.
+
+Completed games queue locally when offline and retry when the connection returns or **Sync now** is selected. If browser storage is blocked, pending results remain in memory only until the page closes. Older device-only profiles remain available and are not silently uploaded or merged into new family profiles. Email ownership verification and password recovery are not connected; keep the family password safe. Device-only profiles and their grown-up maths check remain a separate option.
+
+`npm run dev` applies the migration to local D1. A production release must apply `0002_family.sql` to the production `DB` binding and deploy the rebuilt Worker. Building alone does not update the live website. Vercel forwards the family API and its dedicated cookie to the original Kairos Worker; deploy that Worker and its migration first. Sessions are separate on each site hostname, but signing in with the same family credentials retrieves the same children and results. `/api/profile` continues to use the separate hosted arcade identity.
+
+Additional checks:
+
+```sh
+node --test family.test.mjs family-client.test.mjs vercel-deployment.test.mjs
+node tests/family-browser.mjs
+```
+
+The browser flow covers family registration, parent locking, offline results, retries, reloads, a second browser, sibling isolation, logout, offline reloads, blocked browser storage and phone/desktop layouts. Run it against the local development server; it creates fictional test families. It requires an installed Playwright Chromium browser (`npx playwright install chromium --only-shell`).

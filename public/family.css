@@ -1,0 +1,438 @@
+.family-page {
+  max-width: 1240px;
+  margin: auto;
+  padding: 24px 28px 100px;
+  color: var(--kg-ink, #2e1a47);
+}
+.family-top,
+.family-heading,
+.family-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.family-top {
+  padding-bottom: 38px;
+}
+.family-top .brand-mark {
+  width: 44px;
+  height: 44px;
+}
+.family-heading {
+  align-items: flex-start;
+  margin: 12px 0 24px;
+}
+.family-heading h1,
+.family-auth h1 {
+  font-size: clamp(30px, 4.5vw, 52px);
+  line-height: 1.1;
+  letter-spacing: -1px;
+  max-width: 740px;
+  margin: 12px 0;
+}
+.family-heading p,
+.family-auth > p {
+  line-height: 1.7;
+  max-width: 610px;
+}
+.family-eyebrow {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #76539a;
+}
+.family-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.family-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 26px 0;
+}
+.family-stat {
+  padding: 22px;
+  border: 2px solid #3a2455;
+  border-radius: 18px;
+  background: #fffaf0;
+  box-shadow: 0 4px 0 #3a2455;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.family-stat:nth-child(2) {
+  background: #eee2fb;
+}
+.family-stat:nth-child(3) {
+  background: #fff0bb;
+}
+.family-stat strong {
+  font:
+    800 34px Fredoka,
+    system-ui;
+}
+.family-stat span {
+  font-weight: 800;
+  font-size: 13px;
+}
+.family-layout {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 26px;
+  align-items: start;
+}
+.family-sidebar {
+  position: sticky;
+  top: 20px;
+  border: 2px solid #3a2455;
+  background: #f6edff;
+  border-radius: 22px;
+  padding: 20px;
+}
+.family-sidebar h2 {
+  font-size: 22px;
+  margin: 0 0 18px;
+}
+.family-child {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 8px;
+  margin-bottom: 12px;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+}
+.family-child.selected {
+  background: #fffaf0;
+  border-color: #6b3fa0;
+  box-shadow: 0 3px 0 #6b3fa0;
+}
+.family-child > svg {
+  width: 46px;
+  height: 52px;
+  flex-shrink: 0;
+}
+.family-child span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.family-child small {
+  font-size: 11px;
+}
+.family-sidebar details {
+  border-top: 1px solid #c6b0da;
+  padding-top: 18px;
+  margin-top: 20px;
+}
+.family-sidebar summary {
+  font-weight: 800;
+  cursor: pointer;
+}
+.family-detail {
+  padding: 26px;
+  background: #fffaf0;
+  border: 2px solid #3a2455;
+  border-radius: 22px;
+  box-shadow: 0 5px 0 #3a2455;
+  min-width: 0;
+}
+.family-detail .family-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.family-detail .family-stat {
+  padding: 14px 10px;
+  box-shadow: none;
+  border: 0;
+}
+.family-detail .family-stat strong {
+  font-size: 28px;
+}
+.family-detail .family-stat span {
+  font-size: 11px;
+}
+.family-section-title h2 {
+  margin: 8px 0;
+}
+.family-section-title .kg-btn {
+  font-size: 13px;
+  white-space: normal;
+}
+.family-skills {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 24px;
+  margin-bottom: 30px;
+}
+.family-skills span {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.family-skills b {
+  font-size: 11px;
+}
+.family-page progress {
+  appearance: none;
+  width: 100%;
+  height: 10px;
+  border: 0;
+  background: #e8dfef;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.family-page progress::-webkit-progress-bar {
+  background: #e8dfef;
+  border-radius: 10px;
+}
+.family-page progress::-webkit-progress-value {
+  background: #8b5bbb;
+  border-radius: 10px;
+}
+.family-page progress::-moz-progress-bar {
+  background: #8b5bbb;
+}
+.family-game-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.family-game {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #ded0e8;
+  border-radius: 14px;
+  padding: 10px;
+  min-width: 0;
+}
+.family-game img {
+  width: 58px;
+  height: 58px;
+  flex-shrink: 0;
+}
+.family-game > div {
+  min-width: 0;
+  flex: 1;
+}
+.family-game strong {
+  display: block;
+  font-size: 13px;
+}
+.family-game small {
+  display: block;
+  font-size: 11px;
+  margin: 5px 0;
+}
+.family-game progress {
+  height: 6px;
+}
+.family-activity {
+  padding: 0;
+  list-style: none;
+}
+.family-activity li {
+  padding: 13px 0;
+  border-bottom: 1px solid #e8dfef;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.family-activity small {
+  display: block;
+  font-size: 11px;
+  margin-top: 5px;
+}
+.family-foot {
+  font-size: 12px;
+  line-height: 1.7;
+  opacity: 0.8;
+  margin-top: 24px;
+}
+.family-auth {
+  max-width: 600px;
+  margin: 20px auto 50px;
+  padding: 32px;
+  background: #fffaf0;
+  border: 2px solid #3a2455;
+  border-radius: 24px;
+  box-shadow: 0 6px 0 #3a2455;
+}
+.family-auth-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 24px 0;
+}
+.family-auth-tabs .kg-btn {
+  flex: 1;
+  white-space: normal;
+  font-size: 14px;
+}
+.family-page form {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+.family-page label {
+  display: grid;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 14px;
+}
+.family-page input:not([type="checkbox"]),
+.family-page select {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 2px solid #b89aca;
+  border-radius: 12px;
+  background: #fff;
+  color: #2e1a47;
+  font: inherit;
+}
+.family-page .family-consent {
+  display: flex;
+  align-items: flex-start;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.family-consent input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.family-page [data-family-message] {
+  color: #9f293e;
+  font-weight: 800;
+}
+.family-page [data-family-message]:empty {
+  display: none;
+}
+.family-page button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.family-empty {
+  text-align: center;
+  padding: 36px 22px;
+  line-height: 1.7;
+}
+.family-empty-guide {
+  width: 170px;
+  height: 190px;
+}
+.family-sync {
+  padding: 14px 18px;
+  border: 2px solid #bba0ce;
+  border-radius: 14px;
+  background: #f5ecfc;
+  margin: 18px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+.family-sync p {
+  margin: 0;
+  font-size: 13px;
+}
+.family-page :focus-visible {
+  outline: 3px solid #c48b1f;
+  outline-offset: 4px;
+}
+@media (max-width: 760px) {
+  .family-page {
+    padding: 18px 16px 90px;
+  }
+  .family-heading {
+    flex-direction: column;
+  }
+  .family-tools {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .family-layout {
+    grid-template-columns: 1fr;
+  }
+  .family-sidebar {
+    position: static;
+  }
+  .family-child {
+    max-width: 100%;
+  }
+  .family-detail {
+    padding: 18px 14px;
+  }
+  .family-detail .family-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .family-game-grid {
+    grid-template-columns: 1fr;
+  }
+  .family-section-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .family-skills {
+    grid-template-columns: 1fr;
+  }
+  .family-stats {
+    gap: 8px;
+  }
+  .family-stat {
+    padding: 14px 10px;
+  }
+  .family-stat strong {
+    font-size: 28px;
+  }
+  .family-stat span {
+    font-size: 11px;
+  }
+  .family-auth {
+    padding: 24px 18px;
+  }
+  .family-top {
+    padding-bottom: 18px;
+  }
+  .family-top .brand {
+    font-size: 20px;
+  }
+  .family-top .kg-btn {
+    font-size: 12px;
+    padding: 10px;
+  }
+}
+html[data-theme="dark"] .family-page {
+  color: #2e1a47;
+}
+html[data-theme="dark"] .family-heading,
+html[data-theme="dark"] .family-top,
+html[data-theme="dark"] .family-page > .family-foot {
+  color: #f5eaff;
+}
+
+.family-page button.kg-link {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  color: #6b3fa0;
+  cursor: pointer;
+  padding: 8px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}

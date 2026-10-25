@@ -1,4 +1,11 @@
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, primaryKey } from 'drizzle-orm/sqlite-core';
 export const rooms=sqliteTable('rooms',{code:text('code').primaryKey(),state:text('state').notNull(),revision:integer('revision').notNull().default(0),expiresAt:integer('expires_at').notNull()},t=>[index('idx_rooms_expires_at').on(t.expiresAt)]);
 export const rateLimits=sqliteTable('rate_limits',{key:text('key').primaryKey(),count:integer('count').notNull(),expiresAt:integer('expires_at').notNull()},t=>[index('idx_rate_limits_expires_at').on(t.expiresAt)]);
 export const arcadeProfiles=sqliteTable('arcade_profiles',{userId:text('user_id').primaryKey(),data:text('data').notNull(),updatedAt:integer('updated_at').notNull()});
+
+// Family authentication is separate from the optional hosted arcade identity.
+export const familyAccounts=sqliteTable('family_accounts',{id:text('id').primaryKey(),name:text('name').notNull(),email:text('email').notNull().unique(),passwordHash:text('password_hash').notNull(),salt:text('salt').notNull(),consentAt:integer('consent_at').notNull(),createdAt:integer('created_at').notNull()});
+export const familyChildren=sqliteTable('family_children',{id:text('id').primaryKey(),familyId:text('family_id').notNull().references(()=>familyAccounts.id,{onDelete:'cascade'}),name:text('name').notNull(),age:integer('age').notNull(),character:text('character').notNull().default('kai'),createdAt:integer('created_at').notNull()},t=>[index('family_children_owner').on(t.familyId)]);
+export const familySessions=sqliteTable('family_sessions',{tokenHash:text('token_hash').primaryKey(),familyId:text('family_id').notNull().references(()=>familyAccounts.id,{onDelete:'cascade'}),childId:text('child_id').references(()=>familyChildren.id,{onDelete:'cascade'}),expiresAt:integer('expires_at').notNull()},t=>[index('family_sessions_expiry').on(t.expiresAt)]);
+export const learningResults=sqliteTable('learning_results',{childId:text('child_id').notNull().references(()=>familyChildren.id,{onDelete:'cascade'}),eventId:text('event_id').notNull(),gameId:text('game_id').notNull(),score:integer('score').notNull(),completedAt:integer('completed_at').notNull()},t=>[primaryKey({columns:[t.childId,t.eventId]}),index('learning_results_child_date').on(t.childId,t.completedAt)]);
+export const familyAuthLimits=sqliteTable('family_auth_limits',{key:text('key').primaryKey(),count:integer('count').notNull(),expiresAt:integer('expires_at').notNull()});

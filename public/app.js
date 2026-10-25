@@ -1,3 +1,5 @@
+import {mountFamily} from './family.mjs';
+import {restoreFamily, familyApi, loadCloudProgress, syncStatus} from './family-client.mjs';
 import {installScriptureReader} from './scripture.mjs';
 import {installColorMode} from './color-mode.mjs';
 import {mountLanding} from './landing.mjs';
@@ -92,7 +94,14 @@ function welcome() {
   stop();
   const app = document.querySelector("#app");
   mountWelcome(app, {
-    onDone: () => {
+    onDone: async () => {
+      if (accounts.active()?.cloud) {
+        try {
+          const session = await familyApi('/session');
+          if (session.role !== 'child' || session.child.id !== accounts.active().id) { location.hash = '#family'; return; }
+          await loadCloudProgress(accounts.active());
+        } catch { location.hash = '#family'; return; }
+      }
       applyAudience();
       if (location.hash === "#bible") route();
       else location.hash = "#bible";
@@ -102,7 +111,8 @@ function welcome() {
 function currentStreak() {
   const meta = readBibleMeta();
   if (!meta.lastDay) return 0;
-  const gap = Math.round((Date.parse(new Date().toLocaleDateString("en-CA")) - Date.parse(meta.lastDay)) / 86400000);
+  const day = accounts.active()?.cloud ? new Date().toISOString().slice(0, 10) : new Date().toLocaleDateString("en-CA");
+  const gap = Math.round((Date.parse(day) - Date.parse(meta.lastDay)) / 86400000);
   return gap <= 1 ? Number(meta.streak) || 0 : 0;
 }
 function streakLabel() {
@@ -115,6 +125,21 @@ function header(view = "home") {
 }
 async function logOut() {
   if (isKids() && !(await grownUpCheck(document.body))) return;
+  if (accounts.active()?.cloud) {
+    try { await familyApi('/logout', {}); }
+    catch {
+      let note = document.querySelector('#family-logout-error');
+      if (!note) {
+        note = document.createElement('p');
+        note.id = 'family-logout-error';
+        note.className = 'family-sync';
+        note.setAttribute('role', 'alert');
+        document.querySelector('#app').prepend(note);
+      }
+      note.textContent = 'Could not end your family session. Reconnect and try logging out again.';
+      return;
+    }
+  }
   accounts.signOut();
   location.hash = "#welcome";
 }
@@ -231,18 +256,18 @@ function collection() {
   const starImgs = (n) => [0, 1, 2].map((i) => `<img src="assets/ui/yellow-star-filled.png" alt="" class="${i < n ? "on" : "off"}">`).join("");
   const next = bibleGames.filter((g) => !records[g.id]?.runs).slice(0, 3);
   document.querySelector("#app").innerHTML =
-    `${header("collection")}<main class="collection kg-journey"><header class="kg-journey-head"><div><h1>${escapeHtml(accounts.active()?.name || "My")}’s journey</h1><p>Every game you finish earns stars. Come back each day to grow your streak.</p></div>${kai(played.length ? "cheer" : "wave", { cls: "kg-journey-kai" })}</header><a class="kg-my-character" href="#character">${kai("wave", { bust: true })}<span><small>Your character</small><strong>${escapeHtml(currentCharacter().name)}</strong></span><span class="kg-my-character-cta">Change</span></a><div class="kg-account-actions"><button type="button" class="kg-switch-player" id="switch-player">Switch player</button><button type="button" class="kg-switch-player kg-logout" id="logout-journey">Log out</button></div><div class="stat-grid"><article>${icon("Star")}<b>${stars}<small>/${bibleGames.length * 3}</small></b><span>stars earned</span></article><article>${icon("Flag")}<b>${played.length}<small>/${bibleGames.length}</small></b><span>games played</span></article><article>${icon("Clock")}<b>${streak}</b><span>day${streak === 1 ? "" : "s"} in a row</span></article><article>${icon("trophy")}<b>${rounds}</b><span>games finished</span></article></div>${
+    `${header("collection")}<main class="collection kg-journey"><header class="kg-journey-head"><div><h1>${escapeHtml(accounts.active()?.name || "My")}’s journey</h1><p>Every game you finish earns stars. Come back each day to grow your streak.</p></div>${kai(played.length ? "cheer" : "wave", { cls: "kg-journey-kai" })}</header><a class="kg-my-character" href="#character">${kai("wave", { bust: true })}<span><small>Your character</small><strong>${escapeHtml(currentCharacter().name)}</strong></span><span class="kg-my-character-cta">Change</span></a><div class="family-sync"><p data-family-sync>${escapeHtml(syncStatus())}</p><a class="kg-link" href="#family">Parent dashboard</a>${accounts.active()?.cloud?'<button class="kg-link" id="family-sync-retry">Sync now</button>':''}</div><div class="kg-account-actions"><button type="button" class="kg-switch-player" id="switch-player">Switch player</button><button type="button" class="kg-switch-player kg-logout" id="logout-journey">Log out</button></div><div class="stat-grid"><article>${icon("Star")}<b>${stars}<small>/${bibleGames.length * 3}</small></b><span>stars earned</span></article><article>${icon("Flag")}<b>${played.length}<small>/${bibleGames.length}</small></b><span>games played</span></article><article>${icon("Clock")}<b>${streak}</b><span>day${streak === 1 ? "" : "s"} in a row</span></article><article>${icon("trophy")}<b>${rounds}</b><span>games finished</span></article></div>${
       played.length
         ? `<section class="journal-section"><h2>Games I’ve played</h2><div class="kg-journey-grid">${played
-            .map((g) => `<a class="kg-journey-card" href="#bible/${g.id}" style="--game-tint:${g.color}"><img class="kg-icon" src="assets/icons/${g.icon}.png" alt=""><span><strong>${escapeHtml(g.title)}</strong><small>Best ${Number(records[g.id].best) || 0}% · played ${Number(records[g.id].runs) || 0} time${Number(records[g.id].runs) === 1 ? "" : "s"}</small></span><span class="kg-stars small" role="img" aria-label="${bibleStars(records[g.id])} of 3 stars">${starImgs(bibleStars(records[g.id]))}</span></a>`)
+            .map((g) => `<a class="kg-journey-card" href="#bible/${g.id}" style="--game-tint:${g.color}"><img class="kg-icon" src="assets/games/${g.id}.svg" alt=""><span><strong>${escapeHtml(g.title)}</strong><small>Best ${Number(records[g.id].best) || 0}% · played ${Number(records[g.id].runs) || 0} time${Number(records[g.id].runs) === 1 ? "" : "s"}</small></span><span class="kg-stars small" role="img" aria-label="${bibleStars(records[g.id])} of 3 stars">${starImgs(bibleStars(records[g.id]))}</span></a>`)
             .join("")}</div></section>`
         : `<div class="empty-state kg-empty-journey">${kai("read", { cls: "kg-empty-kai" })}<p>Your journey starts with your first game.</p><a class="kg-btn kg-btn-gold" href="#bible">Choose a game</a></div>`
     }${
       next.length && played.length
-        ? `<section class="journal-section"><h2>Try something new</h2><div class="kg-journey-grid">${next.map((g) => `<a class="kg-journey-card is-new" href="#bible/${g.id}" style="--game-tint:${g.color}"><img class="kg-icon" src="assets/icons/${g.icon}.png" alt=""><span><strong>${escapeHtml(g.title)}</strong><small>${escapeHtml(g.tag)}</small></span></a>`).join("")}</div></section>`
+        ? `<section class="journal-section"><h2>Try something new</h2><div class="kg-journey-grid">${next.map((g) => `<a class="kg-journey-card is-new" href="#bible/${g.id}" style="--game-tint:${g.color}"><img class="kg-icon" src="assets/games/${g.id}.svg" alt=""><span><strong>${escapeHtml(g.title)}</strong><small>${escapeHtml(g.tag)}</small></span></a>`).join("")}</div></section>`
         : ""
     }${
-      progress.journal.length
+      !accounts.active()?.cloud && progress.journal.length
         ? `<section class="journal-section"><h2>My reflections</h2>${progress.journal
             .slice()
             .reverse()
@@ -251,6 +276,8 @@ function collection() {
         : ""
     }${footer()}</main>`;
   bindHeader();
+  const retry = document.querySelector('#family-sync-retry');
+  if (retry) retry.onclick = async () => { retry.disabled = true; await loadCloudProgress(accounts.active()); collection(); };
   document.querySelector("#switch-player").onclick = logOut;
   document.querySelector("#logout-journey").onclick = logOut;
 }
@@ -377,6 +404,13 @@ function route() {
     window.scrollTo(0,0);
     return;
   }
+  if (hash === "family" || hash === "family/signup") {
+    stop();
+    document.documentElement.dataset.audience = 'welcome';
+    activeModule = mountFamily(document.querySelector('#app'), {signup:hash === 'family/signup'});
+    window.scrollTo(0, 0);
+    return;
+  }
   if (hash === "welcome") {
     welcome();
     window.scrollTo(0, 0);
@@ -411,7 +445,10 @@ window.addEventListener("kairos:bible-complete", () => {
   const pill = document.querySelector("#streak-pill span");
   if (pill) pill.textContent = streakLabel();
 });
-route();
+window.addEventListener('kairos:sync', () => {
+  document.querySelectorAll('[data-family-sync]').forEach(el => el.textContent = syncStatus());
+});
+restoreFamily().finally(route);
 installColorMode(theme,value=>{theme=value;save();});
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});

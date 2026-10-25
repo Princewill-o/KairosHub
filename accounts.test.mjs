@@ -51,3 +51,15 @@ test('storage failures do not break sign-up',()=>{
  const a=createAccounts(broken);const p=a.signUpSelf({name:'Leo',age:20,email:'l@x.co',emailConfirm:'l@x.co',agreed:true});
  assert.equal(a.active().id,p.id);assert.equal(a.saved,false);
 });
+
+test('accounts remain usable when accessing localStorage itself is denied',()=>{
+ const original=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
+ Object.defineProperty(globalThis,'localStorage',{configurable:true,get(){throw Error('Storage denied');}});
+ try{const a=createAccounts();const p=a.signUpSelf({name:'Sam',age:19,email:'s@x.co',emailConfirm:'s@x.co',agreed:true});assert.equal(a.active().id,p.id);assert.equal(a.saved,false);}
+ finally{if(original)Object.defineProperty(globalThis,'localStorage',original);else delete globalThis.localStorage;}
+});
+test('restoring a cloud child keeps the guide chosen on this device',()=>{
+ const a=createAccounts(memory()),child={id:'cloud-one',name:'Ama',age:9,character:'ama'};
+ a.importCloudChild(child);a.update(child.id,{character:'mei'});a.importCloudChild(child);
+ assert.equal(a.active().character,'mei');assert.equal(a.active().cloud,true);assert.equal(a.players().length,1);
+});

@@ -37,3 +37,7 @@ Prompts: four original child explorers in a cel-shaded PS2-inspired storybook st
 ## Dove logo (October 2026)
 
 `public/assets/brand/dove.svg` and `dove-badge.svg` are vector traces of the dove-with-olive-branch line drawing the user supplied, keeping its exact shape and restyled in the site's cartoon look: white strokes, a plum outline and a hard offset shadow. `apple-touch-icon.png`, `icon-192.png` and `icon-512.png` are renders of the badge on a full violet square. They replace the Books icon as the site logo and app icon.
+
+## Individual Bible game badges (October 2026)
+
+`public/assets/games/*.svg` contains 16 original hand-authored vector emblems, created in response to the request for better individual game logos. The reproducible source is `scripts/game-badges.mjs`. These use SVG paths, geometric shapes and short letter labels rather than an icon font, emoji or generated bitmap. They share the parchment, plum, violet and gold palette with the existing site. No third-party artwork is embedded, and no supplied pack or provenance/license file was modified. The original supplied PNG icons remain available for shared interface elements.

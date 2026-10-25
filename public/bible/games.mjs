@@ -1,3 +1,4 @@
+import {cloudProgress, syncStatus} from '../family-client.mjs';
 import {
   bibleGames,
   questions,
@@ -43,7 +44,7 @@ const button = (label, action, extra = "") =>
 const primary = (label, action, extra = "") =>
   button(label, action, `class="kg-btn" ${extra}`);
 const gameIcon = (game, cls = "") =>
-  `<img class="kg-icon ${cls}" src="/assets/icons/${game.icon}.png" alt="">`;
+  `<img class="kg-icon ${cls}" src="/assets/games/${game.id}.svg" alt="">`;
 const tick =
   '<svg class="kg-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const cross =
@@ -70,6 +71,7 @@ const signal = (name, detail) => {
 };
 
 export function readBibleProgress() {
+  if (accounts.active()?.cloud && cloudProgress()) return cloudProgress().records;
   try {
     const p = JSON.parse(localStorage.getItem(storeKey()) || "{}") || {};
     return typeof p === "object" && !Array.isArray(p) ? p : {};
@@ -78,6 +80,7 @@ export function readBibleProgress() {
   }
 }
 export function readBibleMeta() {
+  if (accounts.active()?.cloud && cloudProgress()) return cloudProgress().meta;
   try {
     return JSON.parse(localStorage.getItem(metaKey()) || "{}") || {};
   } catch {
@@ -141,7 +144,7 @@ export function mountBible(root, id = "") {
   <div class="bible-filters" role="group" aria-label="Show games by type">${["All", "Knowledge", "Puzzles", "Together", "Explore"].map((v, i) => button(v, "filter", `aria-pressed="${i === 0}" data-category="${v}" class="kg-chip kg-chip-${v.toLowerCase()}"`)).join("")}</div>
 </div>
 <div id="bible-grid" class="bible-game-grid"></div>
-<p class="bible-small">Questions and summaries are written for Kairos. Bible quotations are from the King James Version (KJV). Progress is saved on this device.</p>
+<p class="bible-small">Questions and summaries are written for Kairos. Bible quotations are from the King James Version (KJV). ${accounts.active()?.cloud ? "Progress syncs to your family account." : "Progress is saved on this device."}</p>
 </section>`;
     let category = "All";
     const draw = () => {
@@ -264,6 +267,10 @@ export function mountBible(root, id = "") {
         root.querySelector('[data-do="again"]').onclick = start;
         root.querySelector("h1").focus();
         signal("kairos:bible-complete", { id, score: best });
+        if (accounts.active()?.cloud) {
+          const note = root.querySelector('.kg-result-actions');
+          note.insertAdjacentHTML('beforebegin', `<p class="bible-small" data-family-sync>${esc(syncStatus())}</p>`);
+        }
         signal("kairos:feedback", { ok: true });
       },
     };

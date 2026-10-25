@@ -1,6 +1,6 @@
-// Player accounts for this device. Front-end only: no passwords are collected or stored.
-// The host platform can listen for the "kairos:account" window event to create real accounts,
-// send verification emails and record parental consent on its own servers.
+// Non-secret device profiles and the local cache of server-owned child profiles.
+// Family authentication, consent and sessions live in server/family.mjs.
+// Device-only signup continues to announce kairos:account for existing integrations.
 export const AGE = { min: 4, max: 99, self: 16, adult: 18 };
 const STORE = "kairos-accounts-v1";
 
@@ -30,7 +30,10 @@ const checkAge = (age) => {
 const id = (prefix) =>
   prefix + "-" + (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36));
 
-export function createAccounts(storage = globalThis.localStorage) {
+export function createAccounts(storage) {
+  if (arguments.length === 0) {
+    try { storage = globalThis.localStorage; } catch { storage = null; }
+  }
   let data = { parents: [], players: [], active: null };
   let saved = true;
   try {
@@ -71,6 +74,18 @@ export function createAccounts(storage = globalThis.localStorage) {
   };
 
   return {
+    importCloudChild(child) {
+      const player = {id: child.id, name: child.name, age: child.age, character: child.character, band: bandFor(child.age), parentId: "cloud-family", cloud: true};
+      const existing = data.players.findIndex(p => p.id === player.id);
+      if (existing >= 0) {
+        player.character = data.players[existing].character || player.character;
+        data.players[existing] = player;
+      }
+      else data.players.push(player);
+      data.active = player.id;
+      persist();
+      return {...player};
+    },
     get saved() {
       return saved;
     },

@@ -1,0 +1,7 @@
+project_id = "yrqkafiqwllkphroztqk"
+
+[functions.kairos-family]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/kairos-family/index.ts"
+import_map = "./functions/kairos-family/deno.json"
