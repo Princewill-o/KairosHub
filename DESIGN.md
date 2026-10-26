@@ -36,3 +36,5 @@ All 16 Bible games have distinct original SVG badges in `public/assets/games/`, 
 ## Content variety
 
 The Bible library now rotates expanded content using `public/bible/replay.mjs`. Bags are independent per player and per activity, persist between visits, and fall back to in-memory rotation when storage is blocked. Larger banks do not make rounds longer. Crossword boards rotate as complete playable layouts; Bingo avoids duplicate answer tiles; the map shows four candidate pins per round. Resource counts appear on game intros. Shared Scripture questions and excerpts also feed Scroll Quest and the older verse games.
+
+Kairos World is temporarily locked at the user's request. Its preview appears as a non-interactive Coming soon card, with a link back to available Bible games. Direct World navigation shows the same notice without mounting the game iframe. Saved progress remains visible in My journey without an active return-to-world link.

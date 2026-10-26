@@ -1,3 +1,4 @@
+import {WORLD_ENABLED,worldLockedDocument} from '../public/world-availability.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -42,7 +43,7 @@ if(bootstrap){
   const packages=new Set();for(const name of Object.keys(result.metafile.inputs)){const normal=name.replaceAll('\\','/'),tail=normal.split('/node_modules/').at(-1);if(normal.includes('/node_modules/'))packages.add(tail.startsWith('@')?tail.split('/').slice(0,2).join('/'):tail.split('/')[0]);}
   console.log(`Imported ${count} runtime source modules. Packages: ${[...packages].sort().join(', ')}`);
 }
-await fs.writeFile(path.join(root,'public/world/index.html'),'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Kairos World</title><link rel="stylesheet" href="/world/app.css"></head><body><div id="world-root"></div><script type="module" src="/world/app.js"></script></body></html>');
+await fs.writeFile(path.join(root,'public/world/index.html'),WORLD_ENABLED ? '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Kairos World</title><link rel="stylesheet" href="/world/app.css"></head><body><div id="world-root"></div><script type="module" src="/world/app.js"></script></body></html>' : worldLockedDocument());
 const cssPath=path.join(root,'world-runtime/world.css');
 const css=await postcss([tailwind({base:path.join(root,'world-runtime')})]).process(await fs.readFile(cssPath,'utf8'),{from:cssPath,to:path.join(root,'public/world/app.css')});
 await fs.writeFile(path.join(root,'public/world/app.css'),css.css+'\nhtml,body,#world-root{height:100%;margin:0;overflow:hidden}#world-root>div{height:100dvh!important}\n');

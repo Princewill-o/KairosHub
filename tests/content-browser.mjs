@@ -87,14 +87,19 @@ try {
   await page.goto(base + "#multiplayer");
   await page.locator(".world-invitation").waitFor();
   await fits("Together");
-  await page.locator(".world-invitation").click();
-  await page.locator(".world-help").waitFor();
-  await page.locator(".world-help").click();
-  await page.locator(".world-guide[open]").waitFor();
-  assert.match(await page.locator(".world-guide").textContent(), /WASD/);
+  assert.match(await page.locator('.world-locked').textContent(), /Coming soon/);
+  assert.equal(await page.locator('a[href="#world"]').count(), 0);
+  await page.goto(base + '#world');
+  await page.locator('.world-locked').waitFor();
+  assert.equal(await page.locator('iframe').count(), 0);
+  await fits('locked World');
+  await page.goto(base + 'world/index.html');
+  await page.locator('.world-locked').waitFor();
+  assert.equal(await page.locator('script[src*="app.js"],iframe').count(), 0);
+  await fits('direct locked entry');
   assert.deepEqual(errors, []);
   console.log(
-    "PASS expanded-content browser: 18 distinct quiz questions across reload, varied crosswords, bounded quest rounds, accessible map choices and merged Kairos World entry.",
+    "PASS expanded-content browser: 18 distinct quiz questions across reload, varied crosswords, bounded quest rounds, accessible map choices and locked Kairos World entries.",
   );
 } finally {
   await browser.close();

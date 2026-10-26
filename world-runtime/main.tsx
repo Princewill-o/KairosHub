@@ -1,3 +1,4 @@
+import {WORLD_ENABLED,worldLockedCard} from '../public/world-availability.mjs';
 import React, {useState,useEffect} from 'react';
 import { createRoot } from 'react-dom/client';
 import { WorldApp } from '@/components/game/world/world-app';
@@ -10,6 +11,7 @@ const element=document.getElementById('world-root')!;
 let mounted=false;
 let originalStorage:Storage|null=null;try{originalStorage=window.localStorage;}catch{}
 function mount(profile:{id:string;name:string}){
+  if(!WORLD_ENABLED){element.innerHTML=worldLockedCard();return;}
   if(mounted)return;mounted=true;
   // The iframe has its own storage view, scoped to the selected KairosHub player.
   const prefix=`kairos-world:${profile.id}:`;

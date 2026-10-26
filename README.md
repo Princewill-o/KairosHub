@@ -130,3 +130,7 @@ Bingo draws distinct answer tiles. Map rounds show four candidate pins to keep t
 Scroll Quest shares the larger question bank (253 questions), older verse games have 60 passages, and Armor Up and Fruit Garden each have seven scenarios per item or virtue. The latest Kairos World integration is retained; its 24-chapter story campaign and world saves remain separate, device-local features.
 
 Run `node --test content-expansion.test.mjs supabase.test.mjs` and `node tests/content-browser.mjs` alongside the existing checks.
+
+## Kairos World temporarily locked
+
+Kairos World is currently unavailable while it is unfinished. Together and `#world` display a Coming soon notice; the standalone `/world/index.html` entry also shows the notice without loading the game. The runtime refuses to mount while `WORLD_ENABLED` is false in `public/world-availability.mjs`. Existing source, artwork and saved progress are preserved. Re-enabling it requires changing the flag and rebuilding.

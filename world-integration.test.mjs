@@ -21,7 +21,7 @@ test('world progress is isolated per player and works without device storage',()
 });
 test('Together offers only Kairos World with no chapter room entry points',async()=>{
  const app=await readFile('public/app.js','utf8');
- assert.match(app,/href="#world"/);assert.match(app,/mountKairosWorld/);assert.doesNotMatch(app,/activeModule=multiplayer|party-root|Guess the Chapter/);
+ assert.match(app,/worldLockedCard/);assert.match(app,/mountKairosWorld/);assert.doesNotMatch(app,/activeModule=multiplayer|party-root|Guess the Chapter/);
  const landing=await readFile('public/landing.mjs','utf8');assert.doesNotMatch(landing,/Guess the Chapter|shared room code/);
 });
 test('world bridge validates message source and only sends selected profile identity',async()=>{
@@ -34,4 +34,11 @@ test('world bridge validates message source and only sends selected profile iden
 });
 test('heavy world assets are excluded from initial offline installation',async()=>{
  const offline=await readFile('scripts/offline.mjs','utf8');assert.match(offline,/world3d/);
+});
+
+test('unfinished World shows a locked notice and never mounts its iframe',async()=>{
+ const {mountKairosWorld,worldJourney}=await import('./public/kairos-world.mjs');
+ const root={innerHTML:''};mountKairosWorld(root,{id:'test',name:'Kai'});
+ assert.match(root.innerHTML,/Coming soon/);assert.doesNotMatch(root.innerHTML,/<iframe/);
+ assert.doesNotMatch(worldJourney({id:'test'}),/href="#world"/);
 });
