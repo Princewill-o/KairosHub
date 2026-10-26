@@ -1,0 +1,9 @@
+{
+  "source": "https://raw.githubusercontent.com/midvash/bible-data/main/versions/en/kjv/kjv.json",
+  "sha256": "952c4b97e500261f183afa82d997909139797d6830fe464d1d7b45a7c130397d",
+  "books": 66,
+  "verses": 31102,
+  "questions": 170,
+  "chapters": 1189,
+  "batches": 78
+}
