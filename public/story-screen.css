@@ -1,0 +1,460 @@
+/* Viewport story stage. The reading panel scrolls internally; navigation remains in the stage toolbar. */
+html.story-playing,
+html.story-playing body {
+  overflow: hidden;
+}
+.story-playing .topbar,
+.story-playing .mobile-tabs,
+.story-playing .scripture-reader {
+  display: none !important;
+}
+.pm-player {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  margin: 0;
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: #16121f;
+  color: #fff6e8;
+  overflow: hidden;
+  font: 16px/1.6 var(--kg-body, system-ui);
+}
+.pm-player .pm-player-top {
+  flex: 0 0 auto;
+  padding: 10px 22px;
+  margin: 0;
+  min-height: 54px;
+  color: #fff6e8;
+  background: #1e1829;
+  border-bottom: 1px solid #695571;
+  box-sizing: border-box;
+}
+.pm-player .pm-player-top > span {
+  color: #eadced;
+}
+.pm-player .pm-player-top .pm-button {
+  border-color: #9c86a7;
+  color: #fff8eb !important;
+  background: #33273f;
+  min-height: 44px;
+}
+.pm-player .pm-player-top a {
+  color: #ffe0a0;
+}
+.pm-player .pm-chapter-progress {
+  flex: 0 0 auto;
+  padding: 8px 22px;
+  margin: 0;
+  gap: 7px;
+  background: #1e1829;
+}
+.pm-player .pm-chapter-progress > span {
+  padding: 4px 12px;
+  border-color: #594764;
+  background: #2c2337;
+  color: #d9cddd;
+  font-size: 12px;
+}
+.pm-player .pm-chapter-progress .is-current {
+  background: #f4cc82;
+  color: #2e2032;
+  border-color: #f4cc82;
+}
+.pm-player .pm-run-stats {
+  flex: 0 0 auto;
+  background: #1e1829;
+  color: #ead9ef;
+  margin: 0;
+  padding: 0 24px 8px;
+  font-size: 13px;
+}
+.pm-player .pm-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  height: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 20px 24px;
+  box-sizing: border-box;
+  isolation: isolate;
+  overflow: hidden;
+  background: #211a2b;
+}
+.pm-player .pm-stage-art {
+  position: absolute;
+  inset: auto;
+  top: 0;
+  left: 50%;
+  width: min(100%, calc((100dvh - 140px) * 2));
+  transform: translateX(-50%);
+  max-height: none;
+  height: auto;
+  aspect-ratio: 2/1;
+  background-size: 100% 300%;
+  background-position: center calc(var(--scene) * 50%);
+  z-index: -2;
+}
+.pm-player .pm-stage:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, #120f20c9, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+.pm-player .pm-scene-label {
+  position: absolute;
+  top: 16px;
+  left: 24px;
+  right: 24px;
+  align-self: start;
+  width: fit-content;
+  max-width: calc(100% - 48px);
+  gap: 22px;
+  padding: 8px 14px;
+  background: #17121ee8;
+  color: #fff2cf;
+  border: 1px solid #79637e;
+  border-radius: 8px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+.pm-player .pm-dialogue {
+  position: relative;
+  flex: 0 1 auto;
+  width: min(1000px, 100%);
+  align-self: center;
+  max-height: 51dvh;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: 100px 0 0;
+  padding: 22px 28px 25px;
+  box-sizing: border-box;
+  background: #fbf3e4;
+  color: #2b2032;
+  border: 1px solid #d9c4a2;
+  border-radius: 14px;
+  box-shadow: 0 12px 50px #0006;
+  scrollbar-color: #84628c #ede0c8;
+}
+.pm-player .pm-dialogue h2 {
+  font-size: clamp(23px, 2.6vw, 32px);
+  margin: 6px 0 13px;
+}
+.pm-player .pm-dialogue p {
+  font-size: 17px;
+  line-height: 1.65;
+  margin-bottom: 14px;
+}
+.pm-player .pm-dialogue .pm-speaker {
+  font-size: 12px;
+  color: #6b416e;
+}
+.pm-player .pm-choices {
+  gap: 8px;
+  margin-top: 12px;
+}
+.pm-player .pm-choices button {
+  min-height: 52px;
+  padding: 11px 16px;
+  font-size: 16px;
+}
+.pm-player .pm-save {
+  flex: 0 0 auto;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid #715b7e;
+  border-radius: 0;
+  padding: 8px 22px;
+  background: #1e1829;
+  color: #eee2f1;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.pm-player .pm-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.pm-interactions {
+  display: flex;
+  gap: 12px;
+  margin: 16px 0 10px;
+}
+.pm-interactions button {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 65px;
+  padding: 12px 16px;
+  border: 1px solid #80648c;
+  border-radius: 10px;
+  background: #32243e;
+  color: #fff6e6;
+  font: 700 15px/1.4 var(--kg-body);
+  text-align: left;
+  cursor: pointer;
+}
+.pm-interactions button:hover {
+  background: #5b3c6d;
+}
+.pm-interactions button span {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #f4cc82;
+  text-transform: uppercase;
+}
+.pm-interactions button b {
+  font-size: 17px;
+}
+.pm-player .pm-explore-hint {
+  font-size: 13px !important;
+  color: #625064;
+  font-weight: 700;
+}
+.pm-player .pm-epilogue {
+  border-left: 3px solid #ad8a46;
+  padding: 10px 16px;
+  background: #ecdfc7;
+  font-size: 15px;
+}
+.pm-player .pm-ending-stats {
+  margin: 12px 0;
+}
+.pm-player .pm-memory {
+  font-size: 14px;
+}
+.pm-player[data-stage="clip"] .pm-stage-art,
+.pm-player[data-stage="clip"] .pm-scene-label {
+  display: none;
+}
+.pm-player[data-stage="clip"] .pm-stage {
+  padding: 14px 24px;
+  justify-content: center;
+}
+.pm-player[data-stage="clip"] .pm-dialogue {
+  width: min(1080px, 100%);
+  max-height: 100%;
+  margin: 0;
+  padding: 18px 22px;
+}
+.pm-player .pm-video-slot {
+  padding: 0 !important;
+  display: block;
+  aspect-ratio: 16/9;
+  width: 100%;
+  max-height: 52dvh;
+  background: #100c17;
+  margin: 10px 0 8px;
+  overflow: hidden;
+}
+.pm-player .pm-video-slot iframe {
+  display: block;
+  width: 100%;
+  height: min(52dvh, calc(100vw * 0.5));
+  min-height: 200px;
+  aspect-ratio: 16/9;
+  border: 0;
+}
+.pm-player .pm-video-slot > p {
+  padding: 28px;
+  color: #fff;
+}
+.pm-player .pm-video-status {
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  margin: 8px 0 !important;
+  color: #60446b;
+  font-weight: 800;
+}
+.pm-player .pm-video-links {
+  gap: 12px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+.pm-player .pm-video-links .pm-button {
+  padding: 8px 12px;
+  min-height: 44px;
+  font-size: 13px;
+}
+.pm-player .pm-clip-note {
+  font-size: 14px !important;
+  margin: 10px 0;
+}
+.pm-player .pm-clip-captions {
+  margin: 10px 0;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+.pm-player .pm-reading {
+  font-size: 14px !important;
+}
+.story-playing dialog {
+  z-index: 100;
+}
+.pm-modal {
+  max-height: min(90dvh, 850px);
+}
+@media (max-width: 700px) {
+  .pm-player .pm-player-top {
+    padding: 8px 12px;
+    gap: 5px 8px;
+    min-height: 0;
+  }
+  .pm-player .pm-player-top > div {
+    margin-left: auto;
+    gap: 4px;
+  }
+  .pm-player .pm-player-top .pm-button {
+    font-size: 11px;
+    padding: 6px 8px;
+    min-height: 40px;
+  }
+  .pm-player .pm-player-top > a {
+    font-size: 13px;
+  }
+  .pm-player .pm-player-top > span {
+    order: 3;
+    width: 100%;
+    font-size: 12px;
+  }
+  .pm-player .pm-chapter-progress {
+    padding: 5px 12px;
+  }
+  .pm-player .pm-chapter-progress > span {
+    padding: 3px 8px;
+  }
+  .pm-player .pm-run-stats {
+    padding: 2px 14px 6px;
+    font-size: 12px;
+  }
+  .pm-player .pm-stage {
+    padding: 0;
+    justify-content: flex-start;
+    isolation: auto;
+  }
+  .pm-player .pm-stage:after {
+    display: none;
+  }
+  .pm-player .pm-stage-art {
+    position: relative;
+    inset: auto;
+    transform: none;
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 2/1;
+    background-size: 100% 300%;
+    z-index: 0;
+  }
+  .pm-player .pm-scene-label {
+    position: relative;
+    inset: auto;
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
+    border: 0;
+    border-radius: 0;
+    background: #17111f;
+    gap: 5px;
+    font-size: 10px;
+    padding: 7px 14px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .pm-player .pm-dialogue {
+    margin: 0;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    max-height: none;
+    border: 0;
+    border-top: 1px solid #b99ebd;
+    border-radius: 0;
+    padding: 16px 18px 22px;
+    box-shadow: none;
+    align-self: stretch;
+  }
+  .pm-player .pm-dialogue h2 {
+    font-size: 24px;
+  }
+  .pm-player .pm-dialogue p {
+    font-size: 16px;
+    line-height: 1.7;
+  }
+  .pm-player .pm-choices button {
+    font-size: 15px;
+    padding: 11px 12px;
+    min-height: 56px;
+  }
+  .pm-player .pm-save {
+    font-size: 13px;
+    padding: 8px 14px;
+  }
+  .pm-interactions {
+    gap: 8px;
+  }
+  .pm-interactions button {
+    padding: 10px 12px;
+    min-height: 65px;
+  }
+  .pm-interactions button b {
+    font-size: 15px;
+  }
+  .pm-player[data-stage="clip"] .pm-stage {
+    padding: 0;
+  }
+  .pm-player[data-stage="clip"] .pm-dialogue {
+    max-height: none;
+    flex: 1;
+    margin: 0;
+    padding: 18px 16px;
+  }
+  .pm-player .pm-video-slot {
+    max-height: none;
+    min-height: 200px;
+    aspect-ratio: auto;
+  }
+  .pm-player .pm-video-slot iframe {
+    height: calc((100vw - 32px) * 0.5625);
+    min-height: 200px;
+  }
+  .pm-player .pm-video-links {
+    gap: 8px;
+  }
+  .pm-player .pm-video-links a {
+    font-size: 12px;
+  }
+  .pm-modal {
+    width: calc(100vw - 24px);
+    max-height: 90dvh;
+  }
+}
+@media (max-height: 600px) and (min-width: 701px) {
+  .pm-player .pm-chapter-progress {
+    display: none;
+  }
+  .pm-player .pm-dialogue {
+    max-height: 62dvh;
+  }
+  .pm-player .pm-stage-art {
+    background-size: 100% 300%;
+  }
+  .pm-player .pm-save {
+    font-size: 12px;
+    padding: 5px 20px;
+  }
+}

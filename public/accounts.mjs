@@ -74,6 +74,14 @@ export function createAccounts(storage) {
   };
 
   return {
+    // Public preview identity is device-local and never a family session.
+    ensureGuest() {
+      const active=data.players.find(p=>p.id===data.active);
+      if(active&&!active.cloud)return {...active};
+      let guest=data.players.find(p=>p.guest===true&&!p.cloud);
+      if(!guest){guest={id:id('guest'),name:'Explorer',band:'guest',guest:true,character:'kai',createdAt:new Date().toISOString()};data.players.push(guest);}
+      data.active=guest.id;persist();return {...guest};
+    },
     importCloudChild(child) {
       const player = {id: child.id, name: child.name, age: child.age, character: child.character, band: bandFor(child.age), parentId: "cloud-family", cloud: true};
       const existing = data.players.findIndex(p => p.id === player.id);

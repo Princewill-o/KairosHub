@@ -18,7 +18,7 @@ Each game card shows its own original illustrated SVG badge. Answer buttons turn
 
 Guide characters (`public/bible/mascot.mjs`) are drawn in the same outlined style. Children choose one of five (Kai, Ama, Leo, Mei, Theo) at `#character`, reached from the hero and My journey; the choice is saved on the device under `kairos-guide-v1`, and Kai is the default. The chosen guide waves from the hero scene, reads a scroll on game intros, cheers or encourages beside answer feedback and results, thinks on the pause screen and in empty searches, and celebrates in My journey. Their eyes blink and the hero lamb nibbles only when reduced motion is off.
 
-The site logo is the dove with an olive branch the user supplied, traced to keep its exact shape and restyled with white strokes, a plum outline and a hard shadow (`public/assets/brand/`). It sits on a violet badge in the top bar and is used for the favicon and the Home Screen icons. The library has a "Coming soon" banner for PlayMessages, a bigger game still in development. It is deliberately not clickable.
+The site logo is the dove with an olive branch the user supplied, traced to keep its exact shape and restyled with white strokes, a plum outline and a hard shadow (`public/assets/brand/`). It sits on a violet badge in the top bar and is used for the favicon and the Home Screen icons. PlayMessages is now a playable story collection at `#messages`, linked from the library and the four-tab navigation. See `PLAYMESSAGES.md` for its current design and sources.
 
 ## Accounts, age check and two platforms (October 2026)
 

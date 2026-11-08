@@ -1,4 +1,7 @@
+import {mountCharacterStudio} from './character-studio.mjs';
+const PUBLIC_PLAY = true;
 import {worldLockedCard} from './world-availability.mjs';
+import {mountPlayMessages} from './playmessages.mjs';
 import {mountFamily} from './family.mjs';
 import {restoreFamily, familyApi, loadCloudProgress, syncStatus} from './family-client.mjs';
 import {mountKairosWorld,worldJourney} from './kairos-world.mjs';
@@ -85,12 +88,12 @@ function stop() {
   run = null;
 }
 function isKids() {
-  return accounts.active()?.band !== "adult";
+  return accounts.active()?.band === "kids";
 }
 function applyAudience() {
   const p = accounts.active();
-  document.documentElement.dataset.audience = p ? (p.band === "adult" ? "adult" : "kids") : "welcome";
-  document.title = p?.band === "adult" ? "KairosGames — Bible games" : "KairosGames Kids — Bible games for kids";
+  document.documentElement.dataset.audience = p?.band === 'kids' ? 'kids' : p?.band === 'adult' ? 'adult' : 'guest';
+  document.title = p?.band !== "kids" ? "KairosGames — Bible games" : "KairosGames Kids — Bible games for kids";
 }
 function welcome() {
   stop();
@@ -122,8 +125,8 @@ function streakLabel() {
   return n ? `${n}-day streak` : "Start a streak";
 }
 function header(view = "home") {
-  const nav = [["bible", "#bible", "Games"], ["multiplayer", "#multiplayer", "Play together"], ["collection", "#journey", "My journey"]];
-  return `<header class="topbar"><a class="brand" href="#bible" aria-label="${isKids() ? "KairosGames Kids" : "KairosGames"} home"><img class="brand-mark" src="assets/brand/dove-badge.svg" alt="" width="48" height="48"><span>Kairos<b>Games</b>${isKids() ? '<i class="kids-tag">Kids</i>' : ""}</span></a><nav class="retro-nav" aria-label="Main navigation">${nav.map(([id, href, label]) => `<a class="nav ${view === id || (id === "bible" && (view === "home" || view === "play")) ? "active" : ""}" href="${href}" ${view === id ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</nav><div class="top-tools"><span class="streak" id="streak-pill">${icon("Star")} <span>${streakLabel()}</span></span><a class="player-chip" href="#journey" aria-label="${escapeHtml(accounts.active()?.name || "")}, my journey">${kai("wave", { bust: true })}<span>${escapeHtml(accounts.active()?.name || "")}</span></a><details class="header-settings"><summary>Settings</summary><div class="header-settings-panel"><button type="button" class="theme-toggle" aria-label="Switch to ${theme === "dark" ? "light" : "dark"} mode">${theme === "dark" ? "Use light mode" : "Use dark mode"}</button><button type="button" class="sound-toggle" aria-label="${sound ? "Turn sound off" : "Turn sound on"}" aria-pressed="${sound}">${icon("Sound")}<span class="sound-label">Sound ${sound ? "on" : "off"}</span></button><button type="button" class="logout-button" id="logout-top">Log out</button></div></details></div></header>`;
+  const nav = [["bible", "#bible", "Games"], ["messages", "#messages", "PlayMessages"], ["multiplayer", "#multiplayer", "Play together"], ["collection", "#journey", "My journey"]];
+  return `<header class="topbar"><a class="brand" href="#bible" aria-label="${isKids() ? "KairosGames Kids" : "KairosGames"} home"><img class="brand-mark" src="assets/brand/dove-badge.svg" alt="" width="48" height="48"><span>Kairos<b>Games</b>${isKids() ? '<i class="kids-tag">Kids</i>' : ""}</span></a><nav class="retro-nav" aria-label="Main navigation">${nav.map(([id, href, label]) => `<a class="nav ${view === id || (id === "bible" && (view === "home" || view === "play")) ? "active" : ""}" href="${href}" ${view === id ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</nav><div class="top-tools"><span class="streak" id="streak-pill">${icon("Star")} <span>${streakLabel()}</span></span><a class="player-chip" href="#journey" aria-label="${escapeHtml(accounts.active()?.name || "")}, my journey">${kai("wave", { bust: true })}<span>${escapeHtml(accounts.active()?.name || "")}</span></a><details class="header-settings"><summary>Settings</summary><div class="header-settings-panel"><a class="customize-link" href="#character">Customize character</a><button type="button" class="theme-toggle" aria-label="Switch to ${theme === "dark" ? "light" : "dark"} mode">${theme === "dark" ? "Use light mode" : "Use dark mode"}</button><button type="button" class="sound-toggle" aria-label="${sound ? "Turn sound off" : "Turn sound on"}" aria-pressed="${sound}">${icon("Sound")}<span class="sound-label">Sound ${sound ? "on" : "off"}</span></button>${PUBLIC_PLAY ? '<a class="customize-link" href="#messages">PlayMessages stories</a>' : '<button type="button" class="logout-button" id="logout-top">Log out</button>'}</div></details></div></header>`;
 }
 async function logOut() {
   if (isKids() && !(await grownUpCheck(document.body))) return;
@@ -219,46 +222,7 @@ function home(view='home') {
  bindHeader();
  activeModule=mountBible(document.querySelector('#bible-root'));
 }
-function characterPage() {
-  stop();
-  let chosen = currentCharacter();
-  document.querySelector("#app").innerHTML =
-    `${header("collection")}<main class="kg-picker"><a href="#bible" class="kg-back">Games</a><header class="kg-picker-head"><h1>Choose your character</h1><p>Your character joins you in every game, cheers when you get it right and helps when you get stuck. You can change it at any time.</p></header><div class="kg-picker-layout"><section class="kg-picker-stage" aria-live="polite"><div id="picker-preview" class="kg-picker-preview"></div><h2 id="picker-name"></h2><p id="picker-about"></p><a class="kg-btn kg-btn-gold" href="#bible" id="picker-go">Play with ${escapeHtml(chosen.name)}</a></section><div class="kg-picker-grid" role="radiogroup" aria-label="Characters">${CHARACTERS.map(
-      (c) => `<button type="button" role="radio" class="kg-picker-card" data-character="${c.id}" aria-checked="${c.id === chosen.id}" tabindex="${c.id === chosen.id ? 0 : -1}" style="--card-tint:${c.top}"><span class="kg-picker-art">${kai("wave", { character: c.id })}</span><strong>${escapeHtml(c.name)}</strong></button>`,
-    ).join("")}</div></div><p class="kg-picker-status" id="picker-status" role="status"></p>${footer()}</main>`;
-  bindHeader();
-  const show = (c, celebrate) => {
-    document.querySelector("#picker-preview").innerHTML = kai(celebrate ? "cheer" : "wave", { character: c.id, label: `${c.name}, your character` });
-    document.querySelector("#picker-name").textContent = c.name;
-    document.querySelector("#picker-about").textContent = c.about;
-    document.querySelector("#picker-go").textContent = `Play with ${c.name}`;
-  };
-  const cards = [...document.querySelectorAll(".kg-picker-card")];
-  const pick = (card, focus = false) => {
-    const c = CHARACTERS.find((x) => x.id === card.dataset.character);
-    chosen = c;
-    cards.forEach((b) => {
-      b.setAttribute("aria-checked", String(b === card));
-      b.tabIndex = b === card ? 0 : -1;
-    });
-    if (focus) card.focus();
-    const saved = chooseCharacter(c.id);
-    show(c, true);
-    document.querySelector("#picker-status").textContent = saved
-      ? `${c.name} will join you in every game.`
-      : `${c.name} will join you until you close the page, because storage is turned off.`;
-  };
-  cards.forEach((card, i) => {
-    card.onclick = () => pick(card);
-    card.onkeydown = (e) => {
-      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
-      if (!step) return;
-      e.preventDefault();
-      pick(cards[(i + step + cards.length) % cards.length], true);
-    };
-  });
-  show(chosen, false);
-}
+function characterPage(){stop();document.querySelector('#app').innerHTML=header('collection')+'<main id="character-root"></main>';bindHeader();activeModule=mountCharacterStudio(document.querySelector('#character-root'),{onChange:()=>{const chip=document.querySelector('.player-chip .kai');if(chip)chip.outerHTML=kai('wave',{bust:true});}});}
 function collection() {
   stop();
   const records = readBibleProgress();
@@ -269,7 +233,7 @@ function collection() {
   const starImgs = (n) => [0, 1, 2].map((i) => `<img src="assets/ui/yellow-star-filled.png" alt="" class="${i < n ? "on" : "off"}">`).join("");
   const next = bibleGames.filter((g) => !records[g.id]?.runs).slice(0, 3);
   document.querySelector("#app").innerHTML =
-    `${header("collection")}<main class="collection kg-journey"><header class="kg-journey-head"><div><h1>${escapeHtml(accounts.active()?.name || "My")}’s journey</h1><p>Every game you finish earns stars. Come back each day to grow your streak.</p></div>${kai(played.length ? "cheer" : "wave", { cls: "kg-journey-kai" })}</header><a class="kg-my-character" href="#character">${kai("wave", { bust: true })}<span><small>Your character</small><strong>${escapeHtml(currentCharacter().name)}</strong></span><span class="kg-my-character-cta">Change</span></a><div class="family-sync"><p data-family-sync>${escapeHtml(syncStatus())}</p><a class="kg-link" href="#family">Parent dashboard</a>${accounts.active()?.cloud?'<button class="kg-link" id="family-sync-retry">Sync now</button>':''}</div><div class="kg-account-actions"><button type="button" class="kg-switch-player" id="switch-player">Switch player</button><button type="button" class="kg-switch-player kg-logout" id="logout-journey">Log out</button></div><div class="stat-grid"><article>${icon("Star")}<b>${stars}<small>/${bibleGames.length * 3}</small></b><span>stars earned</span></article><article>${icon("Flag")}<b>${played.length}<small>/${bibleGames.length}</small></b><span>games played</span></article><article>${icon("Clock")}<b>${streak}</b><span>day${streak === 1 ? "" : "s"} in a row</span></article><article>${icon("trophy")}<b>${rounds}</b><span>games finished</span></article></div>${worldJourney(accounts.active())}${
+    `${header("collection")}<main class="collection kg-journey"><header class="kg-journey-head"><div><h1>${escapeHtml(accounts.active()?.name || "My")}’s journey</h1><p>Every game you finish earns stars. Come back each day to grow your streak.</p></div>${kai(played.length ? "cheer" : "wave", { cls: "kg-journey-kai" })}</header><a class="kg-my-character" href="#character">${kai("wave", { bust: true })}<span><small>Your character</small><strong>${escapeHtml(currentCharacter().name)}</strong></span><span class="kg-my-character-cta">Change</span></a><div class="family-sync"><p data-family-sync>${escapeHtml(syncStatus())}</p>${PUBLIC_PLAY?'':'<a class="kg-link" href="#family">Parent dashboard</a>'}${accounts.active()?.cloud?'<button class="kg-link" id="family-sync-retry">Sync now</button>':''}</div>${PUBLIC_PLAY?'':'<div class="kg-account-actions"><button type="button" class="kg-switch-player" id="switch-player">Switch player</button><button type="button" class="kg-switch-player kg-logout" id="logout-journey">Log out</button></div>'}<div class="stat-grid"><article>${icon("Star")}<b>${stars}<small>/${bibleGames.length * 3}</small></b><span>stars earned</span></article><article>${icon("Flag")}<b>${played.length}<small>/${bibleGames.length}</small></b><span>games played</span></article><article>${icon("Clock")}<b>${streak}</b><span>day${streak === 1 ? "" : "s"} in a row</span></article><article>${icon("trophy")}<b>${rounds}</b><span>games finished</span></article></div>${worldJourney(accounts.active())}${
       played.length
         ? `<section class="journal-section"><h2>Games I’ve played</h2><div class="kg-journey-grid">${played
             .map((g) => `<a class="kg-journey-card" href="#bible/${g.id}" style="--game-tint:${g.color}"><img class="kg-icon" src="assets/games/${g.id}.svg" alt=""><span><strong>${escapeHtml(g.title)}</strong><small>Best ${Number(records[g.id].best) || 0}% · played ${Number(records[g.id].runs) || 0} time${Number(records[g.id].runs) === 1 ? "" : "s"}</small></span><span class="kg-stars small" role="img" aria-label="${bibleStars(records[g.id])} of 3 stars">${starImgs(bibleStars(records[g.id]))}</span></a>`)
@@ -291,8 +255,8 @@ function collection() {
   bindHeader();
   const retry = document.querySelector('#family-sync-retry');
   if (retry) retry.onclick = async () => { retry.disabled = true; await loadCloudProgress(accounts.active()); collection(); };
-  document.querySelector("#switch-player").onclick = logOut;
-  document.querySelector("#logout-journey").onclick = logOut;
+  if(document.querySelector("#switch-player"))document.querySelector("#switch-player").onclick = logOut;
+  if(document.querySelector("#logout-journey"))document.querySelector("#logout-journey").onclick = logOut;
 }
 function play(id) {
   stop();
@@ -410,6 +374,8 @@ function party() {
 }
 function route() {
   const hash = location.hash.slice(1);
+  if(PUBLIC_PLAY){accounts.ensureGuest();if(['welcome','family','family/signup'].includes(hash)){location.replace('#bible');return;}}
+  if(PUBLIC_PLAY&&!hash){location.replace('#bible');return;}
   if (!hash || hash === 'landing') {
     stop();
     document.documentElement.dataset.audience = 'landing';
@@ -442,6 +408,10 @@ function route() {
     bindHeader();
     activeModule = mountBible(document.querySelector("#bible-root"), hash.slice(6));
   }
+  else if(hash==="messages"||hash.startsWith("messages/")) {
+    stop();document.querySelector('#app').innerHTML=`${header('messages')}<main id="messages-root"></main>`;bindHeader();
+    activeModule=mountPlayMessages(document.querySelector('#messages-root'),hash.slice(9));
+  }
   else if(hash==="world") {stop();document.querySelector('#app').innerHTML='<main id="kairos-world-root"></main>';activeModule=mountKairosWorld(document.querySelector('#kairos-world-root'),accounts.active());}
   else if (hash==="multiplayer"||hash==="together") party();
   else if(/^room\/[A-Z2-9]{6}$/.test(hash)) location.replace('#multiplayer');
@@ -462,7 +432,7 @@ window.addEventListener("kairos:bible-complete", () => {
 window.addEventListener('kairos:sync', () => {
   document.querySelectorAll('[data-family-sync]').forEach(el => el.textContent = syncStatus());
 });
-if ((accounts.active() && !accounts.active().cloud) || location.hash.startsWith('#family')) route();
+if (PUBLIC_PLAY || (accounts.active() && !accounts.active().cloud) || location.hash.startsWith('#family')) route();
 else {
   document.querySelector('#app').innerHTML = '<main><p role="status">Opening your journey…</p></main>';
   restoreFamily().finally(route);

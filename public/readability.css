@@ -1,0 +1,117 @@
+/* Explicit text colours on the surface they sit on, in both colour modes. */
+html[data-theme] .mobile-tabs {
+  background: var(--kg-surface) !important;
+  color: var(--kg-ink) !important;
+  border-color: var(--kg-line-strong) !important;
+  backdrop-filter: none !important;
+}
+html[data-theme] .mobile-tabs a {
+  color: var(--kg-ink) !important;
+  opacity: 1 !important;
+}
+html[data-theme] .mobile-tabs a[aria-current="page"] {
+  background: var(--kg-violet) !important;
+  color: #fff !important;
+}
+html[data-theme] .bible-small,
+html[data-theme] footer,
+html[data-theme] .arcade-save,
+html[data-theme] .kg-result-save,
+html[data-theme] .family-sync,
+html[data-theme] [data-family-sync] {
+  color: var(--kg-ink);
+  font-size: 14px;
+  line-height: 1.7;
+  opacity: 1;
+}
+html[data-theme] .bible-small {
+  padding: 16px 20px;
+  background: var(--kg-surface);
+  border: 1px solid var(--kg-line-strong);
+  border-radius: 12px;
+}
+html[data-theme] .kg-who,
+html[data-theme] .kg-new {
+  font-size: 13px;
+  opacity: 1;
+}
+html[data-theme] .bible-game-card p {
+  color: var(--kg-ink);
+  opacity: 1;
+}
+html[data-theme] .bible-card-art {
+  background: #242229;
+  border-bottom: 1px solid #63566b;
+}
+html[data-theme] .bible-card-art .kg-icon {
+  width: 128px;
+  height: 128px;
+  padding: 4px;
+  image-rendering: auto;
+  filter: drop-shadow(0 9px 8px #0005);
+}
+html[data-theme] .kg-today .kg-icon {
+  background: #28232d;
+  image-rendering: auto;
+}
+.kg-playmessages-feature {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid #655169;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #241c30;
+  color: #fff4e6;
+  margin-top: 28px;
+}
+.kg-playmessages-feature .pm-art {
+  height: 100%;
+  min-height: 250px;
+  aspect-ratio: auto;
+  background-size: auto 300%;
+  background-position: center top;
+}
+.kg-playmessages-feature > div:last-child {
+  padding: 30px;
+}
+.kg-playmessages-feature h2 {
+  font: 900 32px/1.2 var(--kg-body);
+  color: #fff4e6;
+  margin: 8px 0 12px;
+}
+.kg-playmessages-feature p {
+  font-size: 16px;
+  line-height: 1.65;
+  color: #e7dce9;
+  margin: 0 0 20px;
+}
+html[data-theme] .mobile-tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+html[data-theme] .mobile-tabs a {
+  font-size: 12px;
+  color: var(--kg-ink);
+  opacity: 1;
+}
+html[data-theme] .mobile-tabs a[aria-current="page"] {
+  color: var(--kg-violet-text);
+  background: var(--kg-hover);
+}
+@media (max-width: 760px) {
+  .kg-playmessages-feature {
+    grid-template-columns: 1fr;
+  }
+  .kg-playmessages-feature .pm-art {
+    min-height: 0;
+    height: auto;
+    aspect-ratio: 2/1;
+    background-size: 100% 300%;
+  }
+  .kg-playmessages-feature > div:last-child {
+    padding: 24px;
+  }
+  .topbar .retro-nav {
+    display: none;
+  }
+}

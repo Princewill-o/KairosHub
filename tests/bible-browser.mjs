@@ -16,8 +16,8 @@ try{
  await page.goto(base+'#bible');
  if(await page.locator('#intro-skip').count())await page.locator('#intro-skip').click();
  assert.equal(await page.locator('.bible-game-card').count(),16);
- assert.match(await page.locator('.kg-soon').textContent(),/Coming soon[\s\S]*PlayMessages/);
- assert.equal(await page.locator('.kg-soon a, .kg-soon button').count(),0,'PlayMessages is not playable yet');
+ assert.match(await page.locator('.kg-playmessages-feature').textContent(),/PlayMessages/);
+ assert.equal(await page.locator('.kg-playmessages-feature a[href="#messages"]').count(),1,'PlayMessages is playable');
  assert.match(await page.locator('.brand-mark').getAttribute('src'),/dove/);
  assert.equal(await page.locator('.bible-card-art img').count(),16,'each card shows its icon');
  await fits('library');
@@ -25,7 +25,7 @@ try{
  const libraryLayout=await page.evaluate(()=>({
   firstGame:document.querySelector('.bible-game-card h2').getBoundingClientRect().bottom,
   navigation:document.querySelector('.mobile-tabs').getBoundingClientRect().top,
-  announcement:document.querySelector('.kg-soon').getBoundingClientRect().top,
+  announcement:document.querySelector('.kg-playmessages-feature').getBoundingClientRect().top,
   gamesEnd:document.querySelector('#bible-grid').getBoundingClientRect().bottom,
  }));
  assert.ok(libraryLayout.firstGame<libraryLayout.navigation,'a playable game title is visible above phone navigation without scrolling');

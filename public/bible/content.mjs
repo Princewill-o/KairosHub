@@ -125,6 +125,11 @@ export const escapeRooms=[
 ];
 
 import {extraQuestions,extraVerses,extraWordSets,extraPrompts,extraCharacters,extraStories,extraHunts,extraLocations,extraCrosswords,extraEscapeRooms,extraNames} from './extra-content.mjs';
+import {novemberQuestions,novemberPrompts,novemberWordSets,novemberStories} from './november-content.mjs';
+questions.push(...novemberQuestions.filter(n=>!questions.some(q=>q.prompt===n.prompt)&&!extraQuestions.some(q=>q.prompt===n.prompt)));
+prompts.push(...novemberPrompts.filter(n=>!prompts.some(p=>p.answer===n.answer)&&!extraPrompts.some(p=>p.answer===n.answer)));
+wordSets.push(...novemberWordSets);
+stories.push(...novemberStories.map(s=>({...s,events:s.steps})));
 questions.push(...extraQuestions);
 verses.push(...extraVerses);
 wordSets.push(...extraWordSets);

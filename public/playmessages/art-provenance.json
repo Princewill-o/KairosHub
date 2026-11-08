@@ -1,0 +1,59 @@
+{
+  "created": "2026-11-08",
+  "tool": "OpenAI built-in image generation",
+  "style": "Original contemporary cel-shaded visual novel illustrations. Angular black outlines, warm gold and plum lighting. User supplied style references; no reference text or UI is copied.",
+  "format": "Each WebP is a 1024 × 1536 three-scene atlas. Original generated PNG converted to WebP quality 88 without resizing or cropping. Runtime displays one scene at a time.",
+  "scenes": [
+    {
+      "id": "open-book",
+      "file": "open-book.webp",
+      "brief": "TOP: rainy London café, Aaron a tan young man with black spiky hair and navy hoodie receives a mysterious notebook from Nia, a black woman with tied braids and mustard jacket. MIDDLE: quiet library, the same two carefully compare an open Bible and two torn pages, warm desk lamp. BOTTOM: sunrise church courtyard, Aaron and Nia share their discoveries with a small diverse circle."
+    },
+    {
+      "id": "quiet-stage",
+      "file": "quiet-stage.webp",
+      "brief": "TOP: backstage at a church music rehearsal, Leah a black woman with short natural curls in a burgundy jumper faces Jay a brown-skinned man in a denim jacket beside a microphone. MIDDLE: empty softly lit sanctuary, Leah prays while Jay listens beside a piano. BOTTOM: intimate gathering in the church garden at blue hour, several friends singing without a stage."
+    },
+    {
+      "id": "still-waters",
+      "file": "still-waters.webp",
+      "brief": "Micah: South Asian man, short wavy hair, full beard, mustard raincoat, blue scarf. Mara: East Asian woman, bob, red glasses, turquoise coat. Mr Bennett: elderly silver-bearded white man, red flat cap, grey coat. Station in rain; sheltered woodland footbridge with Bible; riverbank supplies by shuttle bus."
+    },
+    {
+      "id": "deeper-roots",
+      "file": "deeper-roots.webp",
+      "brief": "TOP: Caleb, a black man with a flat top and forest green overshirt, proudly displays a shelf of sports trophies to Imani with braids and mustard jacket. MIDDLE: rooftop community garden, Caleb and Imani examine a small seedling with exposed roots beside an open Bible. BOTTOM: mature rooftop garden in golden light, Caleb mentors a new young adult friend."
+    },
+    {
+      "id": "new-name",
+      "file": "new-name.webp",
+      "brief": "TOP: Ada, a brown woman with curly shoulder-length hair and teal coat, pauses between a flashy shop window and a modest community centre, Ezra with cream jacket and glasses nearby. MIDDLE: Ada and Ezra share a meal with an older grey-haired black mentor in the centre. BOTTOM: dawn rooftop city panorama, Ada and friends complete a vibrant mural with no lettering."
+    },
+    {
+      "id": "the-small-things",
+      "file": "the-small-things.webp",
+      "brief": "TOP: Ruth with long natural curls and red coat discovers a lost wallet on a busy London bus beside a black teenage boy Eli with purple hoodie. MIDDLE: community centre office, Ruth and Eli face a pile of volunteer supplies and an older man in a rust cardigan. BOTTOM: cheerful neighbourhood food distribution outside the centre, volunteers reconcile over a crate of groceries."
+    },
+    {
+      "id": "through-the-storm",
+      "file": "through-the-storm.webp",
+      "brief": "TOP: Zara, a light brown woman with black bob and blue raincoat, sits outside a hospital in rain with Grace, a black woman in peach cardigan. MIDDLE: night kitchen, Grace listens to Zara across tea and an open Bible, a friend prepares food. BOTTOM: rain-washed park in morning sun, the women walk with a supportive group beneath trees."
+    },
+    {
+      "id": "borrowed-hours",
+      "file": "borrowed-hours.webp",
+      "brief": "TOP: Noah a brown man in orange sweatshirt surrounded by glowing screens and unfinished projects in an evening bedroom, Theo in green jacket and round glasses calls at the open door. MIDDLE: quiet dawn park bench, Noah and Theo plan their day with a notebook and Bible, no writing visible. BOTTOM: warm community hall evening, Noah is present at a table helping a younger friend while his phone lies face down."
+    },
+    {
+      "id": "the-return",
+      "file": "the-return.webp",
+      "brief": "TOP: Asher, a black young man in red hoodie, alone on a dusk pedestrian bridge after breaking a friend's camera, Naomi in white coat approaches. MIDDLE: quiet church porch, Asher talks honestly with Isaac and an older grey-haired black mentor. BOTTOM: warm workshop morning, Asher helps the friend repair the camera and they smile cautiously."
+    },
+    {
+      "id": "when-we-pray",
+      "file": "when-we-pray.webp",
+      "brief": "TOP: Esther a black woman with short curls and lavender cardigan and Tobi a brown woman in orange coat in a storm-lit apartment, a worrying letter on the table with no visible words. MIDDLE: intimate living room prayer circle with open Bible, the same women and two neighbours speaking together. BOTTOM: bright church courtyard, friends support one another while packing practical supplies, hopeful but no magical resolution."
+    }
+  ],
+  "icons": "16 original faceted SVG inventory objects; generated by scripts/low-poly-icons.mjs. No icon pack copied."
+}

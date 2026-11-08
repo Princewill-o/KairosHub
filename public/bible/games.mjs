@@ -168,11 +168,7 @@ export function mountBible(root, id = "") {
   <span class="kg-strip-stars"><img src="/assets/ui/yellow-star-filled.png" alt=""><b>${stars}</b> of ${bibleGames.length * 3} stars</span>
   <a href="#journey">See my journey</a>
 </div>
-<section class="kg-soon" aria-labelledby="soon-title">
-  <div class="kg-soon-art" aria-hidden="true">${kai("read")}</div>
-  <div class="kg-soon-copy"><span class="kg-soon-tag">Coming soon</span><h2 id="soon-title">PlayMessages</h2><p>A bigger game is on its way. We’re still building it, so check back soon.</p></div>
-  <svg class="kg-soon-lock" viewBox="0 0 48 56" aria-hidden="true"><path d="M13 24v-8a11 11 0 0 1 22 0v8" fill="none" stroke="#2e1a47" stroke-width="9" stroke-linecap="round"/><path d="M13 24v-8a11 11 0 0 1 22 0v8" fill="none" stroke="#f5b83d" stroke-width="4" stroke-linecap="round"/><rect x="4" y="22" width="40" height="30" rx="9" fill="#f5b83d" stroke="#2e1a47" stroke-width="3"/><circle cx="24" cy="35" r="4" fill="#2e1a47"/><path d="M24 37v6" stroke="#2e1a47" stroke-width="3" stroke-linecap="round"/></svg>
-</section>
+<section class="kg-playmessages-feature" aria-labelledby="playmessages-title"><div class="pm-art" role="img" aria-label="Aaron and Nia discover a story in a rainy London café" style="background-image:url('/playmessages/art/open-book.webp')"></div><div><span class="pm-kicker">NEW · 10 PLAYABLE STORIES</span><h2 id="playmessages-title">PlayMessages</h2><p>Different people. Real choices. Step into original stories inspired by David Antwi’s messages, with sermon cutscenes and conclusions shaped by you.</p><a class="pm-button pm-gold" href="#messages">Choose your story →</a></div></section>
 <p class="bible-small"><strong>${questions.length} questions · ${verses.length} KJV excerpts · ${prompts.length} story prompts.</strong> Questions and summaries are written for Kairos. Bible quotations are from the King James Version (KJV). ${accounts.active()?.cloud ? "Progress syncs to your family account." : "Progress is saved on this device."}</p>
 </section>`;
     let category = "All", players = "all";
