@@ -32,7 +32,8 @@ import { homeFurniture } from "./home-furniture";
 import { makeNameplate, updateNameplateSpeech } from "./nameplate";
 import { PASSENGERS, RIDE, TRAIN_CALL } from "./train-state";
 import { M25 } from "@/game/core/world";
-import { AMBULANCE_ARRIVES, CRASH } from "./world-events";
+import { MALL_SHOPS } from "@/game/core/lobbies";
+import { AMBULANCE_ARRIVES, CRASH, DELIVERY_RUN, SCENE_READY, VEIL } from "./world-events";
 import { riverGeometry, riverSurface } from "./water-style3d";
 
 import type { WorldAffiliation } from "@/game/core/affiliation";
@@ -1770,6 +1771,110 @@ function motorway(world: THREE.Group) {
   return g;
 }
 
+/**
+ * Walk-in lobbies and the mall: arcade cabinets with glowing screens, story
+ * kiosks, lounge sofas, a theatre screen, shopfronts with stock, a fountain
+ * and a reception desk, all built to the map's lobby description.
+ */
+function lobbyDecor(world: THREE.Group, map: WorldMap) {
+  const lobby = map.lobby!;
+  const g = new THREE.Group();
+  world.add(g);
+  const glow = (c: string) => new THREE.MeshBasicMaterial({ color: c, toneMapped: false });
+  // Floor pattern and a big name on the back wall.
+  for (let x = 1; x < map.cols - 1; x += 2) for (let z = 1; z < map.rows - 1; z += 2) if ((x + z) % 4 === 0) box(g, lobby.style === "mall" ? "#efe9dc" : "#2c2140", x, 0.004, z, x + 2, 0.008, z + 2);
+  const title = sign(map.name, { bg: "#120c18", fg: "#ffd27a", w: Math.min(10, map.cols - 4), h: 0.8, font: "bold 72px sans-serif" });
+  title.position.set(map.cols / 2, lobby.style === "mall" ? 3.6 : 3.3, 1.02);
+  g.add(title);
+  // Ceiling light panels (thin, so the top-down camera still sees in).
+  for (let x = 3; x < map.cols - 2; x += 6) { const l = box(g, "#fff1c9", x, 3.0, map.rows / 2 - 0.1, x + 2, 3.04, map.rows / 2 + 0.1); l.material = glow("#fff3d6"); }
+  for (const c of lobby.cabinets) {
+    const cab = new THREE.Group();
+    const cx = c.face === "s" ? c.x + 1 : c.x + 0.5, cz = c.face === "s" ? c.y + 0.5 : c.y + 1;
+    cab.position.set(cx, 0, cz);
+    cab.rotation.y = c.face === "s" ? 0 : c.face === "e" ? Math.PI / 2 : -Math.PI / 2;
+    g.add(cab);
+    if (lobby.style === "arcade" || lobby.style === "library" || lobby.style === "theatre") {
+      // Arcade cabinet: body, marquee, angled screen with the game's name, control deck.
+      box(cab, "#1f1a24", -0.7, 0, -0.45, 0.7, 2.3, 0.35);
+      box(cab, c.colour, -0.72, 0.2, -0.47, -0.62, 2.3, 0.37);
+      box(cab, c.colour, 0.62, 0.2, -0.47, 0.72, 2.3, 0.37);
+      const marquee = sign(c.label, { bg: c.colour, fg: "#ffffff", w: 1.36, h: 0.32, font: "bold 40px sans-serif" });
+      marquee.position.set(0, 2.12, 0.37);
+      cab.add(marquee);
+      const screen = sign(lobby.style === "library" ? "Begin the story" : "PRESS E TO PLAY", { bg: "#0c0b14", fg: "#7dfcb6", w: 1.1, h: 0.75, font: "bold 40px monospace" });
+      screen.position.set(0, 1.45, 0.36);
+      screen.rotation.x = -0.18;
+      cab.add(screen);
+      box(cab, "#2a2433", -0.7, 0.85, 0.2, 0.7, 1.0, 0.75);
+      for (const [x, colour] of [[-0.35, "#e8506a"], [0, "#f5c518"], [0.35, "#3d8bd9"]] as const) cyl(cab, colour, x, 0.55, 1.0, 1.06, 0.07, 8);
+      const pool = box(cab, c.colour, -0.9, 0.002, 0.4, 0.9, 0.01, 1.4);
+      pool.material = new THREE.MeshBasicMaterial({ color: c.colour, transparent: true, opacity: 0.35 });
+    } else {
+      // Lounge kiosk: a soft-lit screen on a stand with a sofa.
+      box(cab, "#efe6d2", -0.6, 0, -0.3, 0.6, 1.1, 0.3);
+      const screen = sign(c.label, { bg: c.colour, fg: "#ffffff", w: 1.2, h: 0.7, font: "bold 40px sans-serif" });
+      screen.position.set(0, 1.6, 0.05);
+      cab.add(screen);
+    }
+  }
+  const mid = Math.floor(map.cols / 2);
+  if (lobby.style !== "mall") {
+    // Reception desk and a couple of sofas.
+    box(g, "#6b3fa0", mid + 2, 0, map.rows - 4, mid + 6, 1.05, map.rows - 3);
+    box(g, "#f5c518", mid + 2, 1.05, map.rows - 4.05, mid + 6, 1.12, map.rows - 2.95);
+    for (const x of [3, map.cols - 6]) { box(g, "#a16bd0", x, 0, map.rows - 4.5, x + 3, 0.5, map.rows - 3.7); box(g, "#a16bd0", x, 0.5, map.rows - 4.5, x + 3, 1.0, map.rows - 4.2); }
+    for (const x of [1.5, map.cols - 1.5]) { cyl(g, "#8a6a45", x, map.rows - 2, 0, 0.6, 0.3, 8); cyl(g, "#4f8a3c", x, map.rows - 2, 0.6, 1.6, 0.45, 6, 0.05); }
+    return;
+  }
+  // The mall: five shopfronts with signs and stock, a fountain, benches and plants.
+  const stock = (dept: string, x0: number) => {
+    if (dept === "Kharis Wear" || dept === "Clothes") {
+      for (let i = 0; i < 4; i++) {
+        const x = x0 + 0.5 + i * 1.4;
+        box(g, "#8a929b", x - 0.04, 0, 3.2, x + 0.04, 1.6, 3.28);
+        const shirt = box(g, dept === "Kharis Wear" ? "#f5c518" : ["#6b3fa0", "#367c73", "#a44760", "#e9dfc7"][i], x - 0.32, 0.7, 3.1, x + 0.32, 1.45, 3.38);
+        if (dept === "Kharis Wear") {
+          const print = sign(["KHARIS CHURCH", "KHARIS PHASE 2", "KHARIS ON CAMPUS", "KHARIS CHURCH"][i], { bg: "#f5c518", fg: "#111014", w: 0.6, h: 0.22, font: "bold 30px sans-serif" });
+          print.position.set(x, 1.15, 3.39);
+          g.add(print);
+        }
+        void shirt;
+      }
+    } else if (dept === "Furniture") {
+      box(g, "#a16bd0", x0 + 0.5, 0, 3.0, x0 + 3, 0.55, 3.9); box(g, "#a16bd0", x0 + 0.5, 0.55, 3.0, x0 + 3, 1.1, 3.3);
+      box(g, "#8a6a45", x0 + 3.6, 0.4, 3.1, x0 + 5.6, 0.5, 3.9);
+    } else if (dept === "Home & Decor") {
+      for (let i = 0; i < 3; i++) { cyl(g, "#c98a4a", x0 + 1 + i * 1.8, 3.5, 0, 0.5, 0.25, 8); cyl(g, "#4f8a3c", x0 + 1 + i * 1.8, 3.5, 0.5, 1.4, 0.4, 6, 0.05); }
+    } else {
+      for (let i = 0; i < 3; i++) { const sc = box(g, "#0c0b14", x0 + 0.6 + i * 1.8, 0.9, 3.2, x0 + 2 + i * 1.8, 1.8, 3.28); sc.material = glow(["#3d8bd9", "#7dfcb6", "#e8506a"][i]); box(g, "#33313a", x0 + 1.2 + i * 1.8, 0, 3.2, x0 + 1.4 + i * 1.8, 0.9, 3.28); }
+    }
+  };
+  for (const s of MALL_SHOPS) {
+    // Glass shopfront (low so you can see in), a counter, a coloured fascia sign.
+    box(g, s.colour, s.x - 1, 3.2, 4.8, s.x + 7, 3.7, 5.2);
+    const name = sign(s.dept, { bg: s.colour, fg: s.dept === "Kharis Wear" ? "#111014" : "#ffffff", w: 4.6, h: 0.42, font: "bold 52px sans-serif" });
+    name.position.set(s.x + 3, 3.45, 5.22);
+    g.add(name);
+    box(g, "#d7dbe3", s.x - 1, 0, 4.9, s.x + 2, 0.9, 5.1);
+    box(g, "#d7dbe3", s.x + 4, 0, 4.9, s.x + 7, 0.9, 5.1);
+    box(g, "#efe6d2", s.x, 0, 2, s.x + 3, 1.0, 3);
+    box(g, s.colour, s.x, 1.0, 1.95, s.x + 3, 1.08, 3.05);
+    stock(s.dept, s.x);
+    if (s.dept === "Kharis Wear") {
+      const sale = sign("SALE · Kharis hoodies 250", { bg: "#e8506a", fg: "#ffffff", w: 3.2, h: 0.4, font: "bold 44px sans-serif" });
+      sale.position.set(s.x + 3, 2.4, 5.24);
+      g.add(sale);
+    }
+  }
+  // Fountain in the atrium.
+  cyl(g, "#c9c0ae", 22, 10.5, 0, 0.6, 2.2, 12);
+  const water = cyl(g, "#4f93b8", 22, 10.5, 0.55, 0.62, 2.0, 12);
+  water.material = new THREE.MeshStandardMaterial({ color: "#5aa6cc", roughness: 0.1, metalness: 0.1 });
+  cyl(g, "#c9c0ae", 22, 10.5, 0.6, 1.6, 0.25, 8);
+  for (const [x, z] of [[14, 9], [29, 9], [14, 13], [29, 13]]) { box(g, "#6d4a2c", x, 0.4, z, x + 2, 0.5, z + 0.6); cyl(g, "#4f8a3c", x - 1, z + 0.3, 0, 1.4, 0.45, 6, 0.05); }
+}
+
 const TRAIN_GLASS = new THREE.MeshStandardMaterial({ color: "#a9cfe0", transparent: true, opacity: 0.18, roughness: 0.1, metalness: 0, depthWrite: false });
 /**
  * The Grace Line train as it stands in a station. It is see-through on
@@ -1979,6 +2084,9 @@ export function World3D({
     let presentation: ReturnType<typeof cinematicRenderer>;
     try { presentation=cinematicRenderer(renderer,scene,camera,visual); }
     catch { presentation={render:()=>renderer.render(scene,camera),resize:()=>{},dispose:()=>{}} as unknown as typeof presentation; }
+    // Hand over this scene's last frame when the player walks into the next one.
+    const takeVeil = () => { try { presentation.render(0); return renderer.domElement.toDataURL("image/jpeg", 0.82); } catch { return null; } };
+    VEIL.take = takeVeil;
 
     // ── Build the world ──
     const world = new THREE.Group();
@@ -2031,6 +2139,7 @@ export function World3D({
       }).catch(() => { setStoryLoading(false); setStoryError("The story scenery could not load. Return to the world and enter the story again."); }));
     } else if (indoors) {
       if (map.kind !== "train") interior(world, map, jobs, station);
+      if (map.lobby) lobbyDecor(world, map);
       if (map.kind === "home") {
         const style = Number(map.art?.split("-")[1] ?? 0);
         const wall = ["#e5dac9", "#b7c8bb", "#b49c8a", "#a9bda4", "#4c6063"][style % 5];
@@ -2135,6 +2244,28 @@ export function World3D({
           const name = sign(st.label.toUpperCase(), { bg: "#1f1a24", fg: shop === "pizzazz" ? "#ffd166" : "#f4ead2", w: 6.4, h: .6 });
           name.position.set(st.x + st.w / 2, 3.1, st.y + st.h - (st.doorInset ?? 0) + .25);
           g.add(name);
+          continue;
+        }
+        if (map.island && st.label === "Your house") {
+          // Blender house (create_player_house.py). Its own front door is swapped for the animated one.
+          jobs.push(place(g, "/world3d/player-house.glb?v=1", st.x + 0.2, st.y, 7.6, 7.43, 0, Math.PI).then(o => { o.traverse(n => { if (n.name === "door") n.visible = false; }); }));
+          continue;
+        }
+        if (map.island && st.label === "Kairos Mall") {
+          // A bright glass-fronted mall with a canopy and a big sign.
+          box(g, "#e8e2d4", st.x, 0, st.y, st.x + st.w, 4.2, st.y + st.h);
+          box(g, "#2b5fd9", st.x - 0.1, 4.2, st.y - 0.1, st.x + st.w + 0.1, 4.6, st.y + st.h + 0.1);
+          const glass = new THREE.Mesh(new THREE.BoxGeometry(st.w - 1, 3, 0.06), new THREE.MeshStandardMaterial({ color: "#9fc3d6", roughness: 0.15, metalness: 0.2 }));
+          glass.position.set(st.x + st.w / 2, 1.7, st.y + st.h + 0.02);
+          g.add(glass);
+          for (let x = st.x + 1; x <= st.x + st.w - 1; x += 2) box(g, "#d7dbe3", x - 0.06, 0.2, st.y + st.h, x + 0.06, 3.2, st.y + st.h + 0.08);
+          box(g, "#1f1a24", st.x + 3, 3.25, st.y + st.h, st.x + st.w - 3, 3.4, st.y + st.h + 1.4);
+          const name = sign("KAIROS MALL", { bg: "#2b5fd9", fg: "#ffffff", w: 6, h: 0.75, font: "bold 80px sans-serif" });
+          name.position.set(st.x + st.w / 2, 3.85, st.y + st.h + 0.12);
+          g.add(name);
+          const sub = sign("Kharis Wear · Clothes · Furniture · Home · Tech", { bg: "#f5c518", fg: "#111014", w: 7, h: 0.38, font: "bold 44px sans-serif" });
+          sub.position.set(st.x + st.w / 2, 2.95, st.y + st.h + 0.1);
+          g.add(sub);
           continue;
         }
         if (map.island && st.label.endsWith(" Station")) {
@@ -2710,6 +2841,80 @@ export function World3D({
         (puff.material as THREE.MeshStandardMaterial).opacity = 0.65 * (1 - life);
         puff.scale.setScalar(0.6 + life * 1.6);
       });
+    };
+
+    // Deliveries: a Kairos Express van drives to your house, the driver carries
+    // the parcel up the garden path, leaves it at the door and drives off.
+    const HOUSE_DOOR = { x: 35, z: 39.4 }, VAN_STOP = { x: 35, z: 31.3 };
+    // The driver walks round the side of the house to the front garden.
+    const ROUTE = [{ x: 35.9, z: 32.2 }, { x: 30.5, z: 32.6 }, { x: 30.5, z: 40.4 }, { x: 34.4, z: 39.8 }];
+    const along = (k: number) => {
+      const segs = ROUTE.slice(1).map((p, i) => Math.hypot(p.x - ROUTE[i].x, p.z - ROUTE[i].z));
+      let t = Math.max(0, Math.min(1, k)) * segs.reduce((a, b) => a + b, 0);
+      for (let i = 0; i < segs.length; i++) { if (t <= segs[i]) { const f = segs[i] ? t / segs[i] : 0; return { x: ROUTE[i].x + (ROUTE[i + 1].x - ROUTE[i].x) * f, z: ROUTE[i].z + (ROUTE[i + 1].z - ROUTE[i].z) * f }; } t -= segs[i]; }
+      return ROUTE[ROUTE.length - 1];
+    };
+    let delivery: { id: string; group: THREE.Group; van: THREE.Group; driver: Body; carried: THREE.Mesh; parcel: THREE.Mesh } | null = null;
+    const updateDelivery = (now: number) => {
+      const run = DELIVERY_RUN.current;
+      if (!map.island || map.id !== "city" || !run || run.status === "packing") {
+        if (delivery) { delivery.group.removeFromParent(); delivery.driver.dispose(); delivery = null; }
+        return;
+      }
+      if (!delivery || delivery.id !== run.id) {
+        if (delivery) { delivery.group.removeFromParent(); delivery.driver.dispose(); }
+        const group = new THREE.Group();
+        scene.add(group);
+        const van = new THREE.Group();
+        void placeCar(van, "delivery");
+        const stripe = sign(run.express ? "KAIROS EXPRESS" : "KAIROS DELIVERY", { bg: run.express ? "#e8506a" : "#2b5fd9", fg: "#ffffff", w: 1.6, h: 0.28, font: "bold 40px sans-serif" });
+        stripe.position.set(0, 0.75, 0.47);
+        van.add(stripe);
+        group.add(van);
+        const driver = makeBody(look({ top: "top-polo", topColor: run.express ? "topcol-red" : "topcol-blue", hat: "hat-cap", hair: "hair-short", skin: "skin-5" }));
+        group.add(driver.root);
+        const carried = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.36), new THREE.MeshStandardMaterial({ color: "#c49a6c", flatShading: true }));
+        carried.position.set(0, 0.85, 0.3);
+        driver.root.add(carried);
+        const parcel = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.38, 0.42), new THREE.MeshStandardMaterial({ color: "#c49a6c", flatShading: true }));
+        parcel.position.set(HOUSE_DOOR.x + 0.6, 0.31, HOUSE_DOOR.z);
+        const tape = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.06, 0.1), new THREE.MeshBasicMaterial({ color: "#2b5fd9" }));
+        tape.position.y = 0.19;
+        parcel.add(tape);
+        group.add(parcel);
+        bendAll(group);
+        delivery = { id: run.id, group, van, driver, carried, parcel };
+      }
+      const d = delivery;
+      const total = run.eta - run.placed, left = run.eta - now;
+      const arriveWindow = Math.min(45_000, total * 0.5);
+      const ease = (k: number) => k * k * (3 - 2 * k);
+      let vanX = VAN_STOP.x, driverAt: { x: number; z: number } | null = null, carrying = false;
+      if (run.status === "on-the-way") {
+        const k = Math.max(0, Math.min(1, (total * 0.8 - left) / Math.max(1, total * 0.8 - arriveWindow)));
+        vanX = 6 + (VAN_STOP.x - 6) * ease(k);
+      } else if (run.status === "arriving") {
+        const k = 1 - left / arriveWindow;
+        const walk = Math.max(0, Math.min(1, (k - 0.15) / 0.8));
+        driverAt = along(walk);
+        carrying = true;
+      } else {
+        const after = (now - run.eta) / 1000;
+        if (after < 8) driverAt = along(1 - after / 8);
+        vanX = after < 8 ? VAN_STOP.x : VAN_STOP.x + (after - 8) * 5;
+      }
+      d.van.visible = vanX < 52;
+      d.van.position.set(vanX, 0, VAN_STOP.z);
+      d.driver.root.visible = Boolean(driverAt);
+      if (driverAt) {
+        const prev = d.driver.root.position.clone();
+        d.driver.root.position.set(driverAt.x, 0, driverAt.z);
+        const moving = prev.distanceToSquared(d.driver.root.position) > 1e-6;
+        setWalking(d.driver, moving);
+        if (moving) d.driver.root.rotation.y = Math.atan2(d.driver.root.position.x - prev.x, d.driver.root.position.z - prev.z);
+      }
+      d.carried.visible = carrying;
+      d.parcel.visible = run.status === "delivered";
     };
 
     // Local ambient residents are fictional, scripted characters, separate from connected players.
@@ -3308,6 +3513,7 @@ export function World3D({
       TRAFFIC_BOXES.length = ti;
 
       updateCrash(now);
+      updateDelivery(now);
       storyScene?.update(secs, { x: me.root.position.x, z: me.root.position.z }, STORY_FOUND.found);
       if (trainRiders.length) {
         const tx = stationTrain!.position.x;
@@ -3407,6 +3613,8 @@ export function World3D({
     // Spatial batches retain useful frustum culling across the city.
     void Promise.allSettled(jobs).then(async () => {
       if (disposed) return;
+      // Two frames after everything has loaded, the new scene is ready to show.
+      requestAnimationFrame(() => requestAnimationFrame(() => { if (!disposed) window.dispatchEvent(new Event(SCENE_READY)); }));
       if(london) disposeArchitecture=finishArchitecture(world,phase);
       world.updateMatrixWorld(true);
       const groups = new Map<string, THREE.Mesh[]>();
@@ -3455,6 +3663,7 @@ export function World3D({
       disposed = true;
       for (const body of bodies) body.dispose();
       carriage?.dispose();
+      if (delivery) { delivery.group.removeFromParent(); delivery.driver.dispose(); }
       storyScene?.dispose();
       for (const vehicle of traffic) if (vehicle.obj.userData.coach) vehicle.obj.userData.dispose();
       TRAFFIC_BOXES.length = 0;
@@ -3464,6 +3673,7 @@ export function World3D({
       renderer.domElement.removeEventListener("wheel", onWheel);
       renderer.domElement.removeEventListener("webglcontextlost",contextLost);
       presentation.dispose();
+      if (VEIL.take === takeVeil) VEIL.take = null;
       motionPreference.removeEventListener("change",motionChanged);
       sun.shadow.map?.dispose();
       renderer.dispose();

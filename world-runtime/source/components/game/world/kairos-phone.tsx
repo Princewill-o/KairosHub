@@ -11,13 +11,15 @@ import {
   completeStep, contactWarmth, currentReadiness, nextStep, prayed, readMinistry, readinessLabel, writeMinistry,
   type Contact, type FollowStep, type MinistrySave,
 } from "@/game/core/ministry";
+import { PLAUSIBLE_FOLLOW_UP, guide, maybeStruggle, seeded, shuffle, struggleById, type GrowingContact } from "@/game/core/discipleship";
 import { ANNOUNCEMENTS, KHARIS_CHANNEL, SERMONS, SEASONS, embedUrl, latestEmbedUrl, seasonFor, thumbnailUrl } from "@/game/core/kharis-media";
 import { readVisualQuality, type VisualQuality } from "@/game/core/visual-quality";
 import { LowPolyIcon, LowPolyWallpaper } from "./lowpoly-icons";
+import { FriendsChatApp } from "./friends-app";
 
 type AppId =
   | "phone" | "messages" | "prayer" | "bible" | "tv" | "maps" | "friends" | "grace"
-  | "games" | "stories" | "wardrobe" | "season" | "camera" | "settings" | "followups" | "messagesPlay";
+  | "games" | "stories" | "wardrobe" | "season" | "camera" | "settings" | "followups" | "messagesPlay" | "chat";
 
 /** Low Poly Icon Sampler art where a matching icon exists; drawn glyphs elsewhere. */
 const ICON = (n: string) => `/world-ui/icons/${n}.png`;
@@ -26,6 +28,7 @@ const APPS: { id: AppId; name: string; glyph: string; color: string; image?: str
   { id: "prayer", name: "Prayer", glyph: "pray", color: "#8a5bd6", image: ICON("fire") },
   { id: "tv", name: "Kharis TV", glyph: "tv", color: "#e0483e" },
   { id: "bible", name: "Bible", glyph: "bible", color: "#b98a3e" },
+  { id: "chat", name: "Friends", glyph: "chat", color: "#2f7de1" },
   { id: "friends", name: "Fellowship", glyph: "friends", color: "#2fa48a" },
   { id: "maps", name: "Maps", glyph: "map", color: "#43a2e6" },
   { id: "games", name: "Games", glyph: "games", color: "#f08b2e", image: ICON("gold_chest") },
@@ -158,6 +161,7 @@ export function KairosPhone(props: PhoneActions) {
               {(app === "followups" || app === "phone" || app === "messages") && <FollowUpsApp save={save} update={update} mode={app} />}
               {app === "tv" && <KharisTV />}
               {app === "friends" && <FellowshipApp save={save} update={update} />}
+              {app === "chat" && <FriendsChatApp />}
               {app === "season" && <SeasonApp />}
               {app === "settings" && <SettingsApp />}
             </div>
@@ -240,7 +244,35 @@ function FollowUpsApp({ save, update, mode }: { save: MinistrySave; update: (s: 
   const [active, setActive] = useState<{ contact: Contact; step: FollowStep } | null>(null);
   const [reply, setReply] = useState<string | null>(null);
   const [calling, setCalling] = useState(false);
+  const [helping, setHelping] = useState<GrowingContact | null>(null);
+  const [outcome, setOutcome] = useState<{ reply: string; result: string } | null>(null);
   const now = Date.now();
+  // People who have come to faith sometimes fall back into sin and need you.
+  useEffect(() => {
+    const next = save.contacts.map((c) => maybeStruggle(c as GrowingContact, now));
+    if (next.some((c, i) => c !== save.contacts[i])) update({ ...save, contacts: next });
+  }, [save, update, now]);
+  if (helping?.struggle) {
+    const struggle = struggleById(helping.struggle.id)!;
+    const options = shuffle(struggle.options, seeded(`${helping.name}:${struggle.id}:${helping.struggle.tries}`));
+    return (
+      <div className="kp-stack">
+        <div className="kp-thread">
+          <p className="kp-sys">On a call with {helping.name} · {struggle.title}</p>
+          <p className="kp-bubble them">{struggle.confess(helping.name)}</p>
+          {outcome && <p className="kp-bubble them">{outcome.reply}</p>}
+          {outcome && <p className="kp-sys">{outcome.result} · {struggle.verse}</p>}
+        </div>
+        {!outcome ? options.map((o) => (
+          <button key={o.text} className="kp-option" onClick={() => {
+            const { contact, result } = guide(helping, o.quality);
+            update({ ...save, contacts: save.contacts.map((c) => (c.name === helping.name ? contact : c)) });
+            setOutcome({ reply: o.reply, result });
+          }}>{o.text}</button>
+        )) : <button className="kp-primary" onClick={() => { setHelping(null); setOutcome(null); }}>Done</button>}
+      </div>
+    );
+  }
   if (active) {
     const isCall = active.step.channel === "call";
     if (isCall && calling)
@@ -260,7 +292,7 @@ function FollowUpsApp({ save, update, mode }: { save: MinistrySave; update: (s: 
           {reply && <p className="kp-bubble them">{reply}</p>}
         </div>
         {!reply ? (
-          active.step.options.map((o, i) => (
+          shuffle([...active.step.options, PLAUSIBLE_FOLLOW_UP[active.step.id]].filter(Boolean), seeded(`${active.contact.name}:${active.step.id}`)).map((o, i) => (
             <button key={i} className="kp-option" onClick={() => {
               setReply(o.reply);
               const next = save.contacts.map((c) => (c.name === active.contact.name ? completeStep(c, active.step.id, o.good) : c));
@@ -300,9 +332,11 @@ function FollowUpsApp({ save, update, mode }: { save: MinistrySave; update: (s: 
               <b>{c.name}</b>
               <small>{SCENARIOS[c.background]?.label} · {stage} · <span className={`kp-warm ${warmth}`}>{warmth}</span></small>
               <div className="kp-progress">{FOLLOW_STEPS.map((s) => <i key={s.id} className={c.steps[s.id] ? "on" : ""} title={s.title} />)}</div>
+              {(c as GrowingContact).struggle && <small className="kp-warm drifting">Needs you: {struggleById((c as GrowingContact).struggle!.id)?.title}</small>}
               {n ? <small>{n.ready ? `Next: ${n.step.title}` : `Next: ${n.step.title} in ${waitMin} min`}</small> : <small>Follow-up journey complete · keep walking with them</small>}
             </div>
-            {n?.ready && (
+            {(c as GrowingContact).struggle && <button className="kp-action" onClick={() => setHelping(c as GrowingContact)}>Help</button>}
+            {!(c as GrowingContact).struggle && n?.ready && (
               <button className="kp-action" onClick={() => { setActive({ contact: c, step: n.step }); setCalling(n.step.channel === "call"); }}>
                 {n.step.channel === "call" ? "Call" : n.step.channel === "meet" ? "Meet" : "Text"}
               </button>

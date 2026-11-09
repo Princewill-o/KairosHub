@@ -32,8 +32,9 @@ test("all game buildings have reachable doors and preserve the five-island layou
   const ltbs = islandMap("scripture-island"),
     city = islandMap("city");
   assert.equal(ISLANDS.length, 5);
+  // Each game building is a walk-in lobby now; its cabinet opens the game.
   const doors = ltbs.portals.filter(
-    (p) => p.to.kind === "grace" && p.to.route.startsWith("bible/"),
+    (p) => p.to.kind === "map" && p.to.mapId.startsWith("lobby-game-"),
   );
   assert.equal(doors.length, 16);
   for (const p of doors)
@@ -44,8 +45,9 @@ test("all game buildings have reachable doors and preserve the five-island layou
       }).length,
       p.id,
     );
+  // The Social House is a lobby; its kiosks open Social in Grace.
   assert.ok(
-    city.portals.some((p) => p.to.kind === "grace" && p.to.route === "social"),
+    city.portals.some((p) => p.to.kind === "map" && p.to.mapId === "lobby-social@city"),
   );
   assert.ok(ltbs.structures.filter((s) => s.game).length === 16);
   for (const p of ltbs.portals.filter(

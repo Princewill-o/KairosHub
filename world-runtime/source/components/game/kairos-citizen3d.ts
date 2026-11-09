@@ -192,6 +192,31 @@ export async function buildCharacter(
       joint.add(mesh);
       row.sources.forEach((o) => o.removeFromParent());
     }
+  // Printed hoodies from the Kairos Mall: black lettering across the chest.
+  const print = (custom as { print?: string } | null)?.print;
+  if (print && print !== "none" && /hoodie|tshirt|jacket/.test(outfit)) {
+    const text = ({ "kharis-church": ["KHARIS", "CHURCH"], "kharis-phase-2": ["KHARIS", "PHASE 2"], "kharis-on-campus": ["KHARIS", "ON CAMPUS"] } as Record<string, string[]>)[print];
+    const torso = model.getObjectByName("Body");
+    if (text && torso) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 256; canvas.height = 128;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#111014";
+      ctx.textAlign = "center";
+      ctx.font = "900 54px system-ui, sans-serif";
+      ctx.fillText(text[0], 128, 56);
+      ctx.font = `900 ${text[1].length > 7 ? 34 : 42}px system-ui, sans-serif`;
+      ctx.fillText(text[1], 128, 104);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const decal = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.23), new THREE.MeshBasicMaterial({ map: texture, transparent: true, toneMapped: false }));
+      decal.name = "hoodie_print";
+      materials.set("hoodie_print", decal.material);
+      generated.add(decal.geometry);
+      decal.position.set(0, 0.4, 0.235);
+      torso.add(decal);
+    }
+  }
   const restY = body.position.y,
     mixer = new THREE.AnimationMixer(model);
   let mode = "idle",

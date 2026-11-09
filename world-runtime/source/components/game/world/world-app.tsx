@@ -31,7 +31,12 @@ import { SceneMusic } from "./scene-music";
 import { PASSENGERS, RIDE, TRAIN_CALL } from "./train-state";
 import { advanceRide, nextStop, rideFrame, stationStop, type RideStop } from "@/game/core/ride";
 import { isStairway, STREET_STAIRS } from "@/game/core/doors";
-import { AMBULANCE_LEAVES, CRASH } from "./world-events";
+import { AMBULANCE_LEAVES, CRASH, DELIVERY_RUN, SCENE_READY, VEIL } from "./world-events";
+import { lobbyMap, mallMap } from "@/game/core/lobbies";
+import { MallDialog } from "./mall-dialog";
+import { collectDeliveries, etaSeconds, mallItem, nextDelivery, orderStatus, readMall, writeMall, type Dept, type MallState } from "@/game/core/mall";
+import { receiveFurniture } from "@/app/games/world/actions";
+import { worldAppearance } from "../../../../../public/grace-avatar.mjs";
 import { BikeDock, Dealership } from "./transport";
 import type { TubeTrip } from "./tube-map";
 import { useLife } from "./use-life";
@@ -100,6 +105,8 @@ function loadMap(id: string): WorldMap | null {
   if (id === "train-carriage") return trainCarriageMap();
   if (id === "m25") return motorwayMap();
   if (id === "hospital") return hospitalMap();
+  if (id === "mall") return mallMap();
+  if (id.startsWith("lobby-")) return lobbyMap(id);
   return null;
 }
 
@@ -394,6 +401,48 @@ export function WorldApp({
   useEffect(()=>{if(miniGamesOpen){setMiniGamesOpen(false);openGrace('adventures');}},[miniGamesOpen,openGrace]);
   const [photoMode, setPhotoMode] = useState(false);
   useEffect(() => { const k = (e: KeyboardEvent) => { if (photoMode && (e.key === "Escape" || e.key.toLowerCase() === "p")) { setPhotoMode(false); return; } if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLElement && e.target.closest("input, textarea, [role=dialog]"))) setPhone(v => !v); }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [photoMode]);
+  // Seamless swaps: keep the last frame up until the next scene is built, then dissolve.
+  const [veil, setVeil] = useState<{ src: string; fading: boolean } | null>(null);
+  const holdFrame = useCallback(() => {
+    const src = VEIL.take?.();
+    if (src) setVeil({ src, fading: false });
+  }, []);
+  useEffect(() => {
+    if (!veil || veil.fading) return;
+    const reveal = () => { setVeil((v) => (v ? { ...v, fading: true } : v)); window.setTimeout(() => setVeil(null), 520); };
+    window.addEventListener(SCENE_READY, reveal, { once: true });
+    const safety = window.setTimeout(reveal, 5000);
+    return () => { window.removeEventListener(SCENE_READY, reveal); clearTimeout(safety); };
+  }, [veil]);
+  // Kairos Mall: shop counters, and parcels the driver leaves at your door.
+  const [mallDept, setMallDept] = useState<Dept | "orders" | null>(null);
+  const applyWearing = useCallback((state: MallState) => {
+    if (!state.wearing) return;
+    setPlayerAvatar((old) => ({ ...old, ...worldAppearance({ ...((old as { graceAppearance?: object }).graceAppearance ?? {}), ...state.wearing }) }));
+  }, []);
+  useEffect(() => { applyWearing(readMall(localStorage, me.id)); }, [applyWearing, me.id]);
+  // A small tracker while a parcel is on its way.
+  const [parcel, setParcel] = useState<string | null>(null);
+  useEffect(() => {
+    const t = setInterval(() => {
+      const next = nextDelivery(readMall(localStorage, me.id));
+      if (!next) { setParcel(null); DELIVERY_RUN.current = null; return; }
+      const status = orderStatus(next);
+      DELIVERY_RUN.current = status === "collected" ? null : { id: next.id, status, placed: next.placed, eta: next.eta, express: next.speed === "express" };
+      const left = etaSeconds(next);
+      setParcel(status === "delivered" ? "Parcel at your front door" : status === "arriving" ? `Driver arriving · ${left}s` : status === "on-the-way" ? `Out for delivery · ${Math.ceil(left / 60)} min` : "Packing your order");
+    }, 1000);
+    return () => clearInterval(t);
+  }, [me.id]);
+  useEffect(() => {
+    if (mapId !== "home") return;
+    const { state, clothes, furniture } = collectDeliveries(readMall(localStorage, me.id));
+    if (!clothes.length && !furniture.length) return;
+    writeMall(localStorage, state, me.id);
+    if (furniture.length) void receiveFurniture(furniture);
+    const names = [...clothes.map((id) => mallItem(id)?.name), ...furniture.map((id) => mallItem(`furniture-${id}`)?.name)].filter(Boolean);
+    say(`You opened your parcels: ${names.join(", ")}. Clothes are in your wardrobe (Mall · Orders); furniture is ready to place.`, true);
+  }, [mapId, me.id, say]);
   // Crashes: the car or bike stops, an ambulance comes, and the paramedics take you to hospital.
   const [crashed, setCrashed] = useState<"car" | "bike" | null>(null);
   const crash = useCallback((vehicle: "car" | "bike") => {
@@ -422,6 +471,7 @@ export function WorldApp({
     void gainXp("train");
     play("train", soundOn());
     const door = CARRIAGE_DOORS[1];
+    holdFrame();
     setArrive({ x: (door + 1) * TILE, y: 1.9 * TILE });
     setMapId("train-carriage");
     setTrip((n) => n + 1);
@@ -432,6 +482,7 @@ export function WorldApp({
     const ride = RIDE.current && advanceRide(RIDE.current, now);
     if (!ride || !rideFrame(now - ride.at).canAlight) { say("Wait for the doors to open at the next station."); return; }
     RIDE.current = null;
+    holdFrame();
     if (ride.to.kind === "station") {
       const inside = stationMap(ride.to.id);
       if (!inside) return;
@@ -459,6 +510,7 @@ export function WorldApp({
     (portal: Portal) => {
       const to = portal.to;
       if(to.kind==='grace'){openGrace(to.route);return;}
+      if (to.kind === "mall") { setMallDept(to.dept as Dept); return; }
       if (to.kind === "story-enter") { setMiniGamesOpen(false); adventure.enter(to.story); return; }
       if (to.kind === "story-discover") { adventure.discover(to.index); return; }
       if (to.kind === "scripture-challenge") { setNativeChallenge(to.challenge); return; }
@@ -522,6 +574,7 @@ export function WorldApp({
         // Motorway slip roads: you keep driving straight on, no fade.
         const next = loadMap(to.mapId);
         if (!next) return;
+        holdFrame();
         let arrival: { x: number; y: number; heading?: number } = next.spawn;
         if (to.mapId === "m25") arrival = driving ? { x: 2 * TILE, y: 9.5 * TILE, heading: 0 } : next.spawn;
         else if (to.mapId === "city") arrival = driving ? { x: 45 * TILE, y: 21 * TILE, heading: Math.PI } : safeSpot(next, 46 * TILE, 18 * TILE);
@@ -544,6 +597,7 @@ export function WorldApp({
           : next.spawn;
         // Station stairs: no fade, no scene card. You walk down the steps and keep walking.
         if (isStairway(map, portal)) {
+          holdFrame();
           const up = map.kind === "station" && next.island;
           setArrive(up ? safeSpot(next, (STREET_STAIRS.x + STREET_STAIRS.w / 2) * TILE, (STREET_STAIRS.y + 1.5) * TILE) : spot);
           setMapId(to.mapId);
@@ -760,7 +814,7 @@ export function WorldApp({
       } />
       {!(building && mapId === "home") && <WorldView
         key={`${mapId}:${server}:${trip}`}
-        paused={Boolean(crashed) || graceOpen || Boolean(challenge) || wardrobe || preaching || Boolean(followUp) || bibleOpen || miniGamesOpen || Boolean(bus || tube || tutorial || mapOpen || dock || dealer || fading || phone || inmate || shop || homeAction || bankOpen || life.hearing) || arrest || policeTransport || pursuit?.stage === "challenge" || pursuit?.stage === "tased"}
+        paused={Boolean(crashed) || Boolean(mallDept) || graceOpen || Boolean(challenge) || wardrobe || preaching || Boolean(followUp) || bibleOpen || miniGamesOpen || Boolean(bus || tube || tutorial || mapOpen || dock || dealer || fading || phone || inmate || shop || homeAction || bankOpen || life.hearing) || arrest || policeTransport || pursuit?.stage === "challenge" || pursuit?.stage === "tased"}
         homeAction={homeAction}
         police={pursuit}
         map={map}
@@ -854,6 +908,9 @@ export function WorldApp({
         }}/>
       </section></GraceWorldPanel>}
       <WantedStars stars={life.stars} />
+      {veil && <img src={veil.src} alt="" aria-hidden className={`kw-veil${veil.fading ? " out" : ""}`} />}
+      {parcel && !mallDept && <button type="button" data-hud="parcel" data-tone="paper" onClick={() => setMallDept("orders")} className="absolute z-[100001] px-3 py-2 text-xs font-black">{parcel}</button>}
+      {mallDept && <MallDialog dept={mallDept} playerId={me.id} clout={wallet} onClose={() => setMallDept(null)} onPaid={(left, message) => { setWallet(left); say(message, true); }} onWear={(state) => { applyWearing(state); say("Looking sharp. Your new outfit is on.", true); }} />}
       {crashed && <div role="alert" className="ks-card ks-bottom kw-crash"><p className="ks-eyebrow">{crashed === "bike" ? "Bike crash" : "Crash"}</p><h2>Are you OK?</h2><p>Someone has called 999. An ambulance is on its way, blue lights on. Stay still; the paramedics will take you to St Thomas' Hospital.</p></div>}
       {life.sick && <p className="pointer-events-none absolute top-[104px] left-1/2 z-[60] -translate-x-1/2 rounded-full bg-[#c8322d] px-3 py-1 text-xs font-black text-white">Unwell: get medicine or see a doctor</p>}
       {nearPerson && !jailed && !driving && (

@@ -8,9 +8,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import { LowPolyPortrait } from "./lowpoly-icons";
 import {
-  SCENARIOS, STAGES, conversationOutcome, currentReadiness, readMinistry, readinessLabel, recordConversation, writeMinistry,
-  type Persona,
+  SCENARIOS, STAGES, currentReadiness, readMinistry, readinessLabel, recordConversation, writeMinistry,
+  type Answer, type Persona,
 } from "@/game/core/ministry";
+import { harderAnswers, harderOutcome, seeded, stillClosed, walksAway } from "@/game/core/discipleship";
 
 function useTyped(text: string, speed = 18) {
   const [shown, setShown] = useState("");
@@ -33,18 +34,30 @@ export function MinistryDialog({ persona, onClose, onDone }: { persona: Persona;
   const readiness = currentReadiness(save.prayer);
   const prayedForThem = save.prayer.named.includes(persona.name);
   const holySpiritMoment = readiness >= 70 || (readiness >= 45 && prayedForThem);
-  const [phase, setPhase] = useState<"intro" | "beat" | "reply" | "spirit" | "end">("intro");
+  // Each conversation is seeded: answers are reshuffled, near-misses swapped in,
+  // and people vary a little from day to day, like real people do.
+  const rand = useMemo(() => seeded(`${persona.name}:${save.conversations}:${Math.floor(Date.now() / 3_600_000)}`), [persona.name, save.conversations]);
+  const options = useMemo(() => scenario.beats.map((b) => harderAnswers(b, rand)), [scenario, rand]);
+  const closedAt = (save as { closed?: Record<string, number> }).closed?.[persona.name];
+  const closed = stillClosed(closedAt, prayedForThem);
+  const [phase, setPhase] = useState<"intro" | "beat" | "reply" | "spirit" | "end">(closed ? "end" : "intro");
   const [beat, setBeat] = useState(0);
-  const [score, setScore] = useState(0);
-  const [picked, setPicked] = useState<{ reply: string; scripture?: string; score: number } | null>(null);
+  const [scores, setScores] = useState<number[]>([]);
+  const [picked, setPicked] = useState<Answer | null>(null);
+  const [learned, setLearned] = useState<string[]>([]);
+  const score = scores.reduce((a, b) => a + b, 0);
   const max = scenario.beats.length * 2;
-  const outcome = conversationOutcome(score, max, readiness, prayedForThem);
+  const walked = walksAway(scores);
+  const outcome = useMemo(() => harderOutcome(score, max, readiness, prayedForThem, persona, seeded(`${persona.name}:${save.conversations}:verdict`), walked || closed), [score, max, readiness, prayedForThem, persona, save.conversations, walked, closed]);
 
   const line =
     phase === "intro" ? scenario.opener
       : phase === "beat" ? scenario.beats[beat].says
         : phase === "reply" ? picked?.reply ?? ""
           : phase === "spirit" ? scenario.openHeart
+            : closed ? `${persona.name}: "I told you before, I'm not interested. Please leave it."`
+            : walked ? `${persona.name}: "Look, I've actually got to go. Bye."`
+            : outcome.rejected ? `${persona.name}: "I appreciate you, but no. This isn't for me."`
             : outcome.stage === "believer" ? `${persona.name}: "I want to follow Jesus. Will you pray with me?"` : `${persona.name}: "Thanks for talking with me. Can we stay in touch?"`;
   const [typed, complete, skip] = useTyped(line);
 
@@ -58,14 +71,22 @@ export function MinistryDialog({ persona, onClose, onDone }: { persona: Persona;
     if (!complete) return skip();
     if (phase === "intro") return setPhase("beat");
     if (phase === "reply") {
+      if (walked) return setPhase("end");
       if (beat + 1 < scenario.beats.length) { setBeat(beat + 1); setPhase("beat"); return; }
-      return setPhase(holySpiritMoment ? "spirit" : "end");
+      return setPhase(holySpiritMoment && !outcome.rejected ? "spirit" : "end");
     }
     if (phase === "spirit") return setPhase("end");
   };
   const finish = (stay: boolean) => {
     const latest = readMinistry(localStorage);
-    const stage = stay ? outcome.stage : "heard";
+    if (outcome.rejected) {
+      const closedMap = { ...((latest as { closed?: Record<string, number> }).closed ?? {}), [persona.name]: closedAt && closed ? closedAt : Date.now() };
+      writeMinistry(localStorage, { ...latest, conversations: latest.conversations + (closed ? 0 : 1), closed: closedMap } as typeof latest);
+      onDone(closed ? `${persona.name} isn't ready to talk. Pray for them by name.` : `${persona.name} said no for now. Keep praying for them.`);
+      onClose();
+      return;
+    }
+    const stage = stay ? outcome.stage ?? "heard" : "heard";
     writeMinistry(localStorage, stay ? recordConversation(latest, persona, stage) : { ...latest, conversations: latest.conversations + 1 });
     const label = STAGES.find((s) => s.id === stage)?.label;
     onDone(stay ? `${persona.name} · ${label}. Check your phone to follow up.` : `You had a conversation with ${persona.name}.`);
@@ -87,14 +108,21 @@ export function MinistryDialog({ persona, onClose, onDone }: { persona: Persona;
         <div className="km-box" onClick={next}>
           <small className="km-who">{persona.name} · {scenario.label} · {persona.detail}</small>
           <p className="km-line">{typed}<span className="km-caret" aria-hidden="true" /></p>
-          {phase === "reply" && picked?.scripture && complete && <p className="km-scripture">Scripture · {picked.scripture}</p>}
+
           {phase === "spirit" && complete && <p className="km-scripture">Prayer opened a door. “The Spirit itself beareth witness…” (Romans 8:16)</p>}
           {(phase === "intro" || phase === "reply" || phase === "spirit") && <button className="km-next" onClick={(e) => { e.stopPropagation(); next(); }}>{complete ? "Continue ▸" : "Skip ▸▸"}</button>}
         </div>
         {phase === "beat" && complete && (
           <div className="km-choices">
-            {scenario.beats[beat].answers.map((a, i) => (
-              <button key={i} onClick={() => { setScore(score + a.score); setPicked(a); setPhase("reply"); }}>
+            {options[beat].map((a, i) => (
+              <button key={i} onClick={() => {
+                setScores([...scores, a.score]);
+                setPicked(a);
+                // What a wise answer would have drawn on, for the debrief at the end.
+                const best = scenario.beats[beat].answers.find((x) => x.score === 2);
+                if (a.score < 2 && best?.scripture) setLearned((l) => [...l, `${scenario.beats[beat].says} → ${best.scripture}`]);
+                setPhase("reply");
+              }}>
                 <i>{i + 1}</i>{a.text}
               </button>
             ))}
@@ -104,9 +132,14 @@ export function MinistryDialog({ persona, onClose, onDone }: { persona: Persona;
           <div className="km-end">
             <div className="km-meter"><span>Openness</span><i style={{ width: `${Math.round(outcome.openness * 100)}%` }} /></div>
             <p>{outcome.note}</p>
+            {learned.length > 0 && <details className="km-scripture"><summary>What to study before next time ({learned.length})</summary>{learned.map((l) => <p key={l}>{l}</p>)}</details>}
             <div className="km-choices row">
-              <button onClick={() => finish(true)}>Swap numbers & follow up</button>
-              <button onClick={() => finish(false)}>Thank them and part ways</button>
+              {outcome.rejected
+                ? <button onClick={() => finish(false)}>Thank them and let them go</button>
+                : <>
+                    <button onClick={() => finish(true)}>Swap numbers & follow up</button>
+                    <button onClick={() => finish(false)}>Thank them and part ways</button>
+                  </>}
             </div>
           </div>
         )}

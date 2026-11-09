@@ -62,6 +62,7 @@ export const avatarOptions = {
     ["#6b3fa0", "Kairos purple"],
     ["#a16bd0", "Lilac"],
     ["#e0ab3c", "Golden yellow"],
+    ["#f5c518", "Kharis yellow"],
     ["#e9dfc7", "Oat"],
     ["#d97554", "Terracotta"],
     ["#a44760", "Berry"],
@@ -118,7 +119,10 @@ export const avatarDefaults = {
   glasses: false,
   scarf: true,
   backpack: false,
+  print: "none",
 };
+/** Chest prints you can only get from the Kairos Mall (bought hoodies). */
+export const AVATAR_PRINTS = ["none", "kharis-church", "kharis-phase-2", "kharis-on-campus"];
 export function normalizeAvatar(raw = {}) {
   const a = { ...avatarDefaults };
   for (const key of Object.keys(avatarOptions))
@@ -126,6 +130,7 @@ export function normalizeAvatar(raw = {}) {
       a[key] = raw[key];
   for (const k of ["glasses", "scarf", "backpack"])
     if (typeof raw?.[k] === "boolean") a[k] = raw[k];
+  if (AVATAR_PRINTS.includes(raw?.print)) a.print = raw.print;
   return a;
 }
 const memory = new Map();

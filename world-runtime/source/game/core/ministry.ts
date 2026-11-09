@@ -405,35 +405,35 @@ export const FOLLOW_STEPS: FollowStep[] = [
     prompt: (n) => `Message ${n} after your conversation.`,
     options: [
       { text: "Thanks for chatting today — I really enjoyed it. I'm praying for you.", good: true, reply: "Thank you! That means a lot." },
-      { text: "Come to church Sunday. 10am. Don't be late.", good: false, reply: "Uh... maybe." },
+      { text: "Send them a long article explaining why Christianity is true.", good: false, reply: "Thanks... it's quite long. Maybe later." },
       { text: "Here's the Gospel of John if you want to read it: start at chapter 1.", good: true, reply: "Thanks, I'll take a look." },
     ]},
   { id: "call", title: "Call to check in", afterMinutes: 5, channel: "call",
     prompt: (n) => `Call ${n}. Ask how they're really doing.`,
     options: [
       { text: "\"How's your week been? Anything I can pray about?\"", good: true, reply: "Actually, yes. Work's been rough. Thanks for asking." },
-      { text: "\"Did you read the Bible yet?\"", good: false, reply: "Not yet... sorry." },
+      { text: "\"Just checking in: did you get round to reading John like you said?\"", good: false, reply: "Not yet... sorry. Busy week." },
       { text: "\"Just calling to say I was thinking of you.\"", good: true, reply: "That's kind. Nobody does that." },
     ]},
   { id: "invite", title: "Invite to church or a small group", afterMinutes: 15, channel: "message",
     prompt: (n) => `Invite ${n} to come along with you.`,
     options: [
       { text: "\"I'm going Sunday — want to come with me? I'll meet you outside.\"", good: true, reply: "If you're there, yeah, okay." },
-      { text: "\"You should really be in church.\"", good: false, reply: "I'll think about it." },
+      { text: "\"Our church is honestly the best one in London, you'll love it.\"", good: false, reply: "Okay... I get nervous in big churches though." },
       { text: "\"We've got a relaxed Bible study Wednesday. Food included!\"", good: true, reply: "Food? I'm in." },
     ]},
   { id: "study", title: "Read the Bible together", afterMinutes: 30, channel: "meet",
     prompt: (n) => `Meet ${n} to read John 3 together.`,
     options: [
       { text: "Read the passage, ask what stood out to them, and listen.", good: true, reply: "Verse 16 — I never realised 'whosoever' included me." },
-      { text: "Lecture for 30 minutes.", good: false, reply: "That was... a lot." },
+      { text: "Explain the passage verse by verse so they get the full meaning.", good: false, reply: "That was useful but... I didn't really get to say anything." },
       { text: "Share how John 3 changed you, then ask their thoughts.", good: true, reply: "Born again. I want that." },
     ]},
   { id: "walk", title: "Check on their spiritual walk", afterMinutes: 60, channel: "call",
     prompt: (n) => `Call ${n}: how is their walk with God going?`,
     options: [
       { text: "\"How's your prayer life? What's God been showing you?\"", good: true, reply: "I prayed every morning this week. It's changing me." },
-      { text: "\"Are you tithing yet?\"", good: false, reply: "Um..." },
+      { text: "\"You've been coming a while now: have you thought about joining a serving team?\"", good: false, reply: "I didn't know there was a checklist. I'm still working out if I believe it." },
       { text: "\"Want to pray together now, then plan next week's reading?\"", good: true, reply: "Yes please. Let's keep going." },
     ]},
 ];
@@ -487,7 +487,7 @@ export const FRIEND_ACTIVITIES = [
 ];
 
 /* ── Storage ────────────────────────────────────────────────────────────── */
-export type MinistrySave = { prayer: PrayerState; contacts: Contact[]; friends: Record<string, number>; conversations: number; seen: string[] };
+export type MinistrySave = { prayer: PrayerState; contacts: Contact[]; friends: Record<string, number>; conversations: number; seen: string[]; closed?: Record<string, number> };
 export const MINISTRY_KEY = "kairos-ministry-v1";
 export const EMPTY_SAVE: MinistrySave = { prayer: PRAYER_DEFAULT, contacts: [], friends: {}, conversations: 0, seen: [] };
 export function readMinistry(storage: Pick<Storage, "getItem"> | null): MinistrySave {
@@ -500,6 +500,7 @@ export function readMinistry(storage: Pick<Storage, "getItem"> | null): Ministry
       friends: raw.friends && typeof raw.friends === "object" ? raw.friends : {},
       conversations: Number(raw.conversations) || 0,
       seen: Array.isArray(raw.seen) ? raw.seen.slice(0, 60) : [],
+      closed: raw.closed && typeof raw.closed === "object" ? raw.closed : {},
     };
   } catch {
     return { ...EMPTY_SAVE };

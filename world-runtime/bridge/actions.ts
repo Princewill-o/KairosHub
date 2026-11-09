@@ -2,6 +2,7 @@ import { carById } from '@/game/core/cars';
 import { BIKES } from '@/game/core/bikes';
 import { SHOP } from '@/game/core/law';
 import { HOMES, FURNITURE, validLayout } from '@/game/core/homes';
+import { orderCost, mallItem, type Speed } from '@/game/core/mall';
 const read=()=>{try{return JSON.parse(localStorage.getItem('world-economy')||'{"xp":0,"spent":0,"cars":["sedan"]}');}catch{return {xp:0,spent:0,cars:['sedan']};}};
 const write=(state:any)=>localStorage.setItem('world-economy',JSON.stringify(state));
 const balance=()=>{try{return Math.max(0,JSON.parse(localStorage.getItem('kairos-ltbs-progress-v1')||'{}').grace||0)-read().spent;}catch{return 0;}};
@@ -20,3 +21,8 @@ export async function saveLayout(layout:any[]){const problem=validLayout(layout)
 export async function startCareerSession(){return {ok:false,error:'Career activities are not part of Kairos World.'};}
 export async function completeCareerSession(){return {ok:false,error:'Career activities are not part of Kairos World.'};}
 export async function cityAction(){return {ok:false,error:'Choose an activity in Kairos World.'};}
+
+/** Kairos Mall: pay in Grace (item + delivery). The order itself is kept by the caller. */
+export async function buyMallItem(id:string,speed:Speed){const item=mallItem(id);if(!item)return {ok:false,error:'That item is not in the mall.'};if(!spend(orderCost(id,speed)))return {ok:false,error:'You need more Grace for this order. Earn Grace in the story journeys.'};return {ok:true,clout:balance()};}
+/** Delivered furniture goes into your home store, ready to place. */
+export async function receiveFurniture(ids:string[]){const state=homeState();for(const id of ids)state.furniture[id]=(state.furniture[id]||0)+1;localStorage.setItem('world-home',JSON.stringify(state));return {ok:true};}

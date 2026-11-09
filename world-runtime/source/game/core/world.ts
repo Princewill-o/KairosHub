@@ -56,7 +56,8 @@ export type PortalTarget =
   | { kind: "doctor" }
   | { kind: "bank" }
   | { kind: "guide"; guide: "careers" | "study" | "transport" }
-  | { kind: "alight" };
+  | { kind: "alight" }
+  | { kind: "mall"; dept: string };
 
 export interface Portal {
   id: string;
@@ -90,6 +91,8 @@ export interface Room {
 }
 
 export interface WorldMap {
+  /** Walk-in lobby or mall: what to draw for its cabinets and shops. */
+  lobby?: { spec: string; style: "arcade" | "lounge" | "theatre" | "library" | "mall"; cabinets: { x: number; y: number; face: "s" | "e" | "w"; label: string; colour: string }[] };
   story?: { id: "david" | "ruth" | "esther" | "daniel"; chapter: number };
   island?: boolean;
   id: string;

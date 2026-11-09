@@ -313,3 +313,32 @@
   .ks-pill { min-height: 38px; font-size: 11px; }
   .ks-bottom { bottom: 12px; }
 }
+
+/* ── Kairos Mall counter ──────────────────────────────────────────── */
+.km-mall { position: relative; width: min(920px, 94vw); max-height: 90dvh; overflow: auto; padding: 18px; border: 4px solid var(--ink); border-radius: 26px; background: var(--paper); color: var(--ink); box-shadow: 8px 8px 0 var(--ink); animation: kp-rise .22s; }
+.km-mall header { display: flex; align-items: center; gap: 12px; }
+.km-mall header h2 { margin: 0; font: 900 24px var(--kg-body, system-ui); }
+.km-mall header > div { flex: 1; }
+.km-mall-wallet { padding: 8px 12px; border: 3px solid var(--ink); border-radius: 14px; background: #2a1d44; color: var(--gold); font: 900 13px system-ui; box-shadow: 3px 3px 0 var(--ink); }
+.km-mall-close { width: 44px; height: 44px; border: 3px solid var(--ink); border-radius: 14px; background: #fff; font: 900 22px system-ui; box-shadow: 3px 3px 0 var(--ink); cursor: pointer; }
+.km-mall-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.km-mall-tabs button, .km-mall-delivery label { min-height: 40px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; border: 3px solid var(--ink); border-radius: 12px; background: #fff; font: 800 13px system-ui; box-shadow: 2px 2px 0 var(--ink); cursor: pointer; }
+.km-mall-tabs button.on, .km-mall-delivery label.on { background: var(--violet); color: #fff; }
+.km-mall-delivery { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.km-mall-delivery input { accent-color: var(--gold); }
+.km-mall-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.km-mall-item h3 { font-size: 15px !important; }
+.km-mall-swatch { position: relative; height: 110px; display: grid; place-items: center; border: 3px solid var(--ink); border-radius: 14px; }
+.km-mall-swatch b { padding: 0 10px; color: #111014; font: 900 15px/1.1 system-ui; text-align: center; }
+.km-mall-swatch i { position: absolute; top: 8px; right: 8px; padding: 2px 8px; border: 2px solid var(--ink); border-radius: 999px; background: #e8506a; color: #fff; font: 900 11px system-ui; font-style: normal; }
+.km-mall-price s { color: #8a8095; }
+.km-mall-price b { font-size: 18px; }
+.km-mall-orders { display: grid; gap: 10px; }
+.km-mall-orders small { display: block; }
+@media (max-width: 700px) { .km-mall-grid { grid-template-columns: 1fr 1fr; } .km-mall-swatch { height: 80px; } }
+[data-hud="parcel"] { top: 140px !important; left: 12px !important; max-width: 260px; }
+@media (max-width: 700px), (max-height: 560px) { [data-hud="parcel"] { top: 124px !important; } }
+/* Seamless scene swaps: the last frame dissolves into the next scene. */
+.kw-veil { position: absolute; inset: 0; z-index: 60; width: 100%; height: 100%; object-fit: cover; pointer-events: none; opacity: 1; transition: opacity .5s ease; }
+.kw-veil.out { opacity: 0; }
+.kp-bubble.me { justify-self: end; background: #2f7de1; color: #fff; border-bottom-right-radius: 4px; }
