@@ -4,7 +4,9 @@
 
 # KairosHub
 
-PlayMessages is now playable at `#messages`: ten different sermon-inspired stories with original casts, thirty illustrated scenes, branching decisions, timed David Antwi sermon snippets, transcripts and saved conclusions. See [PLAYMESSAGES.md](PLAYMESSAGES.md) for sources, controls, save behaviour and verification. The Bible library uses original low-poly SVG objects and includes additional November content. Kairos World remains temporarily locked.
+Kairos now opens directly into fullscreen Kairos World. **Grace**, the in-game browser, contains the Bible games, four 3D Bible worlds, twelve Scripture challenges, PlayMessages, map, social space, character studio, Scripture and progress. LTBS has sixteen physical game buildings; their doors open the corresponding games in Grace. Original Blender characters replace the older world residents. Guest preview access remains enabled. See [GRACE_WORLD.md](GRACE_WORLD.md).
+
+PlayMessages has ten different sermon-inspired stories with original casts, thirty illustrated scenes, branching decisions, timed David Antwi sermon snippets, transcripts and saved conclusions. See [PLAYMESSAGES.md](PLAYMESSAGES.md) for sources, controls, save behaviour and verification.
 
 Kairos is a mobile-first web app for Safari, iPhone, iPad and desktop browsers. It has a bottom tab bar, touch controls, safe-area spacing and a Home Screen manifest. On iPhone, use Safari’s Share menu and Add to Home Screen. It uses the existing web runtime, with an app-style interface; it is not a React Native binary.
 

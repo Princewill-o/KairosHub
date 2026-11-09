@@ -27,7 +27,8 @@ const plugin={name:'kairos-platform',setup(api){
 }};
 import {existsSync as requireExists} from 'node:fs';
 await fs.mkdir(path.join(root,'public/world'),{recursive:true});
-const result=await build({absWorkingDir:root,entryPoints:['world-runtime/main.tsx'],outdir:'public/world',entryNames:'app',chunkNames:'chunks/[name]-[hash]',bundle:true,splitting:true,format:'esm',platform:'browser',target:'es2022',minify:true,jsx:'automatic',tsconfigRaw:{compilerOptions:{jsx:'react-jsx'}},nodePaths:[originalNode],define:{'process.env.NODE_ENV':'"production"','process.env':'{}'},plugins:[plugin],metafile:true});
+const result=await build({absWorkingDir:root,entryPoints:{app:'world-runtime/main.tsx','character-preview':'world-runtime/character-preview.ts'},outdir:'public/world',entryNames:'[name]',chunkNames:'chunks/[name]-[hash]',bundle:true,splitting:true,format:'esm',platform:'browser',target:'es2022',minify:true,jsx:'automatic',tsconfigRaw:{compilerOptions:{jsx:'react-jsx'}},nodePaths:[originalNode],define:{'process.env.NODE_ENV':'"production"','process.env':'{}'},plugins:[plugin],metafile:true});
+await fs.writeFile(path.join(root,'public/world/build-manifest.json'),JSON.stringify({outputs:Object.keys(result.metafile.outputs)},null,2));
 if(bootstrap){
   const target=path.join(root,'world-runtime/source');
   let count=0;
@@ -44,7 +45,8 @@ if(bootstrap){
   console.log(`Imported ${count} runtime source modules. Packages: ${[...packages].sort().join(', ')}`);
 }
 await fs.writeFile(path.join(root,'public/world/index.html'),WORLD_ENABLED ? '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Kairos World</title><link rel="stylesheet" href="/world/app.css"></head><body><div id="world-root"></div><script type="module" src="/world/app.js"></script></body></html>' : worldLockedDocument());
+await fs.writeFile(path.join(root,'public/world/character.html'),'<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your Kairos explorer in 3D</title><style>html,body,#preview{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;color:#fff0dc;font:13px system-ui}canvas{display:block}p{position:absolute;bottom:0;left:0;right:0;padding:12px;text-align:center;pointer-events:none}</style></head><body><div id="preview" tabindex="0" role="img" aria-label="Your animated 3D explorer. Drag or use arrow keys to turn."><p>Preparing your 3D explorer…</p></div><script type="module" src="/world/character-preview.js"></script></body></html>');
 const cssPath=path.join(root,'world-runtime/world.css');
 const css=await postcss([tailwind({base:path.join(root,'world-runtime')})]).process(await fs.readFile(cssPath,'utf8'),{from:cssPath,to:path.join(root,'public/world/app.css')});
-await fs.writeFile(path.join(root,'public/world/app.css'),css.css+'\nhtml,body,#world-root{height:100%;margin:0;overflow:hidden}#world-root>div{height:100dvh!important}\n');
+await fs.writeFile(path.join(root,'public/world/app.css'),css.css+'\nhtml,body,#world-root{height:100%;margin:0;overflow:hidden}#world-root>div{height:100dvh!important}@media(max-width:700px){.world-lobby-bar{display:none}}\n');
 console.log('Kairos World browser runtime built.');

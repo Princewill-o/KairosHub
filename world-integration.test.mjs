@@ -6,7 +6,7 @@ test('world help describes desktop, touch, travel and stories without auto openi
  const {worldInstructions}=await import('./public/kairos-world.mjs');
  const guide=worldInstructions();for(const text of ['WASD','Space','joystick','LTBS','Grace','train'])assert.ok(guide.includes(text),text);
  assert.match(guide,/<dialog[^>]*aria-labelledby=/);assert.doesNotMatch(guide,/<dialog[^>]*\sopen(?:\s|>)/);
- const source=await readFile('public/kairos-world.mjs','utf8');assert.match(source,/world-help/);assert.match(source,/showModal\(/);
+ const source=await readFile('public/kairos-world.mjs','utf8');assert.match(source,/world-help/);assert.match(source,/grace.open\('help'\)/);
 });
 test('journey reports only the selected player world progress',async()=>{
  const {readWorldProgress}=await import('./public/kairos-world.mjs');
@@ -36,9 +36,11 @@ test('heavy world assets are excluded from initial offline installation',async()
  const offline=await readFile('scripts/offline.mjs','utf8');assert.match(offline,/world3d/);
 });
 
-test('unfinished World shows a locked notice and never mounts its iframe',async()=>{
- const {mountKairosWorld,worldJourney}=await import('./public/kairos-world.mjs');
- const root={innerHTML:''};mountKairosWorld(root,{id:'test',name:'Kai'});
- assert.match(root.innerHTML,/Coming soon/);assert.doesNotMatch(root.innerHTML,/<iframe/);
- assert.doesNotMatch(worldJourney({id:'test'}),/href="#world"/);
+test('World entry is enabled and the platform opens inside Grace',async()=>{
+ const {WORLD_ENABLED}=await import('./public/world-availability.mjs');
+ const {worldJourney}=await import('./public/kairos-world.mjs');
+ assert.equal(WORLD_ENABLED,true);
+ assert.match(worldJourney({id:'test'}),/href="#world"/);
+ const app=await readFile('public/app.js','utf8');assert.match(app,/GRACE_EMBED/);assert.match(app,/initialRoute:/);
+ const shell=await readFile('public/kairos-world.mjs','utf8');assert.match(shell,/mountGraceBrowser/);assert.match(shell,/world-dock/);
 });

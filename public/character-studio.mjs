@@ -19,6 +19,11 @@ export function mountCharacterStudio(root, { onChange = () => {} } = {}) {
   let value = store.get(),
     tab = "look",
     pose = "wave";
+  const inGrace=new URLSearchParams(location.search).get('grace')==='1';
+  let previewFrame=null;
+  const updatePreview=()=>previewFrame?.contentWindow?.postMessage({type:'kairos-character:preview',appearance:value,pose},location.origin);
+  const previewReady=event=>{if(event.origin===location.origin&&event.source===previewFrame?.contentWindow&&event.data?.type==='kairos-character:ready')updatePreview();};
+  window.addEventListener('message',previewReady);
   const sections = {
     look: [
       ["skin", "Skin tone"],
@@ -44,6 +49,7 @@ export function mountCharacterStudio(root, { onChange = () => {} } = {}) {
   };
   function save() {
     store.set(value);
+    if(new URLSearchParams(location.search).get('grace')==='1')parent.postMessage({type:'kairos-grace:appearance',appearance:value},location.origin);
     onChange(value);
     preview();
     root.querySelector(".cs-save").textContent = store.saved
@@ -51,7 +57,8 @@ export function mountCharacterStudio(root, { onChange = () => {} } = {}) {
       : "Storage is unavailable. Your look stays for this visit.";
   }
   function preview() {
-    root.querySelector(".cs-avatar").innerHTML = avatarSvg(value, pose, {
+    if(inGrace){if(!previewFrame){previewFrame=document.createElement('iframe');previewFrame.title='Your animated Kairos explorer in 3D';previewFrame.src='/world/character.html';previewFrame.onload=updatePreview;root.querySelector('.cs-avatar').replaceChildren(previewFrame);}else updatePreview();}
+    else root.querySelector(".cs-avatar").innerHTML = avatarSvg(value, pose, {
       label: "Your customized low-poly character",
     });
     root
@@ -147,5 +154,5 @@ export function mountCharacterStudio(root, { onChange = () => {} } = {}) {
   };
   controls();
   preview();
-  return { dispose() {} };
+  return { dispose() {window.removeEventListener('message',previewReady);previewFrame?.remove();} };
 }

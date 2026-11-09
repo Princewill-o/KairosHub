@@ -1,10 +1,12 @@
 "use client";
 import { islandMap } from "@/game/core/islands";
+import {gracePlaces,graceIslands} from '../../../../../public/grace-catalog.mjs';
+import {worldAppearance} from '../../../../../public/grace-avatar.mjs';
 import { readStorySave, LTBS_SAVE_KEY } from "@/game/core/ltbs-stories";
 import { SCRIPTURE_CHALLENGES } from "@/game/core/ltbs-challenges";
 import { storyWorldMap } from "@/game/core/story-world";
 import { StoryWorldHud, useStoryAdventure } from "./story-adventure";
-import { COSMETICS, sanitiseAvatar } from "@/game/core/cosmetics";
+import {GraceWorldPanel} from './grace-world-panel';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -18,7 +20,7 @@ import { play, soundOn } from "../sound";
 import { NPC_SPOTS, PLAYER, TRAFFIC_BOXES } from "./art";
 import { BankDialog, type BankLoan } from "./bank";
 import type { BusTrip } from "./bus-stop";
-import { CityMap, MiniMap, type Place, nearest, placeForTask } from "./city-map";
+import { MiniMap, type Place, nearest, placeForTask } from "./city-map";
 import { DeveloperTeleport, type TeleportDestination } from "./developer-teleport";
 import { PoliceChallenge } from "./law-dialogs";
 import { ArrestOverlay, HearingDialog, PrisonHud, ShopDialog, WantedStars } from "./life";
@@ -33,13 +35,10 @@ import { useLife } from "./use-life";
 import { useNeeds, doActivity } from "./use-needs";
 import { type Me, useLobby } from "./use-world";
 import { WorldView } from "./world-view";
-import { BibleDialog, FollowUpDialog, PreachDialog } from "./preach-dialog";
-const GamePhone = dynamic(() => import("./game-phone").then((module) => module.GamePhone), { ssr: false, loading: () => null });
-const ToyWardrobe = dynamic(() => import("./toy-wardrobe").then(module => module.ToyWardrobe), { ssr: false });
+import { FollowUpDialog, PreachDialog } from "./preach-dialog";
 const BusStop = dynamic(() => import("./bus-stop").then((module) => module.BusStop), { ssr: false, loading: () => null });
 const TubeMap = dynamic(() => import("./tube-map").then((module) => module.TubeMap), { ssr: false, loading: () => null });
 const HomeEditor = dynamic(() => import("../../careers/home-editor").then(module => module.HomeEditor), { ssr: false });
-const ChristianArcade = dynamic(() => import("../../arcade/christian-arcade").then((module) => module.ChristianArcade), { ssr: false });
 const ScriptureChallenge = dynamic(() => import("./ltbs-hub").then(module => module.Challenge), { ssr: false });
 
 const TrainCutscene = dynamic(() => import("./train-cutscene").then((module) => module.TrainCutscene), { ssr: false, loading: () => null });
@@ -124,15 +123,11 @@ export function WorldApp({
 }) {
   HOME = home;
   const router = useRouter();
+  const [graceOpen,setGraceOpen]=useState(false);
+  const openGrace=useCallback((route='home')=>parent.postMessage({type:'kairos-world:grace',route},location.origin),[]);
   const [wardrobe, setWardrobe] = useState(false);
   const [playerAvatar, setPlayerAvatar] = useState(me.avatar);
-  const avatarStorageKey = `kairos-toy-avatar:${me.id.startsWith("kairos-guest-") ? "guest" : me.id}`;
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(avatarStorageKey);
-      if (saved) setPlayerAvatar(sanitiseAvatar(JSON.parse(saved), new Set(COSMETICS.map(item => item.id))));
-    } catch { /* Optional device-local appearance. */ }
-  }, [avatarStorageKey]);
+  // Grace supplies the selected player's appearance; old toy saves remain untouched.
   const [mapId, setMapId] = useState(() => (loadMap(initialMap) ? initialMap : "city"));
   const [building, setBuilding] = useState(initialBuild && initialMap === "home");
   const [tube, setTube] = useState<string | null>(null);
@@ -364,9 +359,31 @@ export function WorldApp({
     return () => { active = false; window.clearInterval(timer); };
   }, [life.bankCourtSeen, life.hearing, updateLife, goTo, say]);
 
+  useEffect(()=>{
+    const receive=(event:MessageEvent)=>{
+      if(event.origin!==location.origin||event.source!==parent)return;
+      if(event.data?.type==='kairos-world:grace-state')setGraceOpen(event.data.open===true);
+      if(event.data?.type==='kairos-world:appearance')setPlayerAvatar(old=>({...old,...worldAppearance(event.data.appearance)}));
+      if(event.data?.type==='kairos-world:story'&&['david','ruth','esther','daniel'].includes(event.data.story))adventure.enter(event.data.story);
+      if(event.data?.type==='kairos-world:challenge'&&SCRIPTURE_CHALLENGES.some(c=>c.id===event.data.challenge)){if(map.id!=='scripture-island')goTo('scripture-island','LTBS · Scripture games');setNativeChallenge(event.data.challenge);}
+      if(event.data?.type==='kairos-world:visit'){
+        const id=String(event.data.destination),place=gracePlaces.find(p=>p.id===id),island=id.startsWith('island:')&&graceIslands.find(p=>p.id===id.slice(7));
+        if(place){const target=loadMap(place.mapId);if(target)goTo(place.mapId,place.name,safeSpot(target,place.x*TILE,place.y*TILE));}
+        else if(island)goTo(island.id,island.name);
+      }
+    };
+    window.addEventListener('message',receive);return()=>window.removeEventListener('message',receive);
+  },[goTo,adventure.enter,map.id]);
+  useEffect(()=>{parent.postMessage({type:'kairos-world:location',mapId:map.id,name:map.name},location.origin);},[map.id,map.name]);
+  useEffect(()=>{if(mapOpen){setMapOpen(false);openGrace('atlas');}},[mapOpen,openGrace]);
+  useEffect(()=>{if(wardrobe){setWardrobe(false);openGrace('character');}},[wardrobe,openGrace]);
+  useEffect(()=>{if(bibleOpen){setBibleOpen(false);openGrace('scripture');}},[bibleOpen,openGrace]);
+  useEffect(()=>{if(miniGamesOpen){setMiniGamesOpen(false);openGrace('adventures');}},[miniGamesOpen,openGrace]);
+  useEffect(()=>{if(phone){setPhone(false);openGrace('home');}},[phone,openGrace]);
   const onPortal = useCallback(
     (portal: Portal) => {
       const to = portal.to;
+      if(to.kind==='grace'){openGrace(to.route);return;}
       if (to.kind === "story-enter") { setMiniGamesOpen(false); adventure.enter(to.story); return; }
       if (to.kind === "story-discover") { adventure.discover(to.index); return; }
       if (to.kind === "scripture-challenge") { setNativeChallenge(to.challenge); return; }
@@ -667,7 +684,7 @@ export function WorldApp({
 
   if (map.story) return <div className="relative h-[calc(100dvh-56px-64px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] md:h-dvh">
     <SceneMusic scene="nature" />
-    <WorldView key={`${mapId}:${trip}`} map={map} serverId="solo" me={{...me,avatar:playerAvatar}} arriveAt={arrive} onPortal={onPortal} onChangeServer={adventure.leave} storyPhase={adventure.phase} paused={fading || adventure.phase !== "explore"} />
+    <WorldView key={`${mapId}:${trip}`} map={map} serverId="solo" me={{...me,avatar:playerAvatar}} arriveAt={arrive} onPortal={onPortal} onChangeServer={adventure.leave} storyPhase={adventure.phase} paused={graceOpen || fading || adventure.phase !== "explore"} />
     <StoryWorldHud adventure={adventure}/>
     <div className="absolute bottom-3 right-3 z-[100001] rounded-full bg-[#21172c]/90 px-4 py-2 text-xs font-black text-[#ffdd80]">{wallet.toLocaleString()} Grace</div>
     {fading && <div className="pointer-events-none absolute inset-0 z-[100020] grid place-items-center bg-[#171221] text-sm font-black text-[#ffdd80]">{sceneName}</div>}
@@ -687,7 +704,7 @@ export function WorldApp({
       } />
       {!(building && mapId === "home") && <WorldView
         key={`${mapId}:${server}:${trip}`}
-        paused={Boolean(challenge) || wardrobe || preaching || Boolean(followUp) || bibleOpen || miniGamesOpen || Boolean(bus || tube || tutorial || mapOpen || dock || dealer || journey || fading || phone || inmate || shop || homeAction || bankOpen || life.hearing) || arrest || policeTransport || pursuit?.stage === "challenge" || pursuit?.stage === "tased"}
+        paused={graceOpen || Boolean(challenge) || wardrobe || preaching || Boolean(followUp) || bibleOpen || miniGamesOpen || Boolean(bus || tube || tutorial || mapOpen || dock || dealer || journey || fading || phone || inmate || shop || homeAction || bankOpen || life.hearing) || arrest || policeTransport || pursuit?.stage === "challenge" || pursuit?.stage === "tased"}
         homeAction={homeAction}
         police={pursuit}
         map={map}
@@ -744,6 +761,7 @@ export function WorldApp({
         />
       )}
       {dealer && (
+        <GraceWorldPanel address="garage" onClose={()=>setDealer(false)}>
         <Dealership
           clout={wallet}
           owned={garage}
@@ -758,6 +776,7 @@ export function WorldApp({
           onDrive={driveCar}
           onClose={() => setDealer(false)}
         />
+        </GraceWorldPanel>
       )}
       {driving && outdoors && (
         <button type="button" onClick={() => driveCar(null)} className="absolute right-3 bottom-52 z-[100001] min-h-11 max-w-[55%] rounded-2xl bg-[#13203a] px-4 py-2 text-xs font-black text-white shadow-lg sm:bottom-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
@@ -771,18 +790,12 @@ export function WorldApp({
       <button type="button" onClick={() => setMiniGamesOpen(true)} className="absolute right-3 bottom-40 z-[100001] flex min-h-11 items-center gap-1.5 rounded-full bg-[#6d45a2] px-3 py-1.5 text-xs font-black text-white shadow-lg">
         <Gamepad2 className="size-4" aria-hidden /> LTBS · Stories & games
       </button>
-      {miniGamesOpen && <div className="absolute inset-0 z-[100010] grid place-items-center overflow-y-auto bg-[#171221]/80 p-2 backdrop-blur-sm sm:p-5">
-        <section role="dialog" aria-modal="true" aria-label="LTBS Bible story worlds and Scripture games" className="relative max-h-full w-full max-w-5xl overflow-y-auto rounded-3xl bg-[#f8f4fb] p-2 shadow-2xl sm:p-4">
-          <button type="button" onClick={() => setMiniGamesOpen(false)} aria-label="Close mini-games" className="sticky top-2 z-10 ml-auto grid size-11 place-items-center rounded-full bg-[#26133e] text-white shadow-lg"><X className="size-5" /></button>
-          <ChristianArcade onEnterChallenge={id => { setNativeChallenge(id); setMiniGamesOpen(false); if(map.id !== "scripture-island")goTo("scripture-island","LTBS · Scripture activity trail"); }} onEnterStory={(story,chapter) => { setMiniGamesOpen(false); adventure.enter(story,chapter); }} onGrace={amount => { setWallet(value => value + amount); say(`+${amount} Grace · LTBS chapter progress saved`); }} />
-        </section>
-      </div>}
-      {challenge && map.id === "scripture-island" && !fading && <section aria-label={challenge.title} className="absolute bottom-4 right-3 z-[100006] max-h-[70%] w-[min(620px,calc(100%-1.5rem))] overflow-y-auto rounded-3xl border border-[#ffdd80]/40 bg-[#20182b]/95 text-white shadow-2xl backdrop-blur">
+      {challenge && map.id === "scripture-island" && !fading && <GraceWorldPanel address={`scripture-games/${challenge.id}`} onClose={()=>setNativeChallenge(null)}><section aria-label={challenge.title} className="m-auto w-full max-w-3xl overflow-y-auto rounded-2xl bg-[#20182b] p-4 text-white">
         <ScriptureChallenge key={challenge.id} game={challenge} onExit={()=>setNativeChallenge(null)} onAward={(id,amount)=>{
           const current=readStorySave(),key=`challenge:${id}`;
           if(!current.completed[key]){const next={...current,grace:current.grace+amount,completed:{...current.completed,[key]:{choice:0,grace:amount}}};try{localStorage.setItem(LTBS_SAVE_KEY,JSON.stringify(next));}catch{/* Device storage optional. */}setWallet(value=>value+amount);void recordKairosActivity("scripture_game");say(`+${amount} Grace · Scripture challenge complete`);}
         }}/>
-      </section>}
+      </section></GraceWorldPanel>}
       <WantedStars stars={life.stars} />
       {life.sick && <p className="pointer-events-none absolute top-[104px] left-1/2 z-[60] -translate-x-1/2 rounded-full bg-[#c8322d] px-3 py-1 text-xs font-black text-white">Unwell: get medicine or see a doctor</p>}
       {nearPerson && !jailed && !driving && (
@@ -791,7 +804,7 @@ export function WorldApp({
         </button>
       )}
       <button type="button" onClick={() => setBibleOpen(true)} className="absolute left-3 bottom-24 z-[100001] flex min-h-11 items-center gap-2 rounded-full border border-[#f2d15b]/50 bg-[#171221] px-4 py-2 text-sm font-black text-[#f2d15b] shadow-lg"><BookOpen className="size-4"/> Bible</button>
-      {preaching && <PreachDialog person={["Amina","Daniel","Grace","Jordan","Maya","Noah","Sam","Talia"][nearPersonIndex % 8]} onClose={() => setPreaching(false)} onComplete={result => {
+      {preaching && <GraceWorldPanel address="outreach/conversation" onClose={()=>setPreaching(false)}><PreachDialog person={["Amina","Daniel","Grace","Jordan","Maya","Noah","Sam","Talia"][nearPersonIndex % 8]} onClose={() => setPreaching(false)} onComplete={result => {
         void recordKairosActivity("outreach_conversation");
         try {
           const key = `kairos-outreach:${me.id}`;
@@ -800,8 +813,8 @@ export function WorldApp({
           window.dispatchEvent(new Event("kairos-outreach-updated"));
         } catch { /* Outreach notes are optional local progress. */ }
         say(result.outcome === "faith" ? `${result.name} chose to follow Jesus. Offer a warm welcome and support.` : result.outcome === "contact" ? `${result.name} chose to stay in touch.` : `${result.name} appreciated being heard.`, true);
-      }} />}
-      {followUp && <FollowUpDialog person={followUp} onClose={() => setFollowUp(null)} onComplete={() => {
+      }} /></GraceWorldPanel>}
+      {followUp && <GraceWorldPanel address="outreach/follow-up" onClose={()=>setFollowUp(null)}><FollowUpDialog person={followUp} onClose={() => setFollowUp(null)} onComplete={() => {
         void recordKairosActivity("outreach_followup");
         try {
           const key = `kairos-outreach:${me.id}`;
@@ -813,8 +826,7 @@ export function WorldApp({
         } catch { /* Outreach notes are optional local progress. */ }
         setFollowUp(null);
         say(`You followed up kindly with ${followUp}.`, true);
-      }} />}
-      {bibleOpen && <BibleDialog onClose={() => setBibleOpen(false)} />}
+      }} /></GraceWorldPanel>}
       {pursuit && pursuit.stage !== "challenge" && pursuit.stage !== "tased" && <div role="status" className="pointer-events-none absolute top-40 left-1/2 z-[65] max-w-[60%] -translate-x-1/2 rounded-2xl bg-[#13203a]/95 px-4 py-2 text-center text-sm font-bold text-white">{pursuit.stage === "arriving" ? "Police car responding" : "Officers are searching"}<p className="text-xs text-white/80">Leave the red search circle for 6 seconds to clear your stars.{pursuit.outsideSince !== null ? ` ${Math.max(0,6-Math.floor((Date.now()-pursuit.outsideSince)/1000))}s left` : ""}</p></div>}
       {pursuit?.stage === "challenge" && <PoliceChallenge onResult={correct=>{
         pursuitRef.current = null; setPursuit(null);
@@ -822,9 +834,7 @@ export function WorldApp({
         else { setArrest(true); arrestTimer.current=setTimeout(()=>{updateLife(l=>({...clearWanted(l),hearing:{stars:l.stars,charge:wantedCharge(l)}}));setArrest(false);goTo("court","Crown Court");},2600); }
       }}/ >}
       {arrest && <ArrestOverlay />}
-      <button type="button" onClick={()=>setPhone(true)} aria-label="Open your game phone" className="absolute right-3 bottom-24 z-[100001] grid size-12 place-items-center rounded-2xl border-2 border-white bg-[#13203a] text-white shadow-lg"><Smartphone className="size-6"/></button>
-      {phone && <GamePhone onGarage={() => { setPhone(false); if (outdoors && !jailed) setDealer(true); else say("Head outside to open your garage."); }} onBible={() => { setPhone(false); setBibleOpen(true); }} onWoodland={()=>{setPhone(false);setMapOpen(true);say("Take the Grace Line to Kharis Forest. The church is beyond the woodland trail.",true);}} onClose={()=>setPhone(false)} onMap={()=>{setPhone(false);setMapOpen(true);}} onLocker={()=>{setPhone(false);setWardrobe(true);}} />}
-      {wardrobe && <ToyWardrobe initial={playerAvatar} onClose={()=>setWardrobe(false)} onApply={avatar=>{setPlayerAvatar(avatar);try{localStorage.setItem(avatarStorageKey,JSON.stringify(avatar));}catch{/* Optional device storage. */}setWardrobe(false);say("Your new look is ready.");}} />}
+      <button type="button" onClick={()=>openGrace('home')} aria-label="Open Grace browser" className="absolute right-3 bottom-24 z-[100001] grid size-12 place-items-center rounded-2xl border-2 border-[#f1cc85] bg-[#58377b] text-[#fff1c8] shadow-lg"><span className="font-serif text-3xl italic">g</span></button>
       {inmate && <div className="absolute inset-0 z-[100008] grid place-items-center bg-black/60 p-4"><section role="dialog" aria-label={inmate} className="w-full max-w-md rounded-3xl bg-[#f7f1e6] p-6 text-[#13203a]"><h2 className="text-2xl font-black">{inmate}</h2><p className="mt-3 leading-relaxed">{inmate==="Sam"?"Sam is waiting for his sentence to end. The cell doors are open, but the service corridor is watched.":"The service corridor starts through the eastern wall. The gaps alternate north and south. Watch the patrolling guards; getting caught adds time."}</p><p className="mt-3 text-xs text-[#5a6272]">Scripted character dialogue — no live chat.</p><button type="button" onClick={()=>setInmate(null)} className="mt-5 rounded-full bg-[#2b5fd9] px-5 py-2 font-black text-white">End conversation</button></section></div>}
       {mapId === "court" && life.hearing && (
         <HearingDialog
@@ -895,7 +905,7 @@ export function WorldApp({
           Decorate
         </Link>
       )}
-      {bus && <BusStop here={bus} stops={BUS_STOPS} onGo={busRide} onClose={() => setBus(null)} />}
+      {bus && <GraceWorldPanel address="bus-travel" onClose={()=>setBus(null)}><BusStop here={bus} stops={BUS_STOPS} onGo={busRide} onClose={() => setBus(null)} /></GraceWorldPanel>}
       <LifeHud avatar={playerAvatar} name={me.username}
         quests={quests}
         onLocate={(q) => {
@@ -907,8 +917,7 @@ export function WorldApp({
         }}
       />
       {!atHome && <MiniMap map={map} searchArea={pursuit} waypoint={waypoint} onOpen={() => setMapOpen(true)} onArrive={arrived} />}
-      {mapOpen && <CityMap map={map} searchArea={pursuit} waypoint={waypoint} onPick={setWaypoint} onClose={() => setMapOpen(false)} />}
-      {tube && <TubeMap here={tube} stations={STATIONS} onGo={ride} onClose={() => setTube(null)} />}
+      {tube && <GraceWorldPanel address="grace-line" onClose={()=>setTube(null)}><TubeMap here={tube} stations={STATIONS} onGo={ride} onClose={() => setTube(null)} /></GraceWorldPanel>}
       {room && (
         <div className="pointer-events-none absolute inset-x-0 top-16 mx-auto w-fit rounded-full bg-brand px-4 py-2 text-sm font-black" role="status">
           {room}

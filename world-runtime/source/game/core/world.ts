@@ -31,6 +31,7 @@ export interface Rect {
 }
 
 export type PortalTarget =
+  | { kind: "grace"; route: string }
   | { kind: "scripture-challenge"; challenge: string }
   | { kind: "story-enter"; story: "david" | "ruth" | "esther" | "daniel" }
   | { kind: "story-discover"; index: number }
@@ -66,6 +67,8 @@ export interface Portal {
 
 /** A building drawn over a block of solid tiles (outdoor maps). In tiles. */
 export interface Structure {
+  game?: string;
+  grace?: string;
   x: number;
   y: number;
   w: number;

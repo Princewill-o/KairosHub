@@ -1,11 +1,14 @@
 import {mountCharacterStudio} from './character-studio.mjs';
+import {mountGracePage} from './grace-pages.mjs';
+import {graceRoute} from './grace-catalog.mjs';
+const GRACE_EMBED = new URLSearchParams(location.search).get('grace') === '1';
+document.documentElement.classList.toggle('grace-embedded',GRACE_EMBED);
 const PUBLIC_PLAY = true;
 import {worldLockedCard} from './world-availability.mjs';
 import {mountPlayMessages} from './playmessages.mjs';
 import {mountFamily} from './family.mjs';
 import {restoreFamily, familyApi, loadCloudProgress, syncStatus} from './family-client.mjs';
 import {mountKairosWorld,worldJourney} from './kairos-world.mjs';
-import {installScriptureReader} from './scripture.mjs';
 import {installColorMode} from './color-mode.mjs';
 import {mountLanding} from './landing.mjs';
 import { arcade } from './library/app.mjs';
@@ -374,8 +377,15 @@ function party() {
 }
 function route() {
   const hash = location.hash.slice(1);
-  if(PUBLIC_PLAY){accounts.ensureGuest();if(['welcome','family','family/signup'].includes(hash)){location.replace('#bible');return;}}
-  if(PUBLIC_PLAY&&!hash){location.replace('#bible');return;}
+  if(PUBLIC_PLAY)accounts.ensureGuest();
+  if(GRACE_EMBED&&hash==='world'){parent.postMessage({type:'kairos-grace:action',action:'world'},location.origin);location.replace('#home');return;}
+  if(!GRACE_EMBED && accounts.active()){
+    applyAudience();stop();document.documentElement.classList.add('world-playing');
+    document.querySelector('#app').innerHTML='<main id="kairos-world-root"></main>';
+    activeModule=mountKairosWorld(document.querySelector('#kairos-world-root'),accounts.active(),{initialRoute:hash&&hash!=='world'&&!['welcome','family','family/signup','landing','multiplayer','together'].includes(hash)?graceRoute(hash):null});return;
+  }
+  if(PUBLIC_PLAY&&['welcome','family','family/signup'].includes(hash)){location.replace('#home');return;}
+  if(PUBLIC_PLAY&&!hash){location.replace('#home');return;}
   if (!hash || hash === 'landing') {
     stop();
     document.documentElement.dataset.audience = 'landing';
@@ -401,6 +411,7 @@ function route() {
     return;
   }
   applyAudience();
+  if(GRACE_EMBED&&['home','atlas','social','scripture','help','adventures'].includes(hash)){stop();document.querySelector('#app').innerHTML='<main id="grace-page-root"></main>';activeModule=mountGracePage(document.querySelector('#grace-page-root'),hash);return;}
   if(hash.startsWith("unity/")){location.replace('#bible');return;}
   else if (hash === "bible" || hash.startsWith("bible/")) {
     stop();
@@ -441,4 +452,4 @@ installColorMode(theme,value=>{theme=value;save();});
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
 
-installScriptureReader(document.querySelector("#app"));
+// Scripture is a Grace app. Do not append a second reader outside the world.

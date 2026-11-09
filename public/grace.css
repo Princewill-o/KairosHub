@@ -1,0 +1,942 @@
+html.world-playing,
+html.world-playing body {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  height: 100%;
+  background: #21192b;
+}
+html.world-playing .mobile-tabs,
+html.world-playing .scripture-reader {
+  display: none !important;
+}
+#kairos-world-root {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+}
+.kairos-world-shell {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+}
+.world-stage {
+  position: absolute;
+  inset: 0;
+}
+.world-dock {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100005;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid #d9c8e557;
+  background: #20192ceb;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px #130e2140;
+  backdrop-filter: blur(16px);
+  white-space: nowrap;
+}
+.world-dock button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #f9f2e5;
+  min-height: 43px;
+  padding: 9px 14px;
+  font: 800 13px var(--kg-body, system-ui);
+  cursor: pointer;
+}
+.world-dock button:hover {
+  background: #594269;
+}
+.world-dock .open-grace {
+  background: #f1cc85;
+  color: #2b2039;
+  padding-right: 22px;
+}
+.grace-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #6b3fa0;
+  color: #fff1c8;
+  font:
+    bold italic 26px Georgia,
+    serif;
+}
+.world-loading {
+  z-index: 100010;
+}
+.world-loading h1 {
+  color: #fff5df;
+}
+.world-loading p {
+  color: #dacfe6;
+}
+.world-location {
+  position: absolute;
+  left: 50%;
+  top: 80px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 70;
+  color: #fff4d9;
+  background: #21192bd9;
+  padding: 5px 15px;
+  border-radius: 20px;
+  font: 700 11px var(--kg-body, system-ui);
+}
+.grace-window {
+  position: fixed;
+  inset: 0;
+  width: min(1450px, calc(100vw - 64px));
+  height: calc(100dvh - 64px);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid #b39ac7;
+  border-radius: 20px;
+  background: #fbf4e2;
+  color: #2d2039;
+  box-shadow: 0 30px 140px #0009;
+  overflow: hidden;
+}
+.grace-window::backdrop {
+  background: #1710206e;
+  backdrop-filter: blur(5px);
+}
+.grace-browser {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--kg-body, system-ui);
+}
+.grace-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 17px;
+  background: #292035;
+  color: #fff6e5;
+  flex: none;
+}
+.grace-titlebar > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.grace-titlebar strong {
+  font:
+    700 24px Georgia,
+    serif;
+}
+.grace-titlebar span {
+  margin-left: 12px;
+  color: #cbb8d8;
+  letter-spacing: 0.15em;
+  font-size: 10px;
+  font-weight: 800;
+}
+.grace-titlebar button {
+  border: 1px solid #90789d;
+  background: #47354e;
+  color: #fff4e0;
+  font-size: 27px;
+  line-height: 1;
+  width: 40px;
+  height: 36px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.grace-browser-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #efe7e9;
+  padding: 10px 16px;
+  border-bottom: 1px solid #cbbcd1;
+  flex: none;
+}
+.grace-browser-controls > button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 20px;
+  color: #4b355a;
+  cursor: pointer;
+}
+.grace-browser-controls > button:hover {
+  background: #dfd0e7;
+}
+.grace-browser-controls > button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.grace-browser-controls label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  border-radius: 10px;
+  border: 1px solid #d7c8de;
+  background: #fffdf7;
+  padding: 8px 13px;
+}
+.grace-browser-controls input {
+  width: 100%;
+  background: transparent;
+  color: #4f3b5e;
+  border: 0;
+  outline: 0;
+  font: 700 13px var(--kg-body, system-ui);
+}
+.grace-lock {
+  color: #8d69a9;
+  margin-right: 10px;
+}
+.grace-browser-local {
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  color: #5a426b;
+  font-weight: 900;
+  padding: 0 10px;
+}
+.grace-browser-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.grace-browser-body > nav {
+  width: 166px;
+  flex: none;
+  background: #f4ecef;
+  border-right: 1px solid #d9cbdc;
+  padding: 18px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.grace-browser-body nav button {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #543c61;
+  font: 800 12px var(--kg-body, system-ui);
+  text-align: left;
+  cursor: pointer;
+}
+.grace-browser-body nav i {
+  font-style: normal;
+  background: #e2d2e9;
+  border-radius: 6px;
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  color: #643c82;
+  font-size: 11px;
+}
+.grace-browser-body nav button[aria-current="true"] {
+  background: #6b3fa0;
+  color: #fff;
+}
+.grace-browser-body nav button[aria-current="true"] i {
+  background: #8b62b5;
+  color: #fff;
+}
+.grace-browser-body > iframe {
+  border: 0;
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  background: #fbf4e2;
+}
+.grace-browser-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  background: #f0e7ec;
+  border-top: 1px solid #d9cbdc;
+  color: #634f6e;
+  font-size: 10px;
+  padding: 6px 16px;
+  flex: none;
+}
+.grace-window button:focus-visible,
+.world-dock button:focus-visible {
+  outline: 3px solid #e4b343;
+  outline-offset: 2px;
+}
+html.grace-embedded .topbar,
+html.grace-embedded .mobile-tabs,
+html.grace-embedded .scripture-reader,
+html.grace-embedded .site-footer {
+  display: none !important;
+}
+html.grace-embedded body {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: #fbf4e2 !important;
+}
+html.grace-embedded #app {
+  min-height: 100dvh;
+}
+html.grace-embedded .bible-home {
+  padding-top: 28px;
+}
+html.grace-embedded .character-studio {
+  padding-top: 10px;
+}
+html.grace-embedded .character-studio > .kg-back {
+  display: none;
+}
+.grace-page {
+  max-width: 1200px;
+  padding: 38px 36px 64px;
+  margin: auto;
+  color: #30223b;
+  font-family: var(--kg-body, system-ui);
+}
+.grace-page-head {
+  padding-bottom: 30px;
+  border-bottom: 1px solid #dbcbd4;
+  margin-bottom: 28px;
+}
+.grace-page-head > p,
+.grace-kicker {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.17em;
+  color: #8c659b;
+  margin: 0 0 14px;
+}
+.grace-page h1 {
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 700;
+  line-height: 1.17;
+  letter-spacing: -0.04em;
+  margin: 0 0 14px;
+  color: #33233f;
+}
+.grace-page-head > span,
+.grace-page p {
+  font-size: 14px;
+  line-height: 1.75;
+  color: #705c78;
+}
+.grace-page h2 {
+  font-size: 24px;
+  line-height: 1.25;
+  color: #3b2848;
+  letter-spacing: -0.025em;
+}
+.grace-feature {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #34243f;
+  color: #fff3df;
+  overflow: hidden;
+  border-radius: 17px;
+  margin-bottom: 24px;
+}
+.grace-feature > div:first-child {
+  padding: 30px;
+}
+.grace-feature span {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  font-weight: 800;
+  color: #e6c17e;
+}
+.grace-feature h2 {
+  color: #fff3df;
+  font-size: 30px;
+  line-height: 1.17;
+  margin: 16px 0;
+}
+.grace-feature p {
+  color: #d9c7df;
+  font-size: 13px;
+}
+.grace-feature a {
+  display: inline-block;
+  color: #f5d291;
+  font-weight: 800;
+  margin-top: 12px;
+  font-size: 12px;
+}
+.grace-feature-art {
+  min-height: 260px;
+  background: url("/playmessages/art/open-book.webp") center top/auto 300%;
+}
+.grace-quick-links {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 24px 0 36px;
+}
+.grace-quick-links > a {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid #d7c7d9;
+  border-radius: 12px;
+  background: #fffaf1;
+  color: #563b69;
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 13px;
+}
+.grace-quick-links b {
+  font-size: 10px;
+  color: #a185af;
+}
+.grace-quick-links small {
+  font-size: 11px;
+  color: #7c6683;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.grace-site-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.grace-site-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  background: #fffaf1;
+  border: 1px solid #d9c9d7;
+  border-radius: 12px;
+  color: #3c2849;
+  text-decoration: none;
+  transition: border-color 0.2s;
+}
+.grace-site-card:hover {
+  border-color: #8052a5;
+}
+.grace-site-card img {
+  width: 68px;
+  height: 68px;
+  flex: none;
+  background: #2c2432;
+  border-radius: 9px;
+}
+.grace-site-card span {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.grace-site-card strong {
+  font-size: 14px;
+}
+.grace-site-card small {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #7c6583;
+}
+.grace-site-card > b {
+  margin-left: auto;
+  color: #946da9;
+}
+.grace-atlas {
+  background: #284e65;
+  border-radius: 24px;
+  overflow: hidden;
+}
+.grace-atlas svg {
+  display: block;
+  width: 100%;
+  max-height: 500px;
+}
+.grace-atlas g[role="button"] {
+  cursor: pointer;
+}
+.grace-atlas p {
+  text-align: center;
+  font-size: 11px;
+  padding: 0 15px 15px;
+  color: #f5d7ab;
+}
+.grace-destination {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 30px;
+  padding: 24px 0;
+}
+.grace-local-plan svg {
+  width: 100%;
+  max-height: 330px;
+}
+.grace-primary {
+  display: inline-block;
+  min-height: 43px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 9px;
+  background: #6b3fa0;
+  color: #fff;
+  font: 800 12px var(--kg-body, system-ui);
+  cursor: pointer;
+}
+.grace-place-list {
+  display: grid;
+  gap: 8px;
+}
+.grace-place-list article {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fffaf1;
+  border: 1px solid #d9c9d7;
+  padding: 12px;
+  border-radius: 10px;
+}
+.grace-place-list article > b {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: #e8d6ee;
+  color: #72508a;
+  border-radius: 8px;
+  font-size: 11px;
+}
+.grace-place-list h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: #483153;
+}
+.grace-place-list span {
+  font-size: 10px;
+  color: #806c85;
+}
+.grace-place-list a {
+  margin-left: auto;
+}
+.grace-place-list button,
+.grace-place-list a {
+  background: #eee2f2;
+  color: #5e3a78;
+  font: 800 11px var(--kg-body, system-ui);
+  border: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.grace-social-note {
+  padding: 14px 18px;
+  background: #ede3f1;
+  color: #624d71;
+  font-size: 12px;
+  line-height: 1.7;
+  border-radius: 10px;
+  margin-bottom: 22px;
+}
+.grace-social-cast {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.grace-social-cast section {
+  padding: 20px;
+  border-radius: 14px;
+  background: #fffaf1;
+  border: 1px solid #d7c7d9;
+}
+.grace-person {
+  height: 130px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--person) 20%, #f3e8db);
+  display: grid;
+  place-items: center;
+  margin-bottom: 20px;
+}
+.grace-person span {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 84px;
+  border-radius: 27px 27px 14px 14px;
+  background: var(--person);
+  color: #fff3dc;
+  font-size: 36px;
+  font-weight: 900;
+  clip-path: polygon(
+    15% 0,
+    85% 0,
+    100% 18%,
+    100% 88%,
+    78% 100%,
+    20% 100%,
+    0 88%,
+    0 18%
+  );
+}
+.grace-social-cast small {
+  color: #8f6f9c;
+  font-size: 10px;
+  font-weight: 800;
+}
+.grace-social-cast h2 {
+  margin: 6px 0 15px;
+}
+.grace-social-cast p {
+  min-height: 100px;
+  font-size: 13px;
+}
+.grace-social-cast button {
+  border: 1px solid #b99dca;
+  background: #f2e7f6;
+  color: #624176;
+  border-radius: 9px;
+  padding: 12px;
+  font: 800 12px/1.5 var(--kg-body, system-ui);
+  cursor: pointer;
+}
+.grace-scripture {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.grace-scripture label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #765e81;
+}
+.grace-scripture input,
+.grace-scripture select {
+  border: 1px solid #c6afcf;
+  background: #fffaf1;
+  color: #3e284c;
+  border-radius: 8px;
+  padding: 12px;
+  font: 700 14px var(--kg-body, system-ui);
+  max-width: 210px;
+}
+.grace-scripture input {
+  width: 90px;
+}
+.grace-reader-status {
+  padding: 20px 0;
+  border-bottom: 1px solid #dfcfdc;
+}
+.grace-verses {
+  max-width: 760px;
+  margin: 24px auto;
+  font-family: Georgia, serif;
+}
+.grace-verses p {
+  font:
+    19px/1.95 Georgia,
+    serif;
+  color: #3f3047;
+}
+.grace-verses sup {
+  color: #996db0;
+  margin-right: 7px;
+}
+@media (max-width: 800px) {
+  .grace-window {
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+  }
+  .grace-titlebar span,
+  .grace-browser-local {
+    display: none;
+  }
+  .grace-browser-body > nav {
+    width: 57px;
+    padding: 10px 5px;
+  }
+  .grace-browser-body nav button {
+    padding: 7px;
+    justify-content: center;
+  }
+  .grace-browser-body nav span {
+    display: none;
+  }
+  .grace-browser-controls {
+    padding: 8px;
+    gap: 2px;
+  }
+  .grace-browser-controls > button {
+    width: 29px;
+  }
+  .grace-browser-status {
+    font-size: 9px;
+    padding: 5px 9px;
+  }
+  .grace-browser-status > span:last-child {
+    display: none;
+  }
+  .grace-page {
+    padding: 25px 18px 48px;
+  }
+  .grace-feature {
+    grid-template-columns: 1fr;
+  }
+  .grace-feature-art {
+    min-height: 155px;
+    order: -1;
+    background-size: 100% 300%;
+  }
+  .grace-feature > div:first-child {
+    padding: 24px;
+  }
+  .grace-feature h2 {
+    font-size: 25px;
+  }
+  .grace-quick-links {
+    grid-template-columns: 1fr 1fr;
+  }
+  .grace-site-grid {
+    grid-template-columns: 1fr;
+  }
+  .grace-social-cast {
+    grid-template-columns: 1fr;
+  }
+  .grace-social-cast p {
+    min-height: 0;
+  }
+  .grace-destination {
+    grid-template-columns: 1fr;
+  }
+  .grace-place-list article {
+    flex-wrap: wrap;
+  }
+  .grace-place-list article > div {
+    flex: 1;
+    min-width: 130px;
+  }
+  .grace-place-list a {
+    margin-left: 38px;
+  }
+  .grace-local-plan {
+    max-width: 380px;
+    margin: auto;
+  }
+  .world-dock {
+    top: 12px;
+    gap: 0;
+  }
+  .world-dock button {
+    padding: 8px 9px;
+    font-size: 11px;
+  }
+  .world-dock .open-grace {
+    padding-right: 11px;
+  }
+  .world-dock [data-optional] {
+    display: none;
+  }
+  .world-location {
+    top: 73px;
+    font-size: 10px;
+  }
+  .grace-titlebar {
+    padding: 8px 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grace-site-card {
+    transition: none;
+  }
+}
+.cs-avatar > iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+@media (max-width: 700px) {
+  .world-location {
+    display: none;
+  }
+  .grace-browser-body > nav {
+    width: 54px;
+  }
+  .grace-browser-body nav button {
+    position: relative;
+  }
+  .grace-browser-body nav span {
+    display: block;
+    position: absolute;
+    font-size: 8px;
+    line-height: 1;
+    top: 33px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .grace-browser-body nav button {
+    min-height: 49px;
+    padding-bottom: 14px;
+  }
+}
+.grace-person svg {
+  height: 145px;
+  width: auto;
+  max-width: 100%;
+}
+.grace-person {
+  overflow: hidden;
+}
+.grace-browser-status {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  margin: 0;
+  border-radius: 0;
+}
+.grace-help-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.grace-help-grid section {
+  padding: 20px;
+  background: #fffaf1;
+  border: 1px solid #d7c7d9;
+  border-radius: 12px;
+}
+@media (max-width: 700px) {
+  .grace-browser-body {
+    flex-direction: column;
+  }
+  .grace-browser-body > nav {
+    box-sizing: border-box;
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 5px;
+    padding: 7px;
+    border-right: 0;
+    border-bottom: 1px solid #d9cbdc;
+    min-height: 61px;
+  }
+  .grace-browser-body nav button {
+    flex: none;
+    position: static;
+    min-height: 44px;
+    padding: 8px 12px;
+    gap: 7px;
+  }
+  .grace-browser-body nav span {
+    position: static;
+    display: block;
+    font-size: 12px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: visible;
+  }
+  .grace-browser-body > iframe {
+    flex: 1;
+    min-height: 0;
+  }
+  .grace-help-grid {
+    grid-template-columns: 1fr;
+  }
+  .grace-scripture label,
+  .grace-scripture input,
+  .grace-scripture select {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+.grace-story-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 36px;
+}
+.grace-story-grid article {
+  overflow: hidden;
+  border: 1px solid #d7c7d9;
+  background: #fffaf1;
+  border-radius: 15px;
+}
+.grace-story-grid article > div {
+  padding: 22px;
+}
+.grace-story-grid img {
+  display: block;
+  width: 100%;
+  height: 190px;
+  object-fit: cover;
+}
+.grace-story-grid small {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  font-weight: 800;
+  color: #9977aa;
+}
+.grace-challenge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.grace-challenge-grid button {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: start;
+  text-align: left;
+  border: 1px solid #d7c7d9;
+  border-radius: 12px;
+  padding: 20px;
+  background: #fffaf1;
+  color: #56376b;
+  font: 800 14px var(--kg-body, system-ui);
+  cursor: pointer;
+}
+.grace-challenge-grid b,
+.grace-challenge-grid small {
+  font-size: 10px;
+  color: #93759e;
+}
+@media (max-width: 700px) {
+  .grace-story-grid {
+    grid-template-columns: 1fr;
+  }
+  .grace-challenge-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .grace-browser-body > nav {
+    flex-wrap: nowrap;
+  }
+}

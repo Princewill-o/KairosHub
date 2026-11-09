@@ -1,5 +1,7 @@
 # Kairos design
 
+Current entry (9 November 2026): fullscreen Kairos World is the platform home. Grace is a violet-and-parchment in-world browser with app navigation, local addresses, history and a closable page surface. All library, story, Scripture, character and journey screens live within Grace. Physical LTBS game pavilions and the Social House share destinations with its atlas. World avatars are original modular Blender citizens, with live 3D customization. See `GRACE_WORLD.md`; older design notes below describe previous versions.
+
 A parchment game library with deep purple text and controls, gentle gold success states, clay retry states, and pastel category cards. Original game badges illustrate the Bible collection; supplied cartoon icons remain in the shared interface; the supplied Cartoon UI Pack textures primary buttons and reward stars. Cute Fantasy pixel sprites form the home village and story environments. Preserve crisp pixel scaling with `image-rendering: pixelated`.
 
 The home screen leads with three new activities: Shepherd’s Meadow, Scroll Quest, and Guess the Chapter. The solo library follows with the original cards. Multiplayer has a room code, connection state, player list, live log, and responsive host/guest states. Mobile maps and timelines scroll internally without widening the page.
@@ -37,4 +39,4 @@ All 16 Bible games have distinct original SVG badges in `public/assets/games/`, 
 
 The Bible library now rotates expanded content using `public/bible/replay.mjs`. Bags are independent per player and per activity, persist between visits, and fall back to in-memory rotation when storage is blocked. Larger banks do not make rounds longer. Crossword boards rotate as complete playable layouts; Bingo avoids duplicate answer tiles; the map shows four candidate pins per round. Resource counts appear on game intros. Shared Scripture questions and excerpts also feed Scroll Quest and the older verse games.
 
-Kairos World is temporarily locked at the user's request. Its preview appears as a non-interactive Coming soon card, with a link back to available Bible games. Direct World navigation shows the same notice without mounting the game iframe. Saved progress remains visible in My journey without an active return-to-world link.
+The temporary Kairos World lock was removed on 9 November at the user's request. World is now the default entry; library and journey links open inside Grace while preserving the live world behind it.

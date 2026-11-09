@@ -3,6 +3,9 @@ import React, { lazy, Suspense } from 'react';
 export function navigate(href: string) {
   if (/^https?:/.test(href)) { window.open(href,'_blank','noopener,noreferrer'); return; }
   const url=new URL(href,location.origin);
+  if(url.pathname==='/games/arcade'||url.pathname==='/games/locker'||url.pathname==='/bible'){
+    parent.postMessage({type:'kairos-world:grace',route:url.pathname==='/games/locker'?'character':url.pathname==='/bible'?'scripture':'bible'},location.origin);return;
+  }
   if(url.pathname.startsWith('/games/world')||url.pathname.startsWith('/games/preview')||url.pathname==='/games/home'||url.pathname==='/games/arcade'){
     const map=url.pathname==='/games/arcade'?'scripture-island':url.pathname==='/games/home'?'home':url.searchParams.get('map')||'city';
     location.assign('/world/index.html?map='+encodeURIComponent(map));return;

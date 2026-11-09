@@ -1,0 +1,224 @@
+[
+  {
+    "path": "/",
+    "status": 200,
+    "bytes": 1852,
+    "type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/grace.css",
+    "status": 200,
+    "bytes": 17630,
+    "type": "text/css; charset=utf-8"
+  },
+  {
+    "path": "/grace-pages.mjs",
+    "status": 200,
+    "bytes": 14399,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/grace-browser.mjs",
+    "status": 200,
+    "bytes": 5679,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/grace-catalog.mjs",
+    "status": 200,
+    "bytes": 4060,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/index.html",
+    "status": 200,
+    "bytes": 322,
+    "type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/world/app.css",
+    "status": 200,
+    "bytes": 124681,
+    "type": "text/css; charset=utf-8"
+  },
+  {
+    "path": "/world/character.html",
+    "status": 200,
+    "bytes": 638,
+    "type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/world3d/kairos-citizen.glb",
+    "status": 200,
+    "bytes": 978356,
+    "type": "model/gltf-binary"
+  },
+  {
+    "path": "/world3d/grace-pavilion.glb",
+    "status": 200,
+    "bytes": 140608,
+    "type": "model/gltf-binary"
+  },
+  {
+    "path": "/world/app.js",
+    "status": 200,
+    "bytes": 332156,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/character-preview.js",
+    "status": 200,
+    "bytes": 1978,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-4OTZP3VW.js",
+    "status": 200,
+    "bytes": 417,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/tube-map-P6ZIYYZV.js",
+    "status": 200,
+    "bytes": 227,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/world3d-RUHEMTWD.js",
+    "status": 200,
+    "bytes": 139914,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-5KUMM5DH.js",
+    "status": 200,
+    "bytes": 110749,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/bus-stop-PQJVXMV3.js",
+    "status": 200,
+    "bytes": 3009,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-OUMRTDSV.js",
+    "status": 200,
+    "bytes": 17779,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-GWK3CCRE.js",
+    "status": 200,
+    "bytes": 8560,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/home-editor-3DPPRISP.js",
+    "status": 200,
+    "bytes": 19770,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-N47BWT3P.js",
+    "status": 200,
+    "bytes": 2793,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-43OJPRHK.js",
+    "status": 200,
+    "bytes": 28099,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-I4B3W7XY.js",
+    "status": 200,
+    "bytes": 55740,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-CCC3OTRH.js",
+    "status": 200,
+    "bytes": 8115,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/ltbs-hub-XE3HJNAH.js",
+    "status": 200,
+    "bytes": 9542,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-7VO6VLBC.js",
+    "status": 200,
+    "bytes": 19555,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-6POCLUQE.js",
+    "status": 200,
+    "bytes": 904,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-IZNVKP6P.js",
+    "status": 200,
+    "bytes": 3825,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/train-cutscene-LDBC2OBE.js",
+    "status": 200,
+    "bytes": 6683,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-LUTVXSNB.js",
+    "status": 200,
+    "bytes": 1375,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-PGSWTQBX.js",
+    "status": 200,
+    "bytes": 626318,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-QGKGHE7G.js",
+    "status": 200,
+    "bytes": 2218,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-PPXFBC2M.js",
+    "status": 200,
+    "bytes": 10589,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-WMT6Y75T.js",
+    "status": 200,
+    "bytes": 22731,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-WL5DCKKE.js",
+    "status": 200,
+    "bytes": 8997,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/world/chunks/chunk-TVK7AYL2.js",
+    "status": 200,
+    "bytes": 602,
+    "type": "text/javascript; charset=utf-8"
+  },
+  {
+    "path": "/api/scripture/JHN/3?version=KJV",
+    "status": 200,
+    "translation": "KJV",
+    "verses": 36
+  }
+]

@@ -1,6 +1,6 @@
 # PlayMessages
 
-Open `http://127.0.0.1:4173/#messages` to play immediately. A persistent guest profile is created locally; no sign-in is required in public preview mode. The Games page and four-tab navigation both link here. The Kairos World lock remains in place.
+Open `http://127.0.0.1:4173/#messages` to play immediately in Grace, the browser inside Kairos World. A persistent guest profile is created locally; no sign-in is required in public preview mode. Grace's navigation links to the story collection. See `GRACE_WORLD.md` for the current world entry and map.
 
 Ten original contemporary stories are each based on a different David Antwi / Kharis Church message. The full source catalogue, verified through [API Anything](https://github.com/goodnight000/api-anything), is in `public/playmessages/sources.json`. `scripts/research-playmessages.mts` refreshes public metadata without vidIQ calls. It uses a local, ignored checkout in `.tools/api-anything` with its dependencies installed; run using that checkout's tsx CLI with `API_ANYTHING_LOCAL_ONLY=1`. Keep its read-only maximum tier at 1. YouTube's channel-list selector drifted, while all ten getVideo reads succeeded. API Anything's own YouTube specification does not currently expose transcription; see its `docs/research/youtube-captions.md`. English captions retrieved earlier in the session were reused; no additional vidIQ requests were made after the user asked to avoid credits.
 

@@ -1820,6 +1820,7 @@ export function World3D({
 
     // ── Build the world ──
     const world = new THREE.Group();
+    const graceOccluders: {bounds:{x:number;y:number;w:number;h:number};materials:THREE.Material[]}[]=[];
     scene.add(world);
     const tiles = map.tiles;
     let disposeGroundStyle=()=>{};
@@ -1945,6 +1946,14 @@ export function World3D({
             box(g,"#d8cdb8",left,.55,st.y+st.h+3,right,.69,st.y+st.h+3.2);
             for (let x=left;x<right;x+=.55) cyl(g,"#d8cdb8",x,st.y+st.h+3.1,.1,.58,.065,8);
           }
+          continue;
+        }
+        if(st.grace){
+          const faded:{bounds:typeof st;materials:THREE.Material[]}={bounds:st,materials:[]};graceOccluders.push(faded);
+          jobs.push(place(g,'/world3d/grace-pavilion.glb',st.x,st.y,st.w,st.h,0,0).then(model=>{model.traverse(node=>{const mesh=node as THREE.Mesh;if(!mesh.isMesh)return;const original=mesh.material as THREE.MeshStandardMaterial;const m=original.clone();m.transparent=true;if(original.name==='top'||original.name==='roof')m.color.set(st.accent);mesh.material=m;faded.materials.push(m);});}));
+          const sg=sign(st.label,{bg:st.accent,fg:'#fff7e6',w:Math.min(st.w-.3,5),h:.48});
+          sg.position.set(st.x+st.w/2,2.35,st.y+st.h+.06);g.add(sg);
+          if(st.game){const marker=sign(String(map.structures.filter(s=>s.game).findIndex(s=>s.game===st.game)+1).padStart(2,'0'),{bg:'#30213e',fg:'#f6d68e',w:.8,h:.8});marker.position.set(st.x+.65,1.35,st.y+st.h+.08);g.add(marker);}
           continue;
         }
         const front = st.y + st.h;
@@ -2534,6 +2543,8 @@ export function World3D({
         broadcastTexture.needsUpdate = true;
       }
       const p = getMe();
+      // Fade foreground pavilions so the player stays visible at their doors.
+      for(const item of graceOccluders){const st=item.bounds,px=p.x/TILE,pz=p.y/TILE;const obscures=px>st.x-.5&&px<st.x+st.w+.5&&pz<st.y+st.h&&pz>st.y-6;for(const m of item.materials){m.opacity=obscures?.16:1;m.depthWrite=!obscures;}}
       const mx = p.x / TILE;
       const mz = p.y / TILE;
       if (!indoors) {
@@ -3094,7 +3105,7 @@ export function World3D({
   return <>
     <div ref={host} className="absolute inset-0" aria-label={`${map.name} in 3D`} role="img" />
     {map.story && (storyLoading || storyError) && <div role="status" className="pointer-events-none absolute inset-x-4 top-20 z-[100003] mx-auto w-fit rounded-xl bg-[#21172c]/95 px-5 py-3 text-sm font-bold text-[#ffdd80]">{storyError || "Entering the story world…"}</div>}
-    {!overview && <div aria-label="Camera zoom" className="absolute right-3 top-36 z-[100001] flex items-center gap-1 rounded-full border border-white/20 bg-[#21152e]/95 p-1 text-xs font-black text-white shadow-lg">
+    {!overview && <div aria-label="Camera zoom" className="absolute right-3 top-[234px] z-[100001] flex items-center gap-1 rounded-full border border-white/20 bg-[#21152e]/95 p-1 text-xs font-black text-white shadow-lg">
       <button type="button" aria-label="Zoom out" disabled={zoom<=.75} onClick={()=>setZoom(value=>Math.max(.75,value-.15))} className="grid size-11 place-items-center rounded-full text-xl hover:bg-white/15 disabled:opacity-30">−</button>
       <button type="button" aria-label="Reset zoom to 165 percent" onClick={()=>setZoom(1.65)} className="min-h-11 min-w-14 rounded-full px-2 tabular-nums hover:bg-white/15">{Math.round(zoom*100)}%</button>
       <button type="button" aria-label="Zoom in" disabled={zoom>=2.4} onClick={()=>setZoom(value=>Math.min(2.4,value+.15))} className="grid size-11 place-items-center rounded-full text-xl hover:bg-white/15 disabled:opacity-30">+</button>

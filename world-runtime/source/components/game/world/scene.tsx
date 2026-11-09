@@ -40,14 +40,14 @@ const STEPS = [
   },
   {
     icon: BookOpen,
-    title: "Read the Bible in your phone",
-    body: "Open Bible for a chapter reader, choose a book and chapter, or return to a daily passage. The reader uses a free Bible text API when it is available.",
+    title: "Open Scripture in Grace",
+    body: "Grace is your in-game browser. Open Scripture to choose a book and chapter in KJV. NKJV opens its publisher reader because licensed in-app access is not configured.",
     hint: "You can read at any time, wherever you are in the world.",
   },
   {
     icon: Gamepad2,
-    title: "Play Scripture mini-games in the city",
-    body: "Tap Mini-games any time for a Bible quiz, verse-memory challenge or kind-conversation practice. Your practice points stay on this device and do not measure anyone's faith.",
+    title: "Every game has a front door",
+    body: "LTBS has sixteen game buildings. Walk to a door and press E to open its game in Grace. You can also choose Games or PlayMessages in Grace at any time. Practice points stay on this device.",
     hint: "Close the game panel to return to the street without losing your place.",
   },
   {
@@ -66,7 +66,7 @@ const STEPS = [
     icon: Map,
     title: "Travel around London",
     body: "Each place is now its own island. Enter a station, walk through an open train door, choose an island on the Grace Line map, then follow Way Out at your destination. Kharis Church is reached through Kharis Forest.",
-    hint: "Use the map and glowing entrances to find your next stop.",
+    hint: "Grace’s World atlas shows every game building. Select Visit building to arrive at its entrance.",
   },
 ];
 

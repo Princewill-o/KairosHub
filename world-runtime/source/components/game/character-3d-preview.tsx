@@ -121,7 +121,7 @@ export function Character3DPreview({
           st.char.play(want as "idle" | "walk" | "emote-yes");
           played = want;
         }
-        st.char.mixer.update(dt);
+        st.char.update(dt,matchMedia('(prefers-reduced-motion: reduce)').matches);
       }
       turntable.rotation.y +=
         (st.spin - turntable.rotation.y) * Math.min(1, dt * 8);

@@ -137,6 +137,7 @@ export const KIND: Record<PlaceKind, { label: string; colour: string }> = {
 };
 
 function kindOf(p: Portal): PlaceKind | null {
+  if(p.to.kind==='grace')return 'games';
   const t = p.to;
   if (t.kind === "map" && t.mapId.startsWith("hotel-")) return "hotel";
   if ((t.kind === "map" && t.mapId.startsWith("station-")) || t.kind === "tube")

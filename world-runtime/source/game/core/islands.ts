@@ -1,5 +1,6 @@
 import type { WorldMap, Portal, Structure } from "./world";
 import { SCRIPTURE_CHALLENGES } from "./ltbs-challenges";
+import { gameBuildings } from "../../../../public/grace-catalog.mjs";
 
 export const ISLANDS = [
   { id: "city", station: "london-square", name: "London Square", subtitle: "Streets, buses, neighbours & outreach", colour: "#bba8df", x: 112, y: 150 },
@@ -67,6 +68,30 @@ export function islandMap(id: string): WorldMap | null {
     for (const [x, y] of [[12, 18], [16, 25], [32, 18], [37, 25], [12, 30], [37, 30]]) tiles[y][x] = "B";
     for (let y = 4; y < 41; y += 4) for (let x = 4; x < 48; x += 4) if (tiles[y][x] === "g" && !(x > 9 && x < 42 && y > 8 && y < 31)) tiles[y][x] = "T";
   }
+  if(id === 'scripture-island') {
+    // Keep the original story and challenge entrances in the open central precinct.
+    portals.filter(p=>p.to.kind==='scripture-challenge').forEach((p,i)=>{p.rect=rect(18+(i%4)*4,25+Math.floor(i/4)*2,2,1);});
+    for(const game of gameBuildings) {
+      fill(game.x,game.y,game.w,game.h,'X');
+      structures.push({x:game.x,y:game.y,w:game.w,h:game.h,label:game.name,accent:game.colour,door:'bottom',game:game.id,grace:game.route});
+      const doorX=game.x+game.w/2-1,doorY=game.y+game.h;
+      portals.push({id:'game-'+game.id,rect:rect(doorX,doorY,2),label:game.name+' · play in Grace',to:{kind:'grace',route:game.route}});
+      // Each entrance has its own footpath to the existing central trail.
+      const lane=game.x<25?15:35;
+      fill(doorX,doorY,2,2,'-');fill(Math.min(doorX,lane),doorY+1,Math.abs(doorX-lane)+2,1,'-');
+    }
+    fill(15,3,2,31,'-');fill(35,3,2,31,'-');fill(15,32,22,2,'-');
+    const theatre=structures.find(s=>s.label==='LTBS · Bible Story Worlds');
+    if(theatre){theatre.label='PlayMessages Theatre';theatre.grace='messages';}
+    portals.push({id:'playmessages',rect:rect(25,12,2),label:'PlayMessages Theatre · enter a story',to:{kind:'grace',route:'messages'}});
+  }
+  if(id === 'city') {
+    fill(5,35,9,5,'X');structures.push({x:5,y:35,w:9,h:5,label:'Social House',accent:'#b189c9',door:'bottom',grace:'social'});
+    fill(8,40,18,2,'-');portals.push({id:'social-house',rect:rect(8,40,3),label:'Social House · fellowship & games together',to:{kind:'grace',route:'social'}});
+    const welcome=structures.find(s=>s.label==='London Welcome');if(welcome){welcome.label='Grace Game Hall';welcome.grace='bible';}
+    portals.push({id:'grace-hall',rect:rect(19,8,3),label:'Grace Game Hall · all Bible games',to:{kind:'grace',route:'bible'}});
+  }
+  if(id === 'fellowship-island')portals.push({id:'grace-social',rect:rect(23,17,3),label:'Social Lodge · open Grace',to:{kind:'grace',route:'social'}});
   for (const portal of portals) fill(portal.rect.x / 32, portal.rect.y / 32, portal.rect.w / 32, portal.rect.h / 32, "-");
   return { id, island: true, kind: "woodland", name: island.name, cols, rows, width: cols * 32, height: rows * 32, tiles: tiles.map(row => row.join("")), structures, portals, rooms: [], spawn: { x: 24.5 * 32, y: 39.5 * 32 }, accent: island.colour, sign: { x: 25, y: 31, text: island.subtitle } };
 }

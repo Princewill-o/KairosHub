@@ -1,4 +1,7 @@
 import {WORLD_ENABLED,worldLockedCard} from './world-availability.mjs';
+import {mountGraceBrowser} from './grace-browser.mjs';
+import {createAvatarStore} from './avatar.mjs';
+import {graceRoute} from './grace-catalog.mjs';
 export function worldProfile(profile){return {id:String(profile.id).slice(0,100),name:String(profile.name).slice(0,30)};}
 export function readWorldProgress(id,storage){
  const read=key=>{try{return JSON.parse((storage||window.localStorage).getItem(`kairos-world:${id}:${key}`)||'{}');}catch{return {};}};
@@ -8,27 +11,33 @@ export function readWorldProgress(id,storage){
 export function worldJourney(profile){const p=readWorldProgress(profile.id);return `<section class="journal-section"><h2>Kairos World journey</h2><p>Progress for this player on this device.</p><div class="stat-grid"><article><b>${p.grace}</b><span>Grace earned</span></article><article><b>${p.chapters}<small>/24</small></b><span>story chapters completed</span></article><article><b>${p.activities}</b><span>Scripture & outreach activities</span></article><article><b>${p.xp}</b><span>exploration XP</span></article></div>${WORLD_ENABLED?'<a class="kg-btn kg-btn-gold" href="#world">Return to Kairos World</a>':'<p class="bible-small">Kairos World is locked for now · Coming soon.</p>'}</section>`;}
 export function worldMessage(event,origin,source){
  if(event.origin!==origin||event.source!==source)return null;
- return ['ready','mounted','navigate','activity'].find(type=>event.data?.type===`kairos-world:${type}`)||null;
+ return ['ready','mounted','navigate','activity','grace','location'].find(type=>event.data?.type===`kairos-world:${type}`)||null;
 }
 export function worldInstructions(){return `<dialog class="world-guide" aria-labelledby="world-guide-title"><form method="dialog" class="world-guide-top"><span class="eyebrow">YOUR ADVENTURE STARTS HERE</span><button class="secondary" aria-label="Close how to play">Close ×</button></form><h1 id="world-guide-title">How to play Kairos World</h1><p class="world-guide-intro">Explore London, share a kind word and step into stories from the Bible.</p><div class="world-guide-grid"><section><h2>Move & explore</h2><dl><div><dt>Walk</dt><dd><kbd>WASD</kbd> or arrow keys</dd></div><div><dt>Jump</dt><dd><kbd>Space</kbd></dd></div><div><dt>Interact</dt><dd><kbd>E</kbd> or <kbd>Enter</kbd> when a prompt appears</dd></div><div><dt>Zoom</dt><dd>Mouse wheel or the on-screen − / + controls</dd></div></dl><p>Click inside the world first so it receives your keyboard controls.</p></section><section><h2>Playing on a phone?</h2><p>Drag the on-screen joystick to walk. Tap <strong>Jump</strong> to jump, and tap nearby interaction prompts to enter doors or use objects.</p><p>Use the − / + buttons to adjust your view. Open the game phone for the Bible, wardrobe and map.</p></section><section><h2>Find your next destination</h2><p>Tap the minimap or open the map from your game phone. The islands are separate places connected by train.</p><p>Go to a train station, follow its boarding prompt and choose your destination. Travel to Kharis Forest and follow the woodland trail to the church.</p></section><section><h2>Talk to your neighbours</h2><p>Walk near a resident and select <strong>Preach / talk</strong> or press <kbd>F</kbd> when the prompt appears.</p><p>Listen to their situation, choose thoughtful responses and complete follow-up conversations when available.</p></section><section><h2>Enter a Bible story</h2><p>Open <strong>LTBS · Stories & games</strong>. Choose David, Ruth, Esther or Daniel, then enter a story chapter.</p><p>Watch the scene, explore the story world, find the discoveries and answer the decision prompt. Finish chapters to continue the journey and earn <strong>Grace</strong>.</p></section><section><h2>Make it your journey</h2><p>Use the game phone to read Scripture or change your character. Try the Scripture challenges in LTBS and check <strong>My journey</strong> for your progress.</p><p>Your saves belong to the selected player on this device. Open this guide again any time with <strong>How to play</strong>.</p></section></div><form method="dialog" class="world-guide-bottom"><button class="primary">Back to the world →</button></form></dialog>`;}
-export function mountKairosWorld(root,profile){
+export function mountKairosWorld(root,profile,{initialRoute=null}={}){
  if(!WORLD_ENABLED){root.innerHTML=worldLockedCard();return {dispose(){}};}
 
- root.innerHTML=`<section class="kairos-world-shell"><div class="world-toolbar"><a href="#multiplayer">← Together</a><strong>Kairos World</strong><div class="world-toolbar-actions"><button type="button" class="secondary world-help" aria-haspopup="dialog">How to play</button><button type="button" class="secondary world-fullscreen">Full screen</button></div></div><div class="world-stage"><iframe title="Kairos World — explore and enter Bible stories" allow="fullscreen; gamepad" src="/world/index.html?map=city"></iframe><div class="world-loading" role="status"><h1>Entering Kairos World</h1><p>Preparing your adventure…</p><button class="secondary world-retry" hidden>Try again</button></div></div>${worldInstructions()}</section>`;
+ root.innerHTML=`<section class="kairos-world-shell" aria-label="Kairos World"><div class="world-stage"><iframe title="Kairos World — explore and enter Bible stories" allow="autoplay; fullscreen; gamepad" src="/world/index.html?map=city"></iframe><div class="world-loading" role="status"><h1>Entering Kairos World</h1><p>Preparing your adventure…</p><button class="secondary world-retry" hidden>Try again</button></div></div><nav class="world-dock" aria-label="World apps"><button class="open-grace" data-grace="home"><b class="grace-mark" aria-hidden="true">g</b> Grace</button><button data-grace="atlas">World map</button><button data-grace="social">Social</button><button class="world-help" data-optional>How to play</button><button class="world-fullscreen" aria-label="Toggle browser fullscreen">⛶</button></nav><span class="world-location">Kairos World · KP2 London</span><dialog class="grace-window" aria-label="Grace in-game browser"></dialog>${worldInstructions()}</section>`;
  const frame=root.querySelector('iframe'),loading=root.querySelector('.world-loading'),retry=root.querySelector('.world-retry');
  const guide=root.querySelector('.world-guide');
- root.querySelector('.world-help').onclick=()=>{frame.inert=true;guide.showModal();};
+ root.querySelector('.world-help').onclick=()=>grace.open('help');
  guide.addEventListener('close',()=>{frame.inert=false;frame.focus();});
- const send=()=>frame.contentWindow?.postMessage({type:'kairos-world:profile',profile:worldProfile(profile)},location.origin);
+ const appearance=()=>createAvatarStore(profile.id).get();
+ const sendMessage=message=>frame.contentWindow?.postMessage(message,location.origin);
+ const grace=mountGraceBrowser(root.querySelector('.grace-window'),{world:frame,profile,appearance,send:sendMessage});
+ root.querySelectorAll('[data-grace]').forEach(button=>button.onclick=()=>grace.open(button.dataset.grace));
+ const send=()=>sendMessage({type:'kairos-world:profile',profile:worldProfile(profile),appearance:appearance()});
  const listener=event=>{
   const type=worldMessage(event,location.origin,frame.contentWindow);
   if(type==='ready')send();
-  if(type==='mounted'){loading.hidden=true;clearTimeout(timer);if(!guide.open)frame.focus();}
-  if(type==='navigate'&&['bible','journey','multiplayer'].includes(event.data.route))location.hash=event.data.route;
+  if(type==='mounted'){loading.hidden=true;clearTimeout(timer);if(initialRoute){grace.open(initialRoute);initialRoute=null;}else if(!guide.open)frame.focus();}
+  if(type==='navigate')grace.open(event.data.route==='multiplayer'?'social':graceRoute(event.data.route));
+  if(type==='grace')grace.open(graceRoute(event.data.route));
+  if(type==='location'){root.querySelector('.world-location').textContent=`${String(event.data.name||'Kairos World').slice(0,60)} · KP2 London`;root.querySelector('.grace-window').dataset.island=String(event.data.mapId||'city');}
  };
  const timer=setTimeout(()=>{if(!loading.hidden){loading.querySelector('p').textContent='The world is taking longer to load. Try again if it does not appear.';retry.hidden=false;}},45000);
  window.addEventListener('message',listener);frame.addEventListener('load',send);
  retry.onclick=()=>{retry.hidden=true;frame.src='/world/index.html?map=city';};
  root.querySelector('.world-fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await root.querySelector('.kairos-world-shell').requestFullscreen();}catch{}};
- return {dispose(){clearTimeout(timer);window.removeEventListener('message',listener);frame.removeEventListener('load',send);frame.remove();}};
+ return {dispose(){grace.dispose();clearTimeout(timer);window.removeEventListener('message',listener);frame.removeEventListener('load',send);frame.remove();document.documentElement.classList.remove('world-playing');}};
 }
