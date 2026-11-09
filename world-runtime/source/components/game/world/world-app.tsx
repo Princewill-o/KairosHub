@@ -28,9 +28,10 @@ import { LevelBadge, LifeHud, type Quest } from "./life-hud";
 import { PoliceTransportCutscene } from "./police-transport-cutscene";
 import { SceneWipe, Tutorial } from "./scene";
 import { SceneMusic } from "./scene-music";
-import { RIDE, TRAIN_CALL } from "./train-state";
+import { PASSENGERS, RIDE, TRAIN_CALL } from "./train-state";
 import { advanceRide, nextStop, rideFrame, stationStop, type RideStop } from "@/game/core/ride";
 import { isStairway, STREET_STAIRS } from "@/game/core/doors";
+import { AMBULANCE_LEAVES, CRASH } from "./world-events";
 import { BikeDock, Dealership } from "./transport";
 import type { TubeTrip } from "./tube-map";
 import { useLife } from "./use-life";
@@ -65,6 +66,8 @@ import {
   TILE,
   stationMap,
   trainCarriageMap,
+  motorwayMap,
+  hospitalMap,
   CARRIAGE_DOORS,
   type Portal,
   SERVERS,
@@ -95,6 +98,8 @@ function loadMap(id: string): WorldMap | null {
   if (id === "kharis-hub") return kharisHubMap();
   if (id.startsWith("station-")) return stationMap(id.slice("station-".length));
   if (id === "train-carriage") return trainCarriageMap();
+  if (id === "m25") return motorwayMap();
+  if (id === "hospital") return hospitalMap();
   return null;
 }
 
@@ -241,7 +246,7 @@ export function WorldApp({
   }, []);
   const map = useMemo(() => mapId === "home" ? homeMap(home.style, home.layout) : loadMap(mapId) ?? CITY, [mapId, home.style, home.layout]);
   useEffect(() => { if (map.id !== "scripture-island" && !fading) setNativeChallenge(null); }, [map.id, fading]);
-  const outdoors = Boolean(map.island) || mapId === "highlands";
+  const outdoors = Boolean(map.island) || mapId === "highlands" || mapId === "m25";
   const drivingOffence = useCallback((offence: RoadViolation) => {
     const now = Date.now();
     if (!driving || mapId !== "city" || jailed || arrest || life.hearing || pursuit?.stage === "challenge" || now - drivingOffenceAt.current < 3000) return;
@@ -389,6 +394,22 @@ export function WorldApp({
   useEffect(()=>{if(miniGamesOpen){setMiniGamesOpen(false);openGrace('adventures');}},[miniGamesOpen,openGrace]);
   const [photoMode, setPhotoMode] = useState(false);
   useEffect(() => { const k = (e: KeyboardEvent) => { if (photoMode && (e.key === "Escape" || e.key.toLowerCase() === "p")) { setPhotoMode(false); return; } if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLElement && e.target.closest("input, textarea, [role=dialog]"))) setPhone(v => !v); }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [photoMode]);
+  // Crashes: the car or bike stops, an ambulance comes, and the paramedics take you to hospital.
+  const [crashed, setCrashed] = useState<"car" | "bike" | null>(null);
+  const crash = useCallback((vehicle: "car" | "bike") => {
+    if (CRASH.current) return;
+    CRASH.current = { map: mapId, x: PLAYER.x / TILE, y: PLAYER.y / TILE, at: performance.now(), vehicle, car: driving, heading: 0 };
+    setCrashed(vehicle);
+    setDriving(null);
+    setBike(null);
+    play("door", soundOn());
+    window.setTimeout(() => {
+      CRASH.current = null;
+      setCrashed(null);
+      goTo("hospital", "St Thomas' Hospital");
+      say(vehicle === "bike" ? "The paramedics checked you over after the bike crash: bruises, nothing broken. Wear a helmet and ride carefully!" : "The paramedics brought you in after the crash. You're shaken but OK. Slow down and keep your distance.", true);
+    }, AMBULANCE_LEAVES * 1000);
+  }, [mapId, driving, goTo, say]);
   /** Where the next train you board will take you, if you asked staff for somewhere. */
   const plannedStop = useRef<RideStop | null>(null);
   /** Walk straight from the platform into a real carriage. No cutscene: the ride happens around you. */
@@ -497,6 +518,19 @@ export function WorldApp({
         doActivity("hospital");
         updateLife((l) => ({ ...l, sick: false }));
         say("The doctor sorted you out. Feeling much better.", true);
+      } else if (to.kind === "map" && (to.mapId === "m25" || portal.id.startsWith("slip-"))) {
+        // Motorway slip roads: you keep driving straight on, no fade.
+        const next = loadMap(to.mapId);
+        if (!next) return;
+        let arrival: { x: number; y: number; heading?: number } = next.spawn;
+        if (to.mapId === "m25") arrival = driving ? { x: 2 * TILE, y: 9.5 * TILE, heading: 0 } : next.spawn;
+        else if (to.mapId === "city") arrival = driving ? { x: 45 * TILE, y: 21 * TILE, heading: Math.PI } : safeSpot(next, 46 * TILE, 18 * TILE);
+        else { setDriving(null); setBike(null); }
+        setArrive(arrival);
+        setMapId(to.mapId);
+        setTrip((n) => n + 1);
+        say(to.label, true);
+        return;
       } else if (to.kind === "map") {
         // No bikes or cars indoors: leave them outside.
         if (to.mapId !== "city") setBike(null);
@@ -528,7 +562,7 @@ export function WorldApp({
         }, 430);
       }
     },
-    [router, mapId, map, me.id, updateLife, say, jailed, gainXp, goTo, adventure, boardTrain, alight],
+    [router, mapId, map, me.id, updateLife, say, jailed, gainXp, goTo, adventure, boardTrain, alight, driving],
   );
 
   const courtSteps = useMemo(() => {
@@ -608,15 +642,18 @@ export function WorldApp({
 
   // Nearby Londoners can be approached for a friendly, opt-in conversation.
   useEffect(() => {
-    if (!outdoors) { setNearPerson(false); return; }
+    const aboard = map.kind === "train";
+    if (!outdoors && !aboard) { setNearPerson(false); return; }
     const t = setInterval(() => {
       let closest = -1, distance = 52;
-      NPC_SPOTS.forEach((n, i) => { const d = Math.hypot(n.x - PLAYER.x, n.y - PLAYER.y); if (d < distance) { closest = i; distance = d; } });
+      // On the train, the people to talk to are your fellow passengers.
+      if (aboard) PASSENGERS.forEach((n, i) => { const d = Math.hypot(n.x - PLAYER.x, n.y - PLAYER.y); if (d < distance + 8) { closest = 200 + i; distance = d; } });
+      else NPC_SPOTS.forEach((n, i) => { const d = Math.hypot(n.x - PLAYER.x, n.y - PLAYER.y); if (d < distance) { closest = i; distance = d; } });
       setNearPerson(closest >= 0);
       if (closest >= 0) setNearPersonIndex(closest);
     }, 300);
     return () => clearInterval(t);
-  }, [outdoors]);
+  }, [outdoors, map.kind]);
   const talk = useCallback(() => {
     const person = personaFor(nearPersonIndex).name;
     try {
@@ -705,7 +742,7 @@ export function WorldApp({
     <SceneMusic scene="nature" />
     <WorldView key={`${mapId}:${trip}`} map={map} serverId="solo" me={{...me,avatar:playerAvatar}} arriveAt={arrive} onPortal={onPortal} onChangeServer={adventure.leave} storyPhase={adventure.phase} paused={graceOpen || fading || adventure.phase !== "explore"} />
     <StoryWorldHud adventure={adventure}/>
-    <div className="absolute bottom-3 right-3 z-[100001] rounded-full bg-[#21172c]/90 px-4 py-2 text-xs font-black text-[#ffdd80]">{wallet.toLocaleString()} Grace</div>
+    <div data-hud="story-wallet" data-tone="ink" className="absolute bottom-3 right-3 z-[100001] rounded-full bg-[#21172c]/90 px-4 py-2 text-xs font-black text-[#ffdd80]">{wallet.toLocaleString()} Grace</div>
     {fading && <div className="pointer-events-none absolute inset-0 z-[100020] grid place-items-center bg-[#171221] text-sm font-black text-[#ffdd80]">{sceneName}</div>}
   </div>;
 
@@ -723,7 +760,7 @@ export function WorldApp({
       } />
       {!(building && mapId === "home") && <WorldView
         key={`${mapId}:${server}:${trip}`}
-        paused={graceOpen || Boolean(challenge) || wardrobe || preaching || Boolean(followUp) || bibleOpen || miniGamesOpen || Boolean(bus || tube || tutorial || mapOpen || dock || dealer || fading || phone || inmate || shop || homeAction || bankOpen || life.hearing) || arrest || policeTransport || pursuit?.stage === "challenge" || pursuit?.stage === "tased"}
+        paused={Boolean(crashed) || graceOpen || Boolean(challenge) || wardrobe || preaching || Boolean(followUp) || bibleOpen || miniGamesOpen || Boolean(bus || tube || tutorial || mapOpen || dock || dealer || fading || phone || inmate || shop || homeAction || bankOpen || life.hearing) || arrest || policeTransport || pursuit?.stage === "challenge" || pursuit?.stage === "tased"}
         homeAction={homeAction}
         police={pursuit}
         map={map}
@@ -733,6 +770,7 @@ export function WorldApp({
         onRoom={setRoom}
         onChangeServer={() => { if (jailed || life.stars >= 2) say("Finish your current law activity before changing servers."); else setServer(null); }}
         onDrivingOffence={drivingOffence}
+        onCrash={crash}
         me={{ ...me, avatar: jailed || mapId === "prison" ? { ...playerAvatar, ...PRISON_LOOK } : playerAvatar }}
         speed={(life.sick ? 0.7 : 1) * (driving && outdoors ? (carById(driving)?.speed ?? 1) : bike && outdoors ? bike.brand.speed : 1)}
         car={driving && outdoors ? driving : null}
@@ -798,15 +836,15 @@ export function WorldApp({
         </GraceWorldPanel>
       )}
       {driving && outdoors && (
-        <button type="button" onClick={() => driveCar(null)} className="absolute right-3 bottom-52 z-[100001] min-h-11 max-w-[55%] rounded-2xl bg-[#13203a] px-4 py-2 text-xs font-black text-white shadow-lg sm:bottom-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
+        <button type="button" data-hud="action" data-tone="ink" onClick={() => driveCar(null)} className="absolute right-3 bottom-52 z-[100001] min-h-11 max-w-[55%] rounded-2xl bg-[#13203a] px-4 py-2 text-xs font-black text-white shadow-lg sm:bottom-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
           Park {carById(driving)?.name}
         </button>
       )}
       <LevelBadge xp={xpNow} />
-      <div className="absolute top-14 right-3 z-[70] flex min-h-10 items-center gap-2 rounded-full border border-[#f2d15b]/60 bg-[#171221]/95 px-3 text-xs font-black text-[#f2d15b] shadow-lg" aria-label={`${wallet.toLocaleString()} Grace in-game currency`}>
+      <div data-hud="wallet" data-tone="ink" className="absolute top-14 right-3 z-[70] flex min-h-10 items-center gap-2 rounded-full border border-[#f2d15b]/60 bg-[#171221]/95 px-3 text-xs font-black text-[#f2d15b] shadow-lg" aria-label={`${wallet.toLocaleString()} Grace in-game currency`}>
         <Coins className="size-4" aria-hidden /> {wallet.toLocaleString()} Grace
       </div>
-      <button type="button" onClick={() => setMiniGamesOpen(true)} className="absolute right-3 bottom-40 z-[100001] flex min-h-11 items-center gap-1.5 rounded-full bg-[#6d45a2] px-3 py-1.5 text-xs font-black text-white shadow-lg">
+      <button type="button" data-hud="ltbs" data-tone="violet" onClick={() => setMiniGamesOpen(true)} className="absolute right-3 bottom-40 z-[100001] flex min-h-11 items-center gap-1.5 rounded-full bg-[#6d45a2] px-3 py-1.5 text-xs font-black text-white shadow-lg">
         <Gamepad2 className="size-4" aria-hidden /> LTBS · Stories & games
       </button>
       {challenge && map.id === "scripture-island" && !fading && <GraceWorldPanel address={`scripture-games/${challenge.id}`} onClose={()=>setNativeChallenge(null)}><section aria-label={challenge.title} className="m-auto w-full max-w-3xl overflow-y-auto rounded-2xl bg-[#20182b] p-4 text-white">
@@ -816,13 +854,14 @@ export function WorldApp({
         }}/>
       </section></GraceWorldPanel>}
       <WantedStars stars={life.stars} />
+      {crashed && <div role="alert" className="ks-card ks-bottom kw-crash"><p className="ks-eyebrow">{crashed === "bike" ? "Bike crash" : "Crash"}</p><h2>Are you OK?</h2><p>Someone has called 999. An ambulance is on its way, blue lights on. Stay still; the paramedics will take you to St Thomas' Hospital.</p></div>}
       {life.sick && <p className="pointer-events-none absolute top-[104px] left-1/2 z-[60] -translate-x-1/2 rounded-full bg-[#c8322d] px-3 py-1 text-xs font-black text-white">Unwell: get medicine or see a doctor</p>}
       {nearPerson && !jailed && !driving && (
-        <button type="button" onClick={talk} className="absolute right-3 bottom-52 z-[100001] min-h-11 rounded-full bg-[#6d45a2] px-4 py-2 text-sm font-black text-white shadow-lg">
+        <button type="button" data-hud="action" data-tone="violet" onClick={talk} className="absolute right-3 bottom-52 z-[100001] min-h-11 rounded-full bg-[#6d45a2] px-4 py-2 text-sm font-black text-white shadow-lg">
           <span className="flex items-center gap-2"><HeartHandshake className="size-4"/> Preach / talk (F)</span>
         </button>
       )}
-      <button type="button" onClick={() => setBibleOpen(true)} className="absolute left-3 bottom-24 z-[100001] flex min-h-11 items-center gap-2 rounded-full border border-[#f2d15b]/50 bg-[#171221] px-4 py-2 text-sm font-black text-[#f2d15b] shadow-lg"><BookOpen className="size-4"/> Bible</button>
+      <button type="button" data-hud="bible" data-tone="ink" onClick={() => setBibleOpen(true)} className="absolute left-3 bottom-24 z-[100001] flex min-h-11 items-center gap-2 rounded-full border border-[#f2d15b]/50 bg-[#171221] px-4 py-2 text-sm font-black text-[#f2d15b] shadow-lg"><BookOpen className="size-4"/> Bible</button>
       {preaching && <MinistryDialog persona={personaFor(nearPersonIndex)} onClose={() => setPreaching(false)} onDone={message => {
         void recordKairosActivity("outreach_conversation");
         say(message, true);
@@ -847,7 +886,7 @@ export function WorldApp({
         else { setArrest(true); arrestTimer.current=setTimeout(()=>{updateLife(l=>({...clearWanted(l),hearing:{stars:l.stars,charge:wantedCharge(l)}}));setArrest(false);goTo("court","Crown Court");},2600); }
       }}/ >}
       {arrest && <ArrestOverlay />}
-      <button type="button" onClick={() => setPhone(true)} aria-label="Open phone (P)" className="kp-launch"><Smartphone className="size-5"/><span>Phone</span></button>
+      <button type="button" onClick={() => setPhone(true)} aria-label="Open phone (P)" data-hud="phone" className="kp-launch"><Smartphone className="size-5"/><span>Phone</span></button>
       {phone && <KairosPhone gameTime={gameDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })} playerName={me.username}
         onClose={() => setPhone(false)}
         onMap={() => { setPhone(false); setMapOpen(true); }}
@@ -856,7 +895,7 @@ export function WorldApp({
         onWardrobe={() => { setPhone(false); setWardrobe(true); }}
         onPhoto={() => { setPhone(false); setPhotoMode(true); }} />}
       {photoMode && <div className="kp-photo-hint" role="status">Photo mode · HUD hidden · press P or Esc to return</div>}
-      <button type="button" onClick={()=>openGrace('home')} aria-label="Open Grace browser" className="absolute right-3 bottom-24 z-[100001] grid size-12 place-items-center rounded-2xl border-2 border-[#f1cc85] bg-[#58377b] text-[#fff1c8] shadow-lg"><span className="font-serif text-3xl italic">g</span></button>
+      <button type="button" data-hud="grace" data-tone="violet" onClick={()=>openGrace('home')} aria-label="Open Grace browser" className="absolute right-3 bottom-24 z-[100001] grid size-12 place-items-center rounded-2xl border-2 border-[#f1cc85] bg-[#58377b] text-[#fff1c8] shadow-lg"><span className="font-serif text-3xl italic">g</span></button>
       {inmate && <div className="absolute inset-0 z-[100008] grid place-items-center bg-black/60 p-4"><section role="dialog" aria-label={inmate} className="w-full max-w-md rounded-3xl bg-[#f7f1e6] p-6 text-[#13203a]"><h2 className="text-2xl font-black">{inmate}</h2><p className="mt-3 leading-relaxed">{inmate==="Sam"?"Sam is waiting for his sentence to end. The cell doors are open, but the service corridor is watched.":"The service corridor starts through the eastern wall. The gaps alternate north and south. Watch the patrolling guards; getting caught adds time."}</p><p className="mt-3 text-xs text-[#5a6272]">Scripted character dialogue — no live chat.</p><button type="button" onClick={()=>setInmate(null)} className="mt-5 rounded-full bg-[#2b5fd9] px-5 py-2 font-black text-white">End conversation</button></section></div>}
       {mapId === "court" && life.hearing && (
         <HearingDialog

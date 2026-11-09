@@ -97,6 +97,8 @@ function Sprite({
   car,
 }: {
   bike?: string | null;
+  /** You hit something hard enough to need the paramedics. */
+  onCrash?: (vehicle: "car" | "bike") => void;
   car?: string | null;
   avatar: Me["avatar"];
   badge: string | null;
@@ -200,6 +202,7 @@ export function WorldView({
   onDrivingOffence,
   speed = 1,
   bike = null,
+  onCrash,
   car = null,
   paused = false,
   police = null,
@@ -269,6 +272,11 @@ export function WorldView({
   const offenceCallback = useRef(onDrivingOffence);
   offenceCallback.current = onDrivingOffence;
   const roadCooldown = useRef(createRoadCooldown());
+  const lastCrash = useRef(-Infinity);
+  const crashRef = useRef(onCrash);
+  crashRef.current = onCrash;
+  const bikeRef = useRef(bike);
+  bikeRef.current = bike;
   const pos = useRef({ ...start.current, d: 1 as 1 | -1, walking: false, heading: arriveAt?.heading ?? 0, speed: 0, jumpHeight: 0, jumpVelocity: 0 });
   const myChat = useRef<{ text: string; until: number } | null>(null);
   const [near, setNear] = useState<Portal | null>(null);
@@ -420,11 +428,11 @@ export function WorldView({
       const driving = Boolean(carRef.current);
       const before = { x: p.x, y: p.y, heading: p.heading, speed: p.speed };
       let collision: DrivingCollision | undefined;
-      const obstacles: VehicleObstacle[] = map.art === "london" || map.island && map.id === "city" ? [
+      const obstacles: VehicleObstacle[] = map.art === "london" || map.island && map.id === "city" || map.id === "m25" ? [
         ...TRAFFIC_BOXES.filter((t): t is NonNullable<typeof t> => Boolean(t)),
         ...NPC_SPOTS.map((person, i) => ({ ...person, hw: 5, hh: 5, kind: "pedestrian" as const, id: `resident-${i}` })),
       ] : [];
-      const driven = driving ? driveStep(map, p, { throttle: pausedRef.current ? 0 : -dy, steer: pausedRef.current ? 0 : dx, brake: pausedRef.current || k.has(" "), maxSpeed: 96 * speedRef.current }, dt,
+      const driven = driving ? driveStep(map, p, { throttle: pausedRef.current ? 0 : -dy, steer: pausedRef.current ? 0 : dx, brake: pausedRef.current || k.has(" "), maxSpeed: (map.id === "m25" ? 175 : 96) * speedRef.current }, dt,
         obstacles, (impact) => { collision = impact; }) : null;
       if (driven && map.art === "london" && !pausedRef.current) {
         const violation = checkRoadViolation(before, driven, Date.now(), { collision, pedestrians: NPC_SPOTS.map(person => ({ x: person.x / TILE, y: person.y / TILE })) });
@@ -432,6 +440,12 @@ export function WorldView({
           play("door", soundOn());
           offenceCallback.current?.(violation);
         }
+      }
+      // Crashes: hitting traffic (or a wall) at speed in a car, or riding a bike into a vehicle.
+      if (!pausedRef.current && now - lastCrash.current > 10_000) {
+        const hard = collision && ((collision.kind === "traffic" && collision.speed > 55) || (collision.kind === "obstacle" && collision.speed > 120));
+        const bikeHit = bikeRef.current && !driving && (dx || dy) && TRAFFIC_BOXES.some(t => t && Math.abs(t.x - p.x) < t.hw + 7 && Math.abs(t.y - p.y) < t.hh + 7);
+        if (hard || bikeHit) { lastCrash.current = now; crashRef.current?.(hard ? "car" : "bike"); }
       }
       let next = driven ?? step(map, p, dx, dy, dt, speedRef.current);
       if (map.kind === "station") {
@@ -591,7 +605,7 @@ export function WorldView({
         nearRef.current = portal;
         setNear(portal);
         // Walking through an open door goes straight in: no button or teleport ring.
-        if (portal && (doorIds.has(portal.id) || isStairway(map, portal)) && moved && !pausedRef.current && now - mountedAt > 1200) {
+        if (portal && (doorIds.has(portal.id) || isStairway(map, portal) || portal.id.startsWith("slip-")) && moved && !pausedRef.current && now - mountedAt > 1200) {
           target.current = null;
           keys.current.clear();
           stick.current = { x: 0, y: 0 };
@@ -618,7 +632,7 @@ export function WorldView({
       ref={viewport}
       className="relative h-full w-full touch-none overflow-hidden bg-[#0d1726] select-none"
     >
-      <details aria-label="Graphics settings" className="absolute bottom-14 left-3 z-[100000] flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-white/20 bg-[#13203a]/95 px-3 py-2 text-xs text-white" onPointerDown={e=>e.stopPropagation()}>
+      <details data-hud="settings" data-tone="ink" aria-label="Graphics settings" className="absolute bottom-14 left-3 z-[100000] flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-white/20 bg-[#13203a]/95 px-3 py-2 text-xs text-white" onPointerDown={e=>e.stopPropagation()}>
         <summary className="cursor-pointer py-1 font-bold">Settings</summary>
         <label>Graphics <select aria-label="3D graphics quality" value={quality} onChange={e=>{const next=readVisualQuality(e.target.value);setQuality(next);try{localStorage.setItem("world-graphics",next);}catch{/* Optional. */}}} className="ml-1 min-h-9 rounded bg-[#243c4b] px-1 font-bold text-white"><option value="auto">Balanced</option><option value="cinematic">Cinematic · more GPU</option><option value="low">Performance</option></select></label>
       </details>
@@ -700,10 +714,11 @@ export function WorldView({
           getHomeAction={getHomeAction}
         />
       )}
-      {graphicsState !== "ready" && <div className="pointer-events-none absolute inset-0 z-[100000] grid place-items-center bg-[#d6e4df] text-center text-[#17302c]">
-        <div className="max-w-sm rounded-3xl border border-[#c8b182]/50 bg-[#f7f1e6]/95 px-6 py-5 shadow-xl">
-          <p className="text-sm font-black uppercase tracking-[0.18em]">{graphicsState === "loading" ? "Building the 3D world" : "3D graphics unavailable"}</p>
-          <p className="mt-2 text-sm">{graphicsState === "loading" ? "Loading the detailed city and interiors…" : "This browser or device could not start WebGL. Enable hardware acceleration and reload to play."}</p>
+      {/* No "loading" card: scenes swap in place. Only a real WebGL failure is shown. */}
+      {graphicsState === "unavailable" && <div className="pointer-events-none absolute inset-0 z-[100000] grid place-items-center text-center">
+        <div className="kp-card max-w-sm px-6 py-5">
+          <p className="text-sm font-black uppercase tracking-[0.18em]">3D graphics unavailable</p>
+          <p className="mt-2 text-sm">This browser or device could not start WebGL. Enable hardware acceleration and reload to play.</p>
         </div>
       </div>}
       {/* The old flat-map lighting overlay is kept mounted for the movement
@@ -712,10 +727,10 @@ export function WorldView({
 
       {/* HUD */}
       {map.kind === "station" && <TrainTimes />}
-      <div className="world-lobby-bar pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
-        <button type="button" onClick={onChangeServer} className="pointer-events-auto min-h-11 max-w-[calc(100%-4rem)] rounded-2xl border border-[#c8b182]/40 bg-[#183b35]/95 px-3 py-2 text-left text-xs text-[#fff3d8] shadow-[0_8px_24px_rgba(12,30,28,0.18)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c8b182]" aria-label={`Change server · ${map.name}`}>
+      <div data-hud="topbar" className="world-lobby-bar pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
+        <button type="button" data-hud="place" data-tone="ink" onClick={onChangeServer} className="pointer-events-auto min-h-11 max-w-[calc(100%-4rem)] rounded-2xl border border-[#c8b182]/40 bg-[#183b35]/95 px-3 py-2 text-left text-xs text-[#fff3d8] shadow-[0_8px_24px_rgba(12,30,28,0.18)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c8b182]" aria-label={`Change server · ${map.name}`}>
           <span className="block truncate font-black">{map.name}</span>
-          {map.kind !== "home" && <span className="mt-0.5 hidden text-[10px] text-white/70 sm:block">{map.story ? "LTBS · exploring a Bible story" : "Meet London residents · share a kind word"}</span>}
+          
           <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-[#d8d4e0] sm:text-xs">
             <span className="size-2 rounded-full" style={{ background: status.dot }} aria-hidden />
             {status.text}
@@ -723,7 +738,7 @@ export function WorldView({
             <span className="text-[#8d85a0]">· Kharis London branch</span>
           </span>
         </button>
-        <div className="rounded-2xl bg-black/70 px-3 py-2 text-xs font-black text-white backdrop-blur" aria-live="polite">
+        <div data-hud="online" data-tone="ink" hidden={Boolean(map.story)} className="rounded-2xl bg-black/70 px-3 py-2 text-xs font-black text-white backdrop-blur" aria-live="polite">
           {world.count} here
         </div>
       </div>
@@ -766,7 +781,7 @@ export function WorldView({
           stick.current = { x, y };
           if (x || y) target.current = null;
         }} />{!car && <button type="button" aria-label="Jump" onClick={() => { if (!pausedRef.current && pos.current.jumpHeight === 0) pos.current.jumpVelocity = JUMP_IMPULSE; }} className="pointer-events-auto min-h-12 rounded-full bg-[#f0c84b] px-5 font-black text-[#21152e]">Jump</button>}{car && <span className="max-w-28 rounded-lg bg-black/65 p-2 text-[10px] leading-relaxed text-white">↑ Accelerate<br />↓ Brake / reverse<br />← → Steer</span>}</div> : (
-          <p className="max-w-[min(78%,30rem)] rounded-xl bg-black/60 px-3 py-2 text-[10px] text-[#d8d4e0] sm:text-xs">{car ? "W / ↑ accelerate · S / ↓ reverse · A D steer · Space brake" : "WASD / arrows · Space jump · E interact"}</p>
+          <p data-hud="hint" data-tone="ink" className="max-w-[min(78%,30rem)] rounded-xl bg-black/60 px-3 py-2 text-[10px] text-[#d8d4e0] sm:text-xs">{car ? "W / ↑ accelerate · S / ↓ reverse · A D steer · Space brake" : "WASD / arrows · Space jump · E interact"}</p>
         )}
       </div>
     </div>

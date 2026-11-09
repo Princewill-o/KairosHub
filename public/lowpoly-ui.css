@@ -1,0 +1,47 @@
+/* Kairos platform: the same low-poly ink UI as the in-world phone.
+   Thick ink outlines, hard offset shadows, faceted backgrounds and the
+   Cartoon UI Pack buttons. Loaded last so it settles every page. */
+:root { --lp-ink: #120c18; --kg-outline: var(--lp-ink); --kg-edge: 3px; --lp-shadow: 4px 4px 0 var(--lp-ink); }
+[data-theme="dark"] { --kg-outline: #05020c; }
+html, body { background: var(--kg-paper) url(assets/ui/lowpoly-paper.svg) center / cover fixed; }
+[data-theme="dark"] body, [data-theme="dark"] { background-image: url(assets/ui/lowpoly-night.svg); }
+
+/* Cards, panels and dialogs */
+.topbar, .arc-card, .game-card, .kg-journey-card, .kg-journey .stat-grid article, .scripture-reader, .return-dialog,
+.journey-sheet, .lp-preview, .wisdom-card, .comic-panel, .journal-entry, .kg-empty-journey, .recall-form, .feedback,
+dialog, [role="dialog"] > section, .modal, .panel, .card {
+  border: 3px solid var(--kg-outline) !important;
+  box-shadow: var(--lp-shadow) !important;
+  border-radius: 20px;
+}
+.kg-journey-card.is-new, .kg-empty-journey { border-style: dashed !important; box-shadow: none !important; }
+
+/* Buttons and inputs */
+button, .button, input[type="submit"] { font-family: var(--kg-body); }
+.top-tools button, .scripture-reader button, .choice, .armor-option, .word-tile, .nav.active,
+.retro-nav .nav.active { border: 3px solid var(--kg-outline) !important; box-shadow: 3px 3px 0 var(--kg-outline) !important; border-radius: 14px !important; }
+.top-tools button:active, .scripture-reader button:active, .choice:active, .word-tile:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--kg-outline) !important; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea {
+  border: 3px solid var(--kg-outline) !important; border-radius: 14px !important; box-shadow: inset 2px 2px 0 #0000000f;
+}
+/* Chunky Cartoon UI Pack buttons for the big calls to action. */
+.lp-start, button.primary, a.primary {
+  border: 0 solid transparent !important;
+  border-width: 14px 16px 20px !important;
+  border-image: url(/world-ui/cartoon/buttons/Button_Long_Blue.png) 24 26 32 26 fill / 14px 16px 20px stretch !important;
+  background: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  color: #fff !important;
+  text-shadow: 0 2px 0 #0007, 0 0 2px #000a;
+  font-weight: 900;
+}
+.lp-start:nth-of-type(2n) { border-image-source: url(/world-ui/cartoon/buttons/Button_Long_Orange.png) !important; }
+.lp-start:active, button.primary:active, a.primary:active { transform: translateY(3px); }
+
+/* Chat and messages anywhere on the platform: phone-style bubbles. */
+.chat-message, .message-bubble, .chat .bubble, [data-chat-bubble] {
+  padding: 10px 14px; border: 3px solid var(--kg-outline); border-radius: 18px; border-bottom-left-radius: 5px;
+  background: var(--kg-surface); color: var(--kg-ink); box-shadow: 3px 3px 0 var(--kg-outline);
+}
+.chat-message.mine, .message-bubble.mine, [data-chat-bubble="mine"] { background: #2f7de1; color: #fff; border-bottom-left-radius: 18px; border-bottom-right-radius: 5px; }

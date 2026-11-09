@@ -97,6 +97,8 @@ export function islandMap(id: string): WorldMap | null {
     portals.push({id:'pizzazz',rect:rect(31,6,2),label:'Pizzazz Pizza · restaurant',to:{kind:'map',mapId:'workplace-pizzazz',label:'Pizzazz Pizza'}},{id:'kharis-cafe',rect:rect(41,6,2),label:'Kharis Café · grab a bite',to:{kind:'act',activity:'eat'}});
     const welcome=structures.find(s=>s.label==='London Welcome');if(welcome){welcome.label='Grace Game Hall';welcome.grace='bible';}
     portals.push({id:'grace-hall',rect:rect(19,8,3),label:'Grace Game Hall · all Bible games',to:{kind:'grace',route:'bible'}});
+    // Slip road onto the M25: drive (or walk) east off the square.
+    fill(48,19,2,4,'=');portals.push({id:'slip-m25',rect:rect(48,19,2,4),label:'M25 London Orbital · drive out of London',to:{kind:'map',mapId:'m25',label:'M25 London Orbital'}});
   }
   if(id === 'fellowship-island')portals.push({id:'grace-social',rect:rect(23,17,3),label:'Social Lodge · open Grace',to:{kind:'grace',route:'social'}});
   for (const portal of portals) fill(portal.rect.x / 32, portal.rect.y / 32, portal.rect.w / 32, portal.rect.h / 32, "-");

@@ -6,7 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader, type GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import { STORY_DISCOVERIES, type StoryWorldPhase } from "@/game/core/story-world";
+import { type StoryWorldPhase } from "@/game/core/story-world";
+import { BIBLE_STORIES } from "@/game/core/ltbs-stories";
+import { CHARACTERS, HEROES, type Character } from "@/game/core/story-cast";
+import { buildFigure } from "../biblical-figure3d";
+import { buildStoryScene, type StoryScene } from "./story-scene3d";
+import { STORY_FOUND } from "./story-state";
 
 import { finishArchitecture } from "./architecture-finish3d";
 import { BUS_ROUTE_CODES, NPC_SPOTS, PLAYER, PLAYER_VEHICLE, TRAFFIC_BOXES, cityRoadPaint, citySignalPosts } from "./art";
@@ -25,7 +30,9 @@ export { NPC_SPOTS } from "./art";
 import { type Character3D, buildCharacter, npcLook } from "../char3d";
 import { homeFurniture } from "./home-furniture";
 import { makeNameplate, updateNameplateSpeech } from "./nameplate";
-import { RIDE, TRAIN_CALL } from "./train-state";
+import { PASSENGERS, RIDE, TRAIN_CALL } from "./train-state";
+import { M25 } from "@/game/core/world";
+import { AMBULANCE_ARRIVES, CRASH } from "./world-events";
 import { riverGeometry, riverSurface } from "./water-style3d";
 
 import type { WorldAffiliation } from "@/game/core/affiliation";
@@ -106,14 +113,14 @@ function speechMark() {
       const canvas = document.createElement("canvas");
       canvas.width = 128; canvas.height = 88;
       const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "rgba(12, 26, 45, .16)";
-      ctx.beginPath(); ctx.roundRect(13, 7, 102, 61, 23); ctx.fill();
-      ctx.fillStyle = "#fffdf7";
-      ctx.beginPath(); ctx.roundRect(10, 4, 102, 61, 23); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(34, 59); ctx.lineTo(28, 77); ctx.lineTo(51, 63); ctx.closePath(); ctx.fill();
+      // Same ink-outlined, hard-shadow bubble as the phone's Messages app.
+      const shape = (dx: number, dy: number) => { ctx.beginPath(); ctx.roundRect(10 + dx, 6 + dy, 100, 56, 20); ctx.moveTo(32 + dx, 58 + dy); ctx.lineTo(26 + dx, 78 + dy); ctx.lineTo(50 + dx, 60 + dy); ctx.closePath(); };
+      ctx.fillStyle = "#120c18"; shape(5, 5); ctx.fill();
+      ctx.fillStyle = "#fff8ec"; shape(0, 0); ctx.fill();
+      ctx.lineWidth = 5; ctx.strokeStyle = "#120c18"; ctx.lineJoin = "round"; shape(0, 0); ctx.stroke();
       for (let dot = 0; dot < 3; dot++) {
         const x = 38 + dot * 23, y = 35 + (frame === dot ? -2 : 0);
-        ctx.fillStyle = frame === dot ? "#4389dc" : "#92a1b4";
+        ctx.fillStyle = frame === dot ? "#6b3fa0" : "#b5a7cc";
         ctx.beginPath(); ctx.arc(x, y, frame === dot ? 6.5 : 5.5, 0, Math.PI * 2); ctx.fill();
       }
       const texture = new THREE.CanvasTexture(canvas);
@@ -1675,37 +1682,165 @@ function interior(world: THREE.Group, map: WorldMap, jobs: Promise<unknown>[], s
 }
 
 /** A deep-level tube train: red cab ends, white and blue cars, red doors. */
+/**
+ * The M25: lane markings, the central barrier, crash barriers, overhead
+ * gantry signs, lighting columns, a tunnel under a wooded hill (no roof, so
+ * the camera can follow you through) and the services building.
+ */
+function motorway(world: THREE.Group) {
+  const { cols, rows, tunnel: [t0, t1], services: sv } = M25;
+  const g = new THREE.Group();
+  world.add(g);
+  const y = 0.012;
+  // Lane lines: dashed between lanes, solid at the edges, yellow at the shoulder.
+  for (const z of [8, 13]) box(g, "#f2c230", 0, y, z - 0.04, cols, y + 0.004, z + 0.04);
+  for (const z of [11, 12]) box(g, "#f4f4f4", 0, y, z - 0.035, cols, y + 0.004, z + 0.035);
+  for (const z of [9, 10, 14, 15]) for (let x = 0; x < cols; x += 3) box(g, "#f4f4f4", x, y, z - 0.035, x + 1.6, y + 0.004, z + 0.035);
+  // Central reservation: concrete step barrier.
+  box(g, "#b9b3a5", 0, 0, 11.15, cols, 0.55, 11.85);
+  box(g, "#cfc9bb", 0, 0.55, 11.3, cols, 0.75, 11.7);
+  // Steel crash barriers along both verges, outside the tunnel.
+  for (const z of [6.85, 16.15]) for (const [a, b] of [[0, t0], [t1, cols]]) {
+    box(g, "#a9b0b8", a, 0.42, z - 0.04, b, 0.6, z + 0.04);
+    for (let x = a + 0.5; x < b; x += 2) box(g, "#7d858e", x - 0.04, 0, z - 0.04, x + 0.04, 0.6, z + 0.04);
+  }
+  // Lighting columns on the central barrier.
+  for (let x = 4; x < cols; x += 10) {
+    if (x > t0 - 1 && x < t1 + 1) continue;
+    cyl(g, "#8a929b", x, 11.5, 0.75, 5.2, 0.06, 6);
+    box(g, "#8a929b", x - 0.04, 5.1, 9.6, x + 0.04, 5.2, 13.4);
+    for (const z of [9.6, 13.4]) box(g, "#fff1c9", x - 0.18, 5.0, z - 0.1, x + 0.18, 5.1, z + 0.1);
+  }
+  // Gantry signs: blue boards over each carriageway.
+  const gantry = (x: number, z0: number, z1: number, text: string, face: number) => {
+    for (const z of [z0, z1]) box(g, "#6d757e", x - 0.08, 0, z - 0.08, x + 0.08, 4.4, z + 0.08);
+    box(g, "#6d757e", x - 0.06, 4.2, z0, x + 0.06, 4.35, z1);
+    const s = sign(text, { bg: "#1f4fbf", fg: "#ffffff", w: (z1 - z0) - 0.6, h: 1.05, font: "bold 64px sans-serif" });
+    s.position.set(x + face * 0.1, 3.6, (z0 + z1) / 2);
+    s.rotation.y = face * Math.PI / 2;
+    g.add(s);
+  };
+  gantry(16, 7, 11, "M25 · J16 M40 Highlands  ↑", -1);
+  gantry(62, 12, 16, "J10 A3 London Square  ↓", 1);
+  gantry(50, 12, 16, "Services 1 mile", 1);
+  // The hill and tunnel: green terraces either side, portals, and lamps on the walls.
+  for (const [z0, z1] of [[0, 6.9], [16.1, rows]] as const) {
+    for (let i = 0; i < 4; i++) {
+      // The camera looks from the south, so that side of the hill stays low.
+      const inset = i * 1.2, h = z0 === 0 ? 1.4 + i * 1.3 : 0.35 + i * 0.3;
+      box(g, i % 2 ? "#6d8a57" : "#7d9a62", t0 + inset, 0, z0 === 0 ? z0 : z0 + inset * 0.6, t1 - inset, h, z0 === 0 ? z1 - inset * 0.6 : z1);
+    }
+  }
+  for (const x of [t0, t1]) {
+    box(g, "#9a917f", x - 0.3, 0, 6.6, x + 0.3, 3.6, 7.2);
+    box(g, "#9a917f", x - 0.3, 0, 15.8, x + 0.3, 3.6, 16.4);
+    box(g, "#9a917f", x - 0.3, 3.0, 6.6, x + 0.3, 3.6, 16.4);
+    const name = sign("Kharis Hill Tunnel", { bg: "#2a2730", fg: "#ffd27a", w: 3.6, h: 0.42, font: "bold 52px sans-serif" });
+    name.position.set(x + (x === t0 ? -0.32 : 0.32), 3.3, 11.5);
+    name.rotation.y = x === t0 ? -Math.PI / 2 : Math.PI / 2;
+    g.add(name);
+  }
+  box(g, "#3a3640", t0, 0, 6.6, t1, 2.8, 7.0);
+  box(g, "#3a3640", t0, 0, 16.0, t1, 1.2, 16.4);
+  box(g, "#2a2d36", t0, 0.006, 7, t1, 0.01, 16);
+  for (let x = t0 + 1; x < t1; x += 2) {
+    const lamp = box(g, "#ffb347", x, 2.2, 6.98, x + 0.6, 2.32, 7.05);
+    lamp.material = new THREE.MeshBasicMaterial({ color: "#ffcf7a", toneMapped: false });
+    box(g, "#ffb347", x, 0.9, 15.98, x + 0.6, 1.0, 16.02).material = lamp.material;
+  }
+  // Woodland along the verges.
+  const r = (n: number) => { const v = Math.sin(n * 12.9898) * 43758.5453; return v - Math.floor(v); };
+  for (let i = 0; i < 70; i++) {
+    const x = r(i) * cols, north = i % 2 === 0;
+    if (x > t0 - 1 && x < t1 + 1) continue;
+    if (!north && x > sv.x - 2 && x < sv.x + sv.w + 2) continue;
+    if ((x > 9 && x < 14 && !north) || (x > 69 && x < 74 && north)) continue;
+    const z = north ? 0.8 + r(i + 99) * 5 : 17.5 + r(i + 7) * 9;
+    cyl(g, "#6b4a33", x, z, 0, 1.0, 0.12, 5);
+    cyl(g, i % 3 ? "#3f7a46" : "#5c9a4c", x, z, 0.8, 2.9, 0.9, 6, 0.05);
+  }
+  // Services: a low glass-fronted building and parking bays.
+  for (let x = sv.x + 1; x < sv.x + sv.w; x += 1.6) box(g, "#f4f4f4", x, y, 18.1, x + 0.06, y + 0.004, 19.4);
+  box(g, "#e8e2d4", sv.x + 4, 0, 22, sv.x + 14, 2.8, 26);
+  box(g, "#2b5fd9", sv.x + 4, 2.4, 21.95, sv.x + 14, 2.8, 22.0);
+  box(g, "#9fc3d6", sv.x + 5, 0.3, 21.97, sv.x + 13, 2.2, 22.0);
+  const label = sign("Kairos Services · food · prayer room", { bg: "#2b5fd9", fg: "#ffffff", w: 6, h: 0.5, font: "bold 52px sans-serif" });
+  label.position.set(sv.x + 9, 3.2, 22.02);
+  g.add(label);
+  return g;
+}
+
+const TRAIN_GLASS = new THREE.MeshStandardMaterial({ color: "#a9cfe0", transparent: true, opacity: 0.18, roughness: 0.1, metalness: 0, depthWrite: false });
+/**
+ * The Grace Line train as it stands in a station. It is see-through on
+ * purpose: no roof and glass from the waist up, so you can watch the seats and
+ * passengers inside and see yourself step aboard through the open doors.
+ */
 function tubeTrain() {
   const g = new THREE.Group();
+  const seats: { x: number; z: number; facing: number }[] = [];
+  const glass = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) => {
+    const pane = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), TRAIN_GLASS);
+    pane.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    pane.userData.flat = true;
+    g.add(pane);
+  };
   for (let c = 0; c < 4; c++) {
     const x0 = c * 6.2;
-    box(g, "#eef0f4", x0, 0.3, -0.75, x0 + 6, 2.4, 0.75);
-    box(g, "#1f3fa8", x0, 0.45, -0.77, x0 + 6, 0.95, 0.77);
-    for (let w = 0; w < 4; w++) box(g, "#2a3346", x0 + 0.5 + w * 1.4, 1.35, -0.78, x0 + 1.4 + w * 1.4, 2.0, 0.78);
-    // Split platform doors slide apart over a dark doorway, with inset glass.
+    // Underframe, floor and the waist-high body.
+    box(g, "#2a2733", x0, 0.05, -0.6, x0 + 6, 0.3, 0.6);
+    box(g, "#7b808b", x0 + 0.06, 0.3, -0.72, x0 + 5.94, 0.34, 0.72);
     for (const side of [-1, 1]) {
-      box(g, "#192536", x0 + 2.45, 0.4, side * 0.81 - 0.015, x0 + 3.55, 2.25, side * 0.81 + 0.015);
+      for (const [a, b] of [[x0, x0 + 2.45], [x0 + 3.55, x0 + 6]]) {
+        box(g, "#eef0f4", a, 0.3, side * 0.78 - 0.04, b, 1.05, side * 0.78 + 0.04);
+        box(g, "#1f3fa8", a, 0.82, side * 0.78 - 0.05, b, 1.0, side * 0.78 + 0.05);
+        glass(a, 1.05, side * 0.78 - 0.02, b, 2.3, side * 0.78 + 0.02);
+        box(g, "#d7dbe3", a, 2.3, side * 0.78 - 0.05, b, 2.4, side * 0.78 + 0.05);
+        for (const x of [a + 0.04, b - 0.04]) box(g, "#d8dbe2", x - 0.04, 1.05, side * 0.78 - 0.04, x + 0.04, 2.3, side * 0.78 + 0.04);
+      }
+      // Split doors: red frames with big windows, they slide apart at the platform.
       for (const direction of [-1, 1]) {
         const door = new THREE.Group();
         door.position.x = x0 + 3 + direction * 0.26;
         door.userData = { slidingDoor: true, restX: door.position.x, direction };
-        box(door, "#e63b38", -0.25, 0.45, side * 0.84 - 0.025, 0.25, 2.25, side * 0.84 + 0.025);
-        box(door, "#8dc5d8", -0.17, 1.35, side * 0.88 - 0.01, 0.17, 2.02, side * 0.88 + 0.01);
+        box(door, "#e63b38", -0.27, 0.34, side * 0.8 - 0.025, 0.27, 0.55, side * 0.8 + 0.025);
+        box(door, "#e63b38", -0.27, 2.15, side * 0.8 - 0.025, 0.27, 2.3, side * 0.8 + 0.025);
+        for (const x of [-0.25, 0.25]) box(door, "#e63b38", x - 0.025, 0.34, side * 0.8 - 0.025, x + 0.025, 2.3, side * 0.8 + 0.025);
         g.add(door);
       }
+      box(g, "#f2c230", x0 + 2.45, 0.341, side * 0.62, x0 + 3.55, 0.35, side * 0.75);
     }
-    box(g, "#c8d3df", x0 + 0.12, 2.4, -0.7, x0 + 5.88, 2.56, 0.7);
+    // Ends of each car: a low partition so the next car still shows through.
+    for (const x of [x0 + 0.02, x0 + 5.92]) { box(g, "#e6e8ee", x, 0.3, -0.78, x + 0.06, 1.05, 0.78); glass(x, 1.05, -0.78, x + 0.06, 2.3, 0.78); }
+    // Bench seats along both walls, poles by the doors.
+    for (const [a, b] of [[x0 + 0.2, x0 + 2.3], [x0 + 3.7, x0 + 5.8]]) {
+      for (const side of [-1, 1]) {
+        box(g, "#3a3d48", a, 0.34, side * 0.7 - 0.2, b, 0.55, side * 0.7 + 0.04);
+        for (let x = a; x < b - 0.4; x += 0.7) {
+          const cloth = Math.round((x - x0) / 0.7) % 3 === 2 ? "#b8322f" : "#2c4fa3";
+          box(g, cloth, x + 0.03, 0.55, side * 0.66 - 0.22, x + 0.67, 0.62, side * 0.66 + 0.06);
+          box(g, cloth, x + 0.03, 0.62, side * 0.74 - 0.04, x + 0.67, 1.0, side * 0.74 + 0.03);
+          seats.push({ x: x + 0.35, z: side * 0.52, facing: side > 0 ? Math.PI : 0 });
+        }
+      }
+    }
+    for (const x of [x0 + 2.35, x0 + 3.65]) for (const z of [-0.45, 0.45]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.9, 6), mat("#f2c230"));
+      pole.position.set(x, 1.29, z);
+      g.add(pole);
+    }
     for (const axle of [1, 5]) for (const side of [-1, 1]) {
       const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.12, 12), new THREE.MeshStandardMaterial({color: "#293449", roughness: 0.65}));
       wheel.rotation.x = Math.PI / 2;
       wheel.position.set(x0 + axle, 0.2, side * 0.58);
       g.add(wheel);
     }
-    box(g, "#2a2733", x0, 0.05, -0.6, x0 + 6, 0.3, 0.6);
   }
+  // The cab at the front keeps its roof.
   box(g, "#d72a22", 24.2, 0.3, -0.75, 25.4, 2.4, 0.75);
   box(g, "#1c2430", 25.2, 1.2, -0.55, 25.42, 2.1, 0.55);
   for (const z of [-0.5, 0.5]) box(g, "#fff5c4", 25.4, 0.75, z - 0.1, 25.45, 0.95, z + 0.1);
+  g.userData.seats = seats;
   return g;
 }
 
@@ -1886,16 +2021,14 @@ export function World3D({
     const jobs: Promise<unknown>[] = [];
     if (map.story) {
       jobs.push(load(`/world3d/story-${map.story.id}.glb?v=3`).then(asset => {
+        // Land that carries on past the stage, so zooming out never shows the void.
+        box(world, "#c8b88f", -90, -0.2, -90, 120, -0.06, 120);
         const stage = asset.scene.clone(true);
         stage.position.set(15,0,13);
         stage.traverse(node => { if (node instanceof THREE.Mesh) { node.castShadow = true; node.receiveShadow = true; } });
         world.add(stage);
         setStoryLoading(false);
       }).catch(() => { setStoryLoading(false); setStoryError("The story scenery could not load. Return to the world and enter the story again."); }));
-      for (const [index, spot] of STORY_DISCOVERIES.entries()) {
-        const stone = sign(`${index+1} · ${map.portals[index].label}`, { bg:"#38214e",fg:"#ffdd80",w:2.5,h:.38 });
-        stone.position.set(spot.x,1.35,spot.y); world.add(stone);
-      }
     } else if (indoors) {
       if (map.kind !== "train") interior(world, map, jobs, station);
       if (map.kind === "home") {
@@ -1940,6 +2073,7 @@ export function World3D({
         // You've just stepped off: start with the train standing at the platform.
         if (TRAIN_CALL.at < 0) TRAIN_CALL.at = performance.now() - 6500;
         const train = tubeTrain();
+        world.userData.stationTrain = train;
         // The train only shows inside the station: it comes out of one tunnel and leaves by the other.
         const clip = [new THREE.Plane(new THREE.Vector3(1, 0, 0), -1.6), new THREE.Plane(new THREE.Vector3(-1, 0, 0), map.cols - 1.6)];
         train.traverse((o) => {
@@ -2250,6 +2384,7 @@ export function World3D({
     let nextLampUpdate = 0;
 
     if (map.id === "study-lobby") learningLobby(world, map);
+    if (map.id === "m25") motorway(world);
 
     // Portal markers: soft glowing rings on the ground.
     const rings: THREE.Mesh[] = [];
@@ -2262,7 +2397,7 @@ export function World3D({
     scene.add(doorLight);
     for (const p of map.portals) {
       // Stairs, train doors and the platform edge are the visual: no ring.
-      if (p.to.kind === "bus" || p.to.kind === "alight" || p.id === "board" || isStairway(map, p) || doorPortals.has(p.id)) continue;
+      if (p.to.kind === "bus" || p.to.kind === "alight" || p.to.kind === "story-discover" || p.id === "board" || isStairway(map, p) || doorPortals.has(p.id)) continue;
       if (p.to.kind === "bike") {
         const b = lymeBike();
         b.position.set((p.rect.x + p.rect.w / 2) / TILE, 0.12, (p.rect.y + p.rect.h / 2) / TILE);
@@ -2288,7 +2423,7 @@ export function World3D({
       walking: boolean;
       dispose: () => void;
     }
-    const makeBody = (a: Avatar, logo: string | null = null, ambient = false): Body => {
+    const makeBody = (a: Avatar, logo: string | null = null, ambient = false, figure?: Character): Body => {
       const root = new THREE.Group();
       let removed = false;
       const b: Body = { root, char: null, walking: false, dispose: () => {
@@ -2307,7 +2442,8 @@ export function World3D({
       bodies.add(b);
       const loadBody = async () => {
         if (disposed || removed) return;
-        const c = await buildCharacter(a, 1.15, logo, ambient ? "felt" : "avatar");
+        // Story characters wear period costume on the same rig.
+        const c = figure ? await buildFigure(figure.costume, figure.height ?? 1.15) : await buildCharacter(a, 1.15, logo, ambient ? "felt" : "avatar");
         if (disposed || removed) { c.dispose(); return; }
         bendAll(c.object);
         c.object.position.y = 0.12;
@@ -2326,10 +2462,25 @@ export function World3D({
       b.walking = on;
       b.char?.play(on ? "walk" : "idle");
     };
+    // Passengers already on the train you see pull in, sitting behind the glass.
+    const trainRiders: Body[] = [];
+    const stationTrain = world.userData.stationTrain as THREE.Group | undefined;
+    if (stationTrain) {
+      const seats = stationTrain.userData.seats as { x: number; z: number; facing: number }[];
+      seats.filter((_, i) => (i * 5 + 2) % 7 < 3).slice(0, Math.max(6, Math.min(14, budget.residents))).forEach((seat, i) => {
+        const b = makeBody(npcLook(i + 90), null, true);
+        b.root.position.set(seat.x, 0.32, seat.z);
+        b.root.rotation.y = seat.facing;
+        b.root.scale.setScalar(0.8);
+        stationTrain.add(b.root);
+        trainRiders.push(b);
+      });
+    }
     // Aboard a Grace Line train: a real carriage, passengers, and the line going by outside.
     let carriage: Carriage | null = null;
     const seated: Body[] = [];
     const standers: Body[] = [];
+    PASSENGERS.length = 0;
     if (map.kind === "train") {
       carriage = buildCarriage(world, {
         box, cyl, sign, scene, hemi, sun,
@@ -2343,6 +2494,7 @@ export function World3D({
         b.root.rotation.y = seat.facing;
         scene.add(b.root);
         seated.push(b);
+        PASSENGERS.push({ x: seat.x * TILE, y: (seat.z + (seat.facing === 0 ? 0.6 : -0.6)) * TILE });
       });
       carriage.standing.slice(0, 4).forEach((spot, i) => {
         const b = makeBody(npcLook(i + 61), null, true);
@@ -2351,6 +2503,7 @@ export function World3D({
         b.root.rotation.y = spot.facing;
         scene.add(b.root);
         standers.push(b);
+        PASSENGERS.push({ x: spot.x * TILE, y: spot.z * TILE });
       });
     }
 
@@ -2383,6 +2536,7 @@ export function World3D({
         if (node.name.startsWith("Ground skirt")) { node.receiveShadow = true; node.material = material; bend(material); mountainMaterials.push(material); return; }
         // Keep the near, camera-facing ridge from concealing the character.
         // Far and side ranges remain continuous beyond the playable boundary.
+        material.userData.bent = true;
         material.onBeforeCompile = shader => {
           shader.uniforms.uMountainFocus = FOCUS;
           shader.uniforms.uFocus = FOCUS;
@@ -2395,19 +2549,31 @@ export function World3D({
       });
       scene.add(mountains);
     }));
-    const me = makeBody(JSON.parse(avatarKey) as Avatar, badge);
+    // In a Bible story you play its hero, dressed for the time and place.
+    const hero = map.story ? CHARACTERS[HEROES[map.story.id]?.[map.story.chapter] ?? ""] : undefined;
+    const me = makeBody(JSON.parse(avatarKey) as Avatar, badge, false, hero);
     // Keep your character recognisable in crowds and behind tall buildings.
     const playerRing = new THREE.Mesh(new THREE.RingGeometry(0.38, 0.47, 32), new THREE.MeshBasicMaterial({ color: "#62e5ff", transparent: true, opacity: 0.85, depthTest: false, depthWrite: false }));
     playerRing.rotation.x = -Math.PI / 2;
     playerRing.renderOrder = 1000;
-    const playerLabel = makeNameplate(username, affiliation, true);
+    const playerLabel = makeNameplate(username, map.story ? null : affiliation, true);
     el.appendChild(playerLabel);
     scene.add(playerRing);
     scene.add(me.root);
+    let storyScene: StoryScene | null = null;
     if (map.story) {
-      const companion = makeBody(look({skin:"skin-4",top:"top-suit",topColor:"topcol-purple",hair:"hair-short",hairColor:"haircol-silver"}));
-      companion.root.position.set(17,0,11); companion.root.rotation.y=Math.PI;
-      scene.add(companion.root);
+      const campaign = BIBLE_STORIES.find(item => item.id === map.story!.id);
+      const chapter = campaign?.chapters[map.story.chapter];
+      if (campaign && chapter) storyScene = buildStoryScene(world, chapter, {
+        box, cyl, colour: campaign.colour,
+        person: (id, x, z, facing) => {
+          const b = makeBody(look({}), null, false, CHARACTERS[id]);
+          b.root.position.set(x, 0, z);
+          b.root.rotation.y = facing;
+          scene.add(b.root);
+          return { root: b.root, play: (mode: string) => b.char?.play(mode) };
+        },
+      });
     }
     // People who work here: the judge in court, guards in prison, a doctor at the hospital.
     const staff: [Avatar, number, number, number][] =
@@ -2447,10 +2613,14 @@ export function World3D({
     const otherCars = new Map<string, { model: string; root: THREE.Group }>();
 
     // Traffic: buses and Kenney cars driving the road loops on the left.
-    const L = london ? buildLondon() : map.island && map.id === "city" ? { routes: Array.from({length:3}, () => [[8,13],[44,13],[44,29],[8,29],[8,13]] as [number,number][]) } : null;
+    // Motorway lanes loop out of sight beyond each end: east on the top carriageway, back west below.
+    const motorwayRoutes = map.id === "m25" ? M25.east.map((ey, i) => [[-8, ey], [M25.cols + 8, ey], [M25.cols + 8, M25.west[2 - i]], [-8, M25.west[2 - i]], [-8, ey]] as [number, number][]) : null;
+    const L = london ? buildLondon() : map.island && map.id === "city" ? { routes: Array.from({length:3}, () => [[8,13],[44,13],[44,29],[8,29],[8,13]] as [number,number][]) } : motorwayRoutes ? { routes: motorwayRoutes } : null;
     const traffic: { obj: THREE.Group; route: number; at: number; distance: number; speed: number; velocity?: number; commuter?: { body: Body; offset: number } }[] = [];
     if (L) {
-      const kinds = ["bus", "taxi", "sedan", "bus", "van", "delivery", "coupe", "suv-blue", "muscle", "suv-red", "estate", "coupe-yellow"];
+      const kinds = map.id === "m25"
+        ? ["sedan", "van", "coupe", "suv-blue", "delivery", "estate", "muscle", "suv-red", "taxi", "coupe-yellow", "suv", "hatchback-sports", "suv-yellow", "sedan", "delivery", "estate", "coupe", "van"]
+        : ["bus", "taxi", "sedan", "bus", "van", "delivery", "coupe", "suv-blue", "muscle", "suv-red", "estate", "coupe-yellow"];
       kinds.forEach((k, i) => {
         const route = i % 3;
         const g = new THREE.Group();
@@ -2459,7 +2629,8 @@ export function World3D({
           g.userData.label = BUS_ROUTE_CODES[route];
         } else void placeCar(g, k);
         scene.add(g);
-        traffic.push({ obj: g, route, at: (i * 0.173) % 1, distance: 0, speed: [2.6, 2.8, 2.5][route] });
+        // Motorway traffic is fast: inside lane steady, outside lane quickest.
+        traffic.push({ obj: g, route, at: (i * 0.173) % 1, distance: 0, speed: map.id === "m25" ? [7, 8.5, 10][route] : [2.6, 2.8, 2.5][route] });
       });
       for (const coach of COACHES.slice(0, map.island ? 0 : 1)) {
         const obj=coachModel(coach.id);bendAll(obj);scene.add(obj);
@@ -2480,6 +2651,65 @@ export function World3D({
         t -= seg;
       }
       return { x: pts[0][0], z: pts[0][1], dx: 1, dz: 0 };
+    };
+
+    // A crash: the wreck stays where it stopped, with smoke, until an ambulance arrives.
+    let crashScene: { at: number; group: THREE.Group; ambulance: THREE.Group; smoke: THREE.Mesh[]; lights: THREE.Mesh[]; beacon: THREE.PointLight; from: THREE.Vector3; to: THREE.Vector3 } | null = null;
+    const updateCrash = (now: number) => {
+      const c = CRASH.current;
+      if (!c || c.map !== map.id) {
+        if (crashScene) { crashScene.group.removeFromParent(); crashScene = null; }
+        return;
+      }
+      if (!crashScene || crashScene.at !== c.at) {
+        if (crashScene) crashScene.group.removeFromParent();
+        const group = new THREE.Group();
+        scene.add(group);
+        const wreck = new THREE.Group();
+        wreck.position.set(c.x, 0, c.y);
+        wreck.rotation.set(0, 0.5, c.vehicle === "bike" ? Math.PI / 2.4 : 0.06);
+        if (c.vehicle === "bike") { const b = lymeBike(); b.position.y = 0.3; wreck.add(b); } else void placeCar(wreck, c.car && LOWPOLY_CARS[c.car] ? c.car : "sedan");
+        group.add(wreck);
+        const smoke = Array.from({ length: 6 }, (_, i) => {
+          const puff = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22 + i * 0.03, 0), new THREE.MeshStandardMaterial({ color: "#8d8a94", transparent: true, opacity: 0.6, flatShading: true }));
+          puff.position.set(c.x, 0.8, c.y);
+          group.add(puff);
+          return puff;
+        });
+        // The ambulance comes along the road from behind you and stops just short.
+        const ambulance = new THREE.Group();
+        void placeCar(ambulance, "ambulance");
+        const lights = ["#ff2d3c", "#2d6bff"].map((colour, i) => {
+          const l = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.22), new THREE.MeshBasicMaterial({ color: colour, toneMapped: false }));
+          l.position.set(0, 1.0, i ? -0.2 : 0.2);
+          ambulance.add(l);
+          return l;
+        });
+        const beacon = new THREE.PointLight("#2d6bff", 0, 9, 1.4);
+        beacon.position.set(0, 1.4, 0);
+        ambulance.add(beacon);
+        group.add(ambulance);
+        bendAll(group);
+        const from = new THREE.Vector3(c.x - 22, 0, c.y + 1.1);
+        const to = new THREE.Vector3(c.x - 3, 0, c.y + 1.1);
+        crashScene = { at: c.at, group, ambulance, smoke, lights, beacon, from, to };
+      }
+      const t = (now - c.at) / 1000;
+      const k = Math.min(1, t / AMBULANCE_ARRIVES);
+      const ease = 1 - Math.pow(1 - k, 2);
+      crashScene.ambulance.position.lerpVectors(crashScene.from, crashScene.to, ease);
+      const flash = Math.floor(now / 160) % 2;
+      crashScene.lights[0].visible = flash === 0;
+      crashScene.lights[1].visible = flash === 1;
+      crashScene.beacon.color.set(flash ? "#2d6bff" : "#ff2d3c");
+      crashScene.beacon.intensity = 6;
+      crashScene.smoke.forEach((puff, i) => {
+        const life = ((t * 0.6 + i / 6) % 1);
+        puff.position.y = 0.7 + life * 2.2;
+        puff.position.x = c.x + Math.sin(i * 2 + t) * 0.3 * life;
+        (puff.material as THREE.MeshStandardMaterial).opacity = 0.65 * (1 - life);
+        puff.scale.setScalar(0.6 + life * 1.6);
+      });
     };
 
     // Local ambient residents are fictional, scripted characters, separate from connected players.
@@ -2651,6 +2881,7 @@ export function World3D({
     const motionChanged = () => {reduce=motionPreference.matches;};
     motionPreference.addEventListener("change",motionChanged);
     const renderDue = frameBudget(60);
+    let bendSweep = 0;
     const frame = (now: number) => {
       if (document.hidden) {
         last = now;
@@ -2661,6 +2892,15 @@ export function World3D({
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       const secs = (now - start) / 1000;
+      // Everything sits on the curved ground: anything added without the
+      // curvature (late-loading models, vehicles, props) would float above it.
+      if (BEND.value.x > 0 && ++bendSweep % 45 === 1) scene.traverse(o => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh || mesh.userData.flat) return;
+        for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material])
+          if (!m.userData.bent && m.onBeforeCompile === THREE.Material.prototype.onBeforeCompile) bend(m);
+        if (!mesh.customDepthMaterial && mesh.castShadow) mesh.customDepthMaterial = CURVED_DEPTH;
+      });
       if (newsroom && now >= nextBroadcast) {
         nextBroadcast = now + (reduce ? 8_000 : 250);
         const ctx = broadcastCanvas.getContext("2d")!;
@@ -2717,7 +2957,8 @@ export function World3D({
       }
       if (!indoors && now >= nextWeather) {
         nextWeather = now + 10_000;
-        weatherKind = weatherAt(new Date()).kind;
+        // Bible stories are always clear, so the scene reads at every zoom.
+        weatherKind = map.story ? "Sunny" : weatherAt(new Date()).kind;
         precipitation.visible = !reduce && ["Light rain", "Drizzle", "Snow"].includes(weatherKind);
         precipitationMaterial.size = weatherKind === "Snow" ? 0.09 : 0.045;
         sun.intensity = phase === "night" ? 0.32 : ["Sunny", "Bright"].includes(weatherKind) ? 0.85 : 0.55;
@@ -2795,6 +3036,8 @@ export function World3D({
       FOCUS.value.set(framing.x, 0, framing.z);
       camera.position.set(framing.x, framing.height, framing.z + framing.distance);
       camera.lookAt(framing.x, framing.target, framing.z);
+      // Riding: the view rocks gently with the carriage.
+      if (carriage) { camera.position.y += carriage.bump() * 1.6; camera.rotation.z += Math.sin(performance.now() / 650) * 0.0025 * Math.min(1, carriage.speed() / 8); }
       if (map.story && storyPhaseRef.current !== "explore") {
         if (cinematicPhase !== storyPhaseRef.current) { cinematicPhase = storyPhaseRef.current; cinematicStarted = performance.now(); }
         const age = (performance.now()-cinematicStarted)/1000;
@@ -3064,9 +3307,21 @@ export function World3D({
       }
       TRAFFIC_BOXES.length = ti;
 
+      updateCrash(now);
+      storyScene?.update(secs, { x: me.root.position.x, z: me.root.position.z }, STORY_FOUND.found);
+      if (trainRiders.length) {
+        const tx = stationTrain!.position.x;
+        for (const b of trainRiders) {
+          const x = tx + b.root.position.x;
+          b.root.visible = x > 1.8 && x < map.cols - 1.8;
+          b.char?.play("sit");
+        }
+      }
       if (carriage) {
         carriage.update(now);
-        for (const b of seated) b.char?.play("sit");
+        const jolt = carriage.bump();
+        for (const b of seated) { b.char?.play("sit"); b.root.position.y = 0.16 + jolt; }
+        for (const b of standers) b.root.position.y = jolt;
         const lean = THREE.MathUtils.clamp(-carriage.accel() * 0.03, -0.09, 0.09);
         for (const b of standers) b.root.rotation.z += (lean - b.root.rotation.z) * 0.1;
       }
@@ -3200,6 +3455,7 @@ export function World3D({
       disposed = true;
       for (const body of bodies) body.dispose();
       carriage?.dispose();
+      storyScene?.dispose();
       for (const vehicle of traffic) if (vehicle.obj.userData.coach) vehicle.obj.userData.dispose();
       TRAFFIC_BOXES.length = 0;
       NPC_SPOTS.length = 0;
@@ -3250,8 +3506,8 @@ export function World3D({
 
   return <>
     <div ref={host} className="absolute inset-0" aria-label={`${map.name} in 3D`} role="img" />
-    {map.story && (storyLoading || storyError) && <div role="status" className="pointer-events-none absolute inset-x-4 top-20 z-[100003] mx-auto w-fit rounded-xl bg-[#21172c]/95 px-5 py-3 text-sm font-bold text-[#ffdd80]">{storyError || "Entering the story world…"}</div>}
-    {!overview && <div aria-label="Camera zoom" className="absolute right-3 top-[234px] z-[100001] flex items-center gap-1 rounded-full border border-white/20 bg-[#21152e]/95 p-1 text-xs font-black text-white shadow-lg">
+    {map.story && storyError && <div role="status" className="pointer-events-none absolute inset-x-4 top-20 z-[100003] mx-auto w-fit rounded-xl bg-[#21172c]/95 px-5 py-3 text-sm font-bold text-[#ffdd80]">{storyError}</div>}
+    {!overview && <div data-hud="zoom" data-tone="ink" aria-label="Camera zoom" className="absolute right-3 top-[234px] z-[100001] flex items-center gap-1 rounded-full border border-white/20 bg-[#21152e]/95 p-1 text-xs font-black text-white shadow-lg">
       <button type="button" aria-label="Zoom out" disabled={zoom<=.75} onClick={()=>setZoom(value=>Math.max(.75,value-.15))} className="grid size-11 place-items-center rounded-full text-xl hover:bg-white/15 disabled:opacity-30">−</button>
       <button type="button" aria-label="Reset zoom to 165 percent" onClick={()=>setZoom(1.65)} className="min-h-11 min-w-14 rounded-full px-2 tabular-nums hover:bg-white/15">{Math.round(zoom*100)}%</button>
       <button type="button" aria-label="Zoom in" disabled={zoom>=2.4} onClick={()=>setZoom(value=>Math.min(2.4,value+.15))} className="grid size-11 place-items-center rounded-full text-xl hover:bg-white/15 disabled:opacity-30">+</button>

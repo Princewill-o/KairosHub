@@ -12,26 +12,25 @@ export function makeNameplate(
   const root = document.createElement("div");
   const bubble = document.createElement("span");
   bubble.dataset.speech = "true";
-  bubble.className = "max-w-56 whitespace-normal break-words rounded-2xl border border-[#d4c7ad] bg-[#fffdf7] px-3 py-2 text-center text-xs font-bold text-[#13203a] shadow-lg";
+  bubble.className = "kw-speech";
   bubble.style.display = "none";
   root.appendChild(bubble);
   root.className =
     "pointer-events-none absolute z-10 flex -translate-x-1/2 -translate-y-full flex-col items-center gap-1 whitespace-nowrap text-[10px] font-black";
   if (affiliation) {
     const row = document.createElement("span");
-    row.className =
-      "inline-flex max-w-48 items-center gap-1 rounded-full border border-white/60 bg-[#f7f1e6] px-2 py-1 text-[#13203a] shadow";
+    row.className = "kw-aff";
     const logo = affiliation.logo ? logoFor(affiliation.logo) : null;
     if (affiliation.kind === "branch") {
       const img = document.createElement("img");
-      img.width = 48;
-      img.height = 48;
+      img.width = 20;
+      img.height = 20;
       img.alt = "Kharis Church";
       img.src = "/brand/kharis-mark.png";
       img.className = "shrink-0 object-contain";
-      img.style.cssText = "width:48px;height:48px;min-width:48px;filter:drop-shadow(0 1px 2px #0008)";
+      img.style.cssText = "width:20px;height:20px;min-width:20px";
       row.appendChild(img);
-      row.className = "inline-flex max-w-56 items-center gap-2 rounded-2xl border-2 border-[#f2d15b] bg-[#38214e] px-3 py-1 text-xs text-white shadow-lg";
+      row.className = "kw-aff kw-aff-branch";
     } else if (logo) {
       const img = document.createElement("img");
       img.width = 17;
@@ -52,7 +51,7 @@ export function makeNameplate(
     root.appendChild(row);
   }
   const name = document.createElement("span");
-  name.className = `rounded-full px-2 py-1 text-white shadow ${me ? "bg-[#164bc3]" : "bg-[#13203a]/90"}`;
+  name.className = me ? "kw-name kw-name-me" : "kw-name";
   name.textContent = me ? `@${username} · YOU ↓` : `@${username}`;
   root.appendChild(name);
   return root;

@@ -67,7 +67,7 @@ export function LifeHud({ avatar, name, quests, onLocate }: { avatar: Avatar; na
   return (
     <>
       {/* Today's tasks */}
-      <div className={cn(card, "absolute top-[68px] left-3 z-[50] w-[min(200px,calc(100%-120px))] px-2.5 py-1 sm:w-[248px] xl:w-[264px]")}>
+      <div data-hud="tasks" data-tone="paper" className={cn(card, "absolute top-[68px] left-3 z-[50] w-[min(200px,calc(100%-120px))] px-2.5 py-1 sm:w-[248px] xl:w-[264px]")}>
         <button type="button" onClick={() => setOpen((o) => !o)} className="flex min-h-11 w-full items-center gap-2 text-left text-xs font-black sm:text-sm" aria-expanded={open} aria-controls="city-quests">
           Today's tasks
           <span className="rounded-full bg-[#dde8fd] px-2 py-0.5 text-[10px] text-[#1f4fbf]">{todo} to do</span>
@@ -109,8 +109,8 @@ export function LifeHud({ avatar, name, quests, onLocate }: { avatar: Avatar; na
       </div>
 
       {/* Weather and local time */}
-      <div className="pointer-events-none absolute top-[68px] right-[140px] z-[50] hidden gap-1.5 xl:flex [@media(max-height:719px)]:!hidden">
-        <details className={cn(card, "relative px-2.5 py-1.5")}>
+      <div data-hud="clock" className="pointer-events-none absolute top-[68px] right-[140px] z-[50] hidden gap-1.5 xl:flex [@media(max-height:719px)]:!hidden">
+        <details data-tone="paper" className={cn(card, "relative px-2.5 py-1.5")}>
           <summary className="flex cursor-pointer list-none items-center gap-1.5" aria-label="Open game weather forecast">
           <WIcon className="size-5 text-[#e98a1f]" aria-hidden />
           <div>
@@ -123,14 +123,14 @@ export function LifeHud({ avatar, name, quests, onLocate }: { avatar: Avatar; na
             <p className="mt-2 text-[10px] text-[#5a6272]">Shared simulated weather · changes every 3 minutes</p>
           </div>
         </details>
-        <div className={cn(card, "px-3 py-1.5")}>
+        <div data-tone="paper" className={cn(card, "px-3 py-1.5")}>
           <p className="text-sm leading-4 font-black">{gameDateAt(now.getTime()).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}</p>
           <p className="text-[10px] font-bold text-[#5a6272]">{gameDateAt(now.getTime()).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })}</p>
         </div>
       </div>
 
       {/* You and your needs */}
-      <div className={cn(card, "absolute bottom-16 left-3 z-[50] hidden max-w-[240px] items-center gap-2 py-1.5 pr-2.5 pl-1.5 lg:flex xl:max-w-[280px] [@media(max-height:650px)]:!hidden")}>
+      <div data-hud="life" data-tone="paper" className={cn(card, "absolute bottom-16 left-3 z-[50] hidden max-w-[240px] items-center gap-2 py-1.5 pr-2.5 pl-1.5 lg:flex xl:max-w-[280px] [@media(max-height:650px)]:!hidden")}>
         <div className="flex size-12 shrink-0 justify-center overflow-hidden rounded-full border-4 border-white bg-[#8fb4ff]">
           <div className="-mt-1 shrink-0">
             <AvatarFigure avatar={avatar} size={76} showPet={false} />
@@ -155,6 +155,7 @@ export function LifeHud({ avatar, name, quests, onLocate }: { avatar: Avatar; na
 
       {(last || hint) && (
         <p
+          data-hud="tip" data-tone="ink"
           className="pointer-events-none absolute inset-x-0 top-[130px] z-[50] mx-auto hidden w-fit max-w-[32%] text-center rounded-full bg-[#13203a] px-4 py-1.5 text-xs font-bold text-white xl:block [@media(max-height:719px)]:!hidden"
           role="status"
         >
@@ -169,7 +170,7 @@ export function LifeHud({ avatar, name, quests, onLocate }: { avatar: Avatar; na
 export function LevelBadge({ xp }: { xp: number }) {
   const lp = levelProgress(xp);
   return (
-    <div className="pointer-events-none absolute top-3 left-1/2 z-[60] hidden -translate-x-1/2 items-center gap-2 rounded-full border border-[#d4c7ad] bg-[#faf6ed]/[0.98] py-1.5 pr-3 pl-1.5 text-[#203b38] shadow-[0_8px_24px_rgba(12,30,28,0.16)] lg:flex">
+    <div data-hud="xp" data-tone="paper" className="pointer-events-none absolute top-3 left-1/2 z-[60] hidden -translate-x-1/2 items-center gap-2 rounded-full border border-[#d4c7ad] bg-[#faf6ed]/[0.98] py-1.5 pr-3 pl-1.5 text-[#203b38] shadow-[0_8px_24px_rgba(12,30,28,0.16)] lg:flex">
       <span className="grid size-7 place-items-center rounded-full bg-[#254e46] text-sm font-black text-[#f7e3b6] ring-1 ring-[#c8b182]">{lp.level}</span>
       <span className="text-xs leading-tight font-black">
         {levelTitle(lp.level)}

@@ -26,6 +26,9 @@ export interface Carriage {
   standing: { x: number; z: number; facing: number }[];
   /** Forward acceleration (tiles/s²) so standing passengers can sway. */
   accel: () => number;
+  /** Vertical judder this frame, so riders bounce with the carriage. */
+  bump: () => number;
+  speed: () => number;
   update: (now: number) => void;
   dispose: () => void;
 }
@@ -243,12 +246,28 @@ export function buildCarriage(world: THREE.Group, kit: CarriageKit): Carriage {
   }
   for (let d = from; d < to; d += 14 + r() * 10) if (!inTunnel(d, 10)) put(hills, d, -0.75 + 4, -34 - r() * 10, 18 + r() * 10, 8 + r() * 6, 12, r() * 3);
   for (const m of [trunks, crowns, crowns2, walls, roofs, hills, hedges]) m.instanceMatrix.needsUpdate = true;
+  // Close to the windows: overhead-line masts, signals and cable posts. Being
+  // so near the glass, they flick past fast and sell the speed.
+  const masts = make(unit, "#5d6470", 400), arms = make(unit, "#5d6470", 400), posts = make(unit, "#3d3a35", 500), signals = make(unit, "#1b1a20", 60);
+  for (let d = from; d < to; d += 7) {
+    if (inTunnel(d, 1) || nearPlatform(d, -2)) continue;
+    put(masts, d, -0.75 + 2.2, -0.9, 0.16, 4.4, 0.16);
+    put(arms, d, 3.4, 0.1, 0.1, 0.1, 2.2);
+  }
+  for (let d = from + 3; d < to; d += 3.5) if (!inTunnel(d, 1) && !nearPlatform(d, -2)) put(posts, d, -0.45, 8.0, 0.12, 0.6, 0.12);
+  for (let d = from + 20; d < to; d += 45) if (!inTunnel(d, 2) && !nearPlatform(d, 2)) put(signals, d, 0.9, -1.3, 0.3, 3.3, 0.3);
+  for (const m of [masts, arms, posts, signals]) m.instanceMatrix.needsUpdate = true;
   // The tunnel: close dark walls, lamps streaking past, a hillside over each mouth.
   box(line, "#2a2730", t0, -0.9, -0.2, t1, 3.2, 0.45);
   box(line, "#2a2730", t0, -0.9, 7.55, t1, 1.0, 7.9);
-  for (let d = t0 + 2; d < t1 - 1; d += 4.5) {
-    box(line, "#ffe8a8", d, 2.1, 0.44, d + 0.5, 2.25, 0.5).material = glow;
-    box(line, "#3b3640", d - 2, 1.2, 0.42, d + 2.5, 1.28, 0.5);
+  for (let d = t0 + 2; d < t1 - 1; d += 3) {
+    box(line, "#ffe8a8", d, 2.1, 0.44, d + 0.9, 2.22, 0.5).material = glow;
+    box(line, "#3b3640", d - 2, 1.2, 0.42, d + 1.5, 1.28, 0.5);
+  }
+  // Tunnel ribs every couple of tiles: the dark wall visibly races by.
+  for (let d = t0 + 1; d < t1; d += 1.6) {
+    box(line, "#1a1820", d, -0.9, 0.3, d + 0.25, 3.25, 0.5);
+    box(line, "#1a1820", d, -0.9, 7.5, d + 0.25, 1.05, 7.7);
   }
   for (const [mouth, out] of [[t0, -1], [t1, 1]] as const) {
     box(line, "#8d8274", mouth - (out < 0 ? 1.2 : 0), -0.9, -10, mouth + (out < 0 ? 0 : 1.2), 4.4, 0.5);
@@ -297,12 +316,14 @@ export function buildCarriage(world: THREE.Group, kit: CarriageKit): Carriage {
     builtLeg = ride.leg + ride.at;
   };
 
-  let lastSpeed = 0, lastNow = 0, accel = 0;
+  let lastSpeed = 0, lastNow = 0, accel = 0, bump = 0;
   const lit = new THREE.Color();
   return {
     seats,
     standing,
     accel: () => accel,
+    bump: () => bump,
+    speed: () => lastSpeed,
     update(now: number) {
       const start = kit.getRide();
       if (!start) return;
@@ -321,8 +342,17 @@ export function buildCarriage(world: THREE.Group, kit: CarriageKit): Carriage {
       kit.hemi.intensity = 1.5 - under * 1.1;
       kit.sun.intensity = 0.95 * (1 - under);
       lamps.forEach((l) => { l.intensity = 0.4 + under * 9; });
-      // Gentle sway at speed.
-      car.position.y = Math.sin(now / 90) * 0.004 * Math.min(1, f.speed / 6);
+      // Movement you can feel: a rail-joint knock every few tiles, a constant
+      // fine judder and a slow side-to-side sway, all scaled by speed.
+      const pace = Math.min(1, f.speed / 10);
+      const joint = (f.distance % 3.2) / 3.2;
+      const knock = joint < 0.06 ? Math.sin(joint / 0.06 * Math.PI) * 0.02 : 0;
+      bump = (Math.sin(now / 37) * 0.006 + knock) * pace;
+      car.position.y = bump;
+      car.position.z = Math.sin(now / 900) * 0.025 * pace;
+      car.rotation.x = Math.sin(now / 700) * 0.004 * pace;
+      // Passing tunnel lamps flash through the carriage.
+      if (f.tunnel) lamps.forEach((l, i) => { l.intensity += Math.max(0, Math.sin((f.distance + i * 1.5) * 2.1)) * 4; });
       setScreens(
         f.phase === "arrived" ? `${ride.to.name}  ·  Doors open` :
         f.phase === "braking" ? `Now arriving: ${ride.to.name}` :

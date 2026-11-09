@@ -59,11 +59,11 @@ export function SceneMusic({ scene }: { scene: MusicScene }) {
     } catch { /* Controls remain usable without audio or storage access. */ }
   };
   return (
-    <div className="absolute top-20 right-3 z-[70] text-[#fff3d8]">
-      <button type="button" onClick={() => setOpen(value => !value)} aria-label="Music settings" aria-expanded={open} aria-controls="scene-music-settings" className="flex min-h-11 items-center gap-2 rounded-full border border-[#c8b182]/40 bg-[#183b35]/95 px-3 text-xs font-bold shadow-lg">
+    <div data-hud="music" className="absolute top-20 right-3 z-[70] text-[#fff3d8]">
+      <button type="button" onClick={() => setOpen(value => !value)} aria-label="Music settings" aria-expanded={open} aria-controls="scene-music-settings" data-tone="ink" className="flex min-h-11 items-center gap-2 rounded-full border border-[#c8b182]/40 bg-[#183b35]/95 px-3 text-xs font-bold shadow-lg">
         {enabled && volume > 0 ? <Music2 className="size-4" /> : <VolumeX className="size-4" />} Music
       </button>
-      {open && <section id="scene-music-settings" aria-label="Music settings" className="absolute top-13 right-0 w-60 rounded-2xl border border-[#c8b182]/40 bg-[#183b35] p-4 shadow-xl">
+      {open && <section data-tone="ink" id="scene-music-settings" aria-label="Music settings" className="absolute top-13 right-0 w-60 rounded-2xl border border-[#c8b182]/40 bg-[#183b35] p-4 shadow-xl">
         <p className="text-sm font-bold">{LABELS[scene]}</p>
         <p className="mt-1 text-xs text-white/70">Original music for this scene</p>
         <button type="button" aria-pressed={enabled} onClick={() => update(!enabled, volume)} className="mt-3 min-h-11 w-full rounded-xl bg-[#fff3d8] px-3 text-xs font-bold text-[#183b35]">{enabled ? "Mute music" : "Play music"}</button>

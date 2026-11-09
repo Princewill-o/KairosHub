@@ -891,6 +891,60 @@ export function homeMap(style: number, layout: Placed[] = STARTER_LAYOUT): World
   };
 }
 
+/** The M25 stretch: lanes (tile rows) for each carriageway, the tunnel and the junctions. */
+export const M25 = {
+  cols: 84, rows: 28,
+  east: [8.5, 9.5, 10.5],
+  west: [12.5, 13.5, 14.5],
+  shoulders: [7, 15],
+  barrier: 11,
+  tunnel: [30, 46] as const,
+  services: { x: 56, y: 17, w: 18, h: 9 },
+};
+/**
+ * The M25 London Orbital: three lanes each way with hard shoulders, a central
+ * barrier, a long tunnel under a hill, services, and slip roads to London
+ * Square and north to the Highlands. Fast traffic runs both carriageways.
+ */
+export function motorwayMap(): WorldMap {
+  const { cols, rows, services: sv } = M25;
+  const g = new Grid(cols, rows, "g");
+  g.fill(0, 7, cols, 9, "=");
+  g.fill(0, M25.barrier, cols, 1, "|");
+  // The hill the tunnel runs through: no walking over it.
+  g.fill(M25.tunnel[0], 0, M25.tunnel[1] - M25.tunnel[0], 7, "X");
+  g.fill(M25.tunnel[0], 16, M25.tunnel[1] - M25.tunnel[0], 12, "X");
+  // Services: slip road down to a car park and a building with food.
+  g.fill(sv.x, 16, 3, 3, "=");
+  g.fill(sv.x, 18, sv.w, 3, "=");
+  g.fill(sv.x, 21, sv.w, 1, "-");
+  g.fill(sv.x + 4, 22, 10, 4, "X");
+  // Junction slip roads: south-west to London, north-east to the M40 and the Highlands.
+  g.fill(10, 16, 3, rows - 16, "=");
+  g.fill(70, 0, 3, 7, "=");
+  // Footpath along the verges so you can walk to the services safely.
+  g.fill(0, 16, 10, 1, "-");
+  g.fill(13, 16, M25.tunnel[0] - 13, 1, "-");
+  g.fill(M25.tunnel[1], 16, sv.x - M25.tunnel[1], 1, "-");
+  return finish(
+    {
+      id: "m25",
+      kind: "woodland",
+      name: "M25 London Orbital",
+      structures: [{ x: sv.x + 4, y: 22, w: 10, h: 4, label: "Kairos Services", accent: "#2b5fd9", door: "top" }],
+      portals: [
+        { id: "slip-london", rect: px(10, rows - 1, 3, 1), label: "Junction 10 · A3 to London Square", to: { kind: "map", mapId: "city", label: "London Square" } },
+        { id: "slip-highlands", rect: px(70, 0, 3, 1), label: "Junction 16 · M40 north to the Highlands", to: { kind: "map", mapId: "highlands", label: "The Highlands" } },
+        { id: "services-food", rect: px(sv.x + 8, 21, 2, 1), label: "Kairos Services · grab a bite", to: { kind: "act", activity: "eat" } },
+      ],
+      rooms: [],
+      spawn: centre(sv.x + 9, 19),
+      accent: "#2b5fd9",
+    },
+    g,
+  );
+}
+
 /** The Highlands: an open valley of mountains, a loch and a village, by train from London. */
 export function highlandsMap(): WorldMap {
   const r = buildHighlands();

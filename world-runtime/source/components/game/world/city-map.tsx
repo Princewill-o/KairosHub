@@ -100,7 +100,7 @@ export function MiniMap({ map, waypoint, onOpen, onArrive, searchArea }: { searc
     return () => cancelAnimationFrame(raf);
   }, [waypoint, onArrive]);
   return (
-    <button type="button" onClick={onOpen} aria-label="Open the map" className="absolute top-[118px] right-3 z-[100001] block text-left">
+    <button type="button" data-hud="minimap" onClick={onOpen} aria-label="Open the map" className="absolute top-[118px] right-3 z-[100001] block text-left">
       <span ref={viewport} className="relative block size-20 overflow-hidden rounded-full border-4 border-[#f6f2e8] bg-[#d9cfbd] shadow-xl sm:size-[104px] xl:size-28">
         <span ref={wrap} className="absolute top-0 left-0 block" style={{ width: map.cols * S, height: map.rows * S }}>
           {searchArea && <span aria-label="Police search area" className="pointer-events-none absolute z-10 rounded-full border-2 border-[#e04a3f] bg-[#e04a3f]/20" style={{left:(searchArea.origin.x-searchArea.radius)/TILE*S,top:(searchArea.origin.y-searchArea.radius)/TILE*S,width:searchArea.radius*2/TILE*S,height:searchArea.radius*2/TILE*S}}/>}

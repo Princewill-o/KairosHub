@@ -212,3 +212,104 @@
 .km-choices.row button:last-child { border-image-source: url(/world-ui/cartoon/buttons/Button_Long_Grey.png); color: #2b2533; text-shadow: none; justify-content: center; }
 .kp-back { display: flex; align-items: center; gap: 4px; }
 .kp-back img { width: 22px; height: 22px; }
+
+/* ── One HUD, one look ────────────────────────────────────────────
+   Every on-screen panel uses the phone's ink style (3px outline, hard
+   offset shadow, chunky radius) and sits in its own slot so nothing
+   overlaps. Slots are marked with data-hud in the markup; tones are
+   data-tone="paper" (light card), "ink" (phone purple) or "violet". */
+[data-tone] {
+  border: 3px solid var(--ink) !important;
+  box-shadow: 4px 4px 0 var(--ink) !important;
+  backdrop-filter: none !important;
+}
+[data-tone="paper"] { background: var(--paper) !important; color: var(--ink) !important; border-radius: 18px !important; }
+[data-tone="ink"] { background: #2a1d44 !important; color: #fff !important; border-radius: 18px !important; }
+[data-tone="violet"] { background: var(--violet) !important; color: #fff !important; border-radius: 18px !important; }
+[data-tone] button:not([data-tone]) { border-radius: 12px; }
+[data-tone="ink"] .text-\[\#8d85a0\], [data-tone="ink"] .text-\[\#d8d4e0\] { color: #cfc4e8 !important; }
+[data-hud="clock"] > [data-tone] { box-shadow: 3px 3px 0 var(--ink) !important; }
+[data-hud="zoom"] button { border-radius: 12px !important; }
+
+/* Left column */
+[data-hud="topbar"] { padding: 12px !important; }
+[data-hud="place"] { max-width: min(270px, calc(100% - 7rem)) !important; padding: 7px 12px !important; }
+[data-hud="tasks"] { top: 80px !important; left: 12px !important; }
+[data-hud="life"] { bottom: 70px !important; left: 12px !important; }
+[data-hud="settings"] { bottom: 12px !important; left: 12px !important; top: auto !important; z-index: 100001 !important; }
+[data-hud="bible"] { bottom: 12px !important; left: 128px !important; top: auto !important; color: var(--gold) !important; }
+[data-hud="hint"] { position: fixed; left: 50% !important; bottom: 12px !important; transform: translateX(-50%); max-width: min(44%, 30rem) !important; text-align: center; }
+
+/* Right column, top to bottom */
+[data-hud="online"] { padding: 8px 12px !important; }
+[data-hud="wallet"] { top: 64px !important; right: 12px !important; color: var(--gold) !important; }
+[data-hud="clock"] { top: 64px !important; right: 150px !important; }
+[data-hud="minimap"] { top: 116px !important; right: 12px !important; }
+[data-hud="minimap"] > span:first-child { border: 3px solid var(--ink) !important; box-shadow: 4px 4px 0 var(--ink) !important; }
+[data-hud="zoom"] { top: 240px !important; right: 12px !important; padding: 3px !important; }
+[data-hud="music"] { top: 296px !important; right: 12px !important; }
+
+/* Right column, bottom up */
+[data-hud="grace"] { bottom: 12px !important; right: 12px !important; width: 52px !important; height: 52px !important; }
+[data-hud="phone"] { bottom: 6px !important; right: 72px !important; }
+[data-hud="ltbs"] { bottom: 76px !important; right: 12px !important; }
+[data-hud="action"] { bottom: 132px !important; right: 12px !important; }
+[data-hud="story-wallet"] { bottom: 12px !important; right: 12px !important; }
+[data-hud="xp"] { top: 12px !important; }
+[data-hud="tip"] { top: 66px !important; }
+
+/* Touch screens: the joystick owns the bottom-left corner. */
+@media (pointer: coarse) {
+  [data-hud="settings"] { bottom: 168px !important; }
+  [data-hud="bible"] { bottom: 168px !important; left: 120px !important; }
+  [data-hud="hint"] { display: none !important; }
+}
+/* Phones and small windows: fewer, smaller panels. */
+@media (max-width: 700px), (max-height: 560px) {
+  [data-hud="place"] { max-width: calc(100% - 6rem) !important; }
+  [data-hud="tasks"] { top: 72px !important; width: min(200px, 52vw) !important; }
+  [data-hud="wallet"] { top: 60px !important; }
+  [data-hud="minimap"] { top: 108px !important; transform: scale(.82); transform-origin: top right; }
+  [data-hud="zoom"] { top: 210px !important; }
+  [data-hud="music"] { top: 262px !important; }
+  [data-hud="music"] button span, [data-hud="music"] > button { font-size: 0 !important; gap: 0 !important; }
+  [data-hud="ltbs"] { bottom: 70px !important; }
+  [data-hud="action"] { bottom: 124px !important; }
+  [data-hud="xp"], [data-hud="tip"], [data-hud="clock"], [data-hud="life"] { display: none !important; }
+}
+
+/* Names and speech above characters */
+.kw-name { padding: 2px 8px; border: 2px solid var(--ink); border-radius: 999px; background: #2a1d44; color: #fff; box-shadow: 2px 2px 0 var(--ink); }
+.kw-name-me { background: #2f7de1; }
+.kw-aff { display: inline-flex; max-width: 12rem; align-items: center; gap: 4px; padding: 2px 8px; border: 2px solid var(--ink); border-radius: 999px; background: var(--paper); color: var(--ink); box-shadow: 2px 2px 0 var(--ink); }
+.kw-aff-branch { background: var(--violet); color: #fff; }
+.kw-speech { max-width: 14rem; padding: 8px 12px; border: 3px solid var(--ink); border-radius: 16px; border-bottom-left-radius: 4px; background: var(--paper); color: var(--ink); box-shadow: 3px 3px 0 var(--ink); font: 700 12px/1.35 system-ui; text-align: center; white-space: normal; overflow-wrap: anywhere; }
+
+/* ── LTBS story mode: same ink style as the phone ─────────────── */
+.km-bar-top { pointer-events: none; position: absolute; inset: 0; z-index: 100002; border-top: 6vh solid #000; border-bottom: 6vh solid #000; }
+.ks-top { position: absolute; top: 12px; right: 12px; z-index: 100004; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.ks-pill { min-height: 44px; padding: 0 14px; display: inline-flex; align-items: center; border: 3px solid var(--ink); border-radius: 16px; background: #2a1d44; color: var(--gold); font: 900 12px system-ui; box-shadow: 3px 3px 0 var(--ink); }
+.ks-leave { background: var(--paper); color: var(--ink); cursor: pointer; }
+.ks-card { position: absolute; z-index: 100004; border: 4px solid var(--ink); border-radius: 22px; background: var(--paper); color: var(--ink); box-shadow: 8px 8px 0 var(--ink); padding: 16px 20px 18px; }
+.ks-card h2 { margin: 4px 0 6px; font: 900 clamp(18px, 2.4vw, 24px)/1.2 var(--kg-body, system-ui); }
+.ks-card p { margin: 6px 0; font: 600 14px/1.45 system-ui; }
+.ks-eyebrow { color: var(--violet); font: 900 11px system-ui !important; letter-spacing: .08em; text-transform: uppercase; }
+.ks-bottom { left: 50%; bottom: calc(6vh + 14px); transform: translateX(-50%); width: min(680px, calc(100% - 28px)); max-height: 62dvh; overflow: auto; }
+.ks-goals { left: 12px; top: 72px; width: min(270px, calc(100% - 24px)); padding: 14px; }
+.ks-goals h2 { font-size: 16px; }
+.ks-goals ul { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.ks-goals li { display: flex; gap: 8px; align-items: center; font: 700 13px system-ui; }
+.ks-goals li i { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border: 2px solid var(--ink); border-radius: 50%; background: #fff; font: 900 12px system-ui; font-style: normal; }
+.ks-goals li.done { color: #2f7a46; }
+.ks-goals li.done i { background: #3fbf5a; color: #fff; }
+.ks-muted { color: #6a6175; font-size: 12px !important; }
+.ks-go { width: 100%; margin-top: 10px; }
+.ks-say { position: absolute; z-index: 100005; left: 50%; bottom: 22px; transform: translateX(-50%); width: min(640px, calc(100% - 28px)); }
+.ks-card .km-choices { margin-top: 10px; }
+@media (max-width: 700px) {
+  .ks-goals { top: auto; bottom: 150px; width: calc(100% - 24px); max-height: 30dvh; overflow: auto; }
+  .ks-goals h2 { font-size: 14px; }
+  .ks-top { top: 8px; right: 8px; }
+  .ks-pill { min-height: 38px; font-size: 11px; }
+  .ks-bottom { bottom: 12px; }
+}
