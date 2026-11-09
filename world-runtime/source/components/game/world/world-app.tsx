@@ -28,7 +28,9 @@ import { LevelBadge, LifeHud, type Quest } from "./life-hud";
 import { PoliceTransportCutscene } from "./police-transport-cutscene";
 import { SceneWipe, Tutorial } from "./scene";
 import { SceneMusic } from "./scene-music";
-import { TRAIN_CALL } from "./train-state";
+import { RIDE, TRAIN_CALL } from "./train-state";
+import { advanceRide, nextStop, rideFrame, stationStop, type RideStop } from "@/game/core/ride";
+import { isStairway, STREET_STAIRS } from "@/game/core/doors";
 import { BikeDock, Dealership } from "./transport";
 import type { TubeTrip } from "./tube-map";
 import { useLife } from "./use-life";
@@ -44,7 +46,6 @@ const TubeMap = dynamic(() => import("./tube-map").then((module) => module.TubeM
 const HomeEditor = dynamic(() => import("../../careers/home-editor").then(module => module.HomeEditor), { ssr: false });
 const ScriptureChallenge = dynamic(() => import("./ltbs-hub").then(module => module.Challenge), { ssr: false });
 
-const TrainCutscene = dynamic(() => import("./train-cutscene").then((module) => module.TrainCutscene), { ssr: false, loading: () => null });
 
 import { earnWorldXp, worldBankStatus } from "@/app/games/world/actions";
 import { recordKairosActivity } from "@/lib/game/kairos-activity";
@@ -63,6 +64,8 @@ import {
   STATION_PLATFORM_Y,
   TILE,
   stationMap,
+  trainCarriageMap,
+  CARRIAGE_DOORS,
   type Portal,
   SERVERS,
   type WorldMap,
@@ -91,6 +94,7 @@ function loadMap(id: string): WorldMap | null {
   if (id === "woodland") return woodlandMap();
   if (id === "kharis-hub") return kharisHubMap();
   if (id.startsWith("station-")) return stationMap(id.slice("station-".length));
+  if (id === "train-carriage") return trainCarriageMap();
   return null;
 }
 
@@ -170,7 +174,6 @@ export function WorldApp({
     return () => window.clearInterval(timer);
   }, [me.id]);
   const [dealer, setDealer] = useState(false);
-  const boardedStation = useRef<string | null>(null);
   const [homeAction, setHomeAction] = useState<HomeAction | null>(null);
   useEffect(() => {
     if (!homeAction) return;
@@ -224,7 +227,6 @@ export function WorldApp({
     toastTimer.current = setTimeout(() => setToast(null), big ? 3200 : 2200);
   }, []);
   const jailed = life.jailUntil > 0;
-  const [journey, setJourney] = useState<{ to: string; go: () => void } | null>(null);
 
   useEffect(() => setXpNow(xp), [xp]);
   // Hired bikes go back to the dock by themselves when the time runs out.
@@ -316,6 +318,9 @@ export function WorldApp({
   const adventure = useStoryAdventure(map, goTo, amount => setWallet(value => value + amount));
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    // Preview hook: ?at=x,y drops you at a tile on the current map.
+    const at = params.get("at")?.split(",").map(Number);
+    if (at?.length === 2 && at.every(Number.isFinite)) { setArrive({ x: at[0] * TILE, y: at[1] * TILE }); setTrip((n) => n + 1); }
     if (params.get("bible") === "1") setBibleOpen(true);
     else if (params.get("church") === "1") goTo("woodland", "Kharis Forest");
     else if (params.get("woodland") === "1") goTo("woodland", "Kharis Woodland");
@@ -384,6 +389,51 @@ export function WorldApp({
   useEffect(()=>{if(miniGamesOpen){setMiniGamesOpen(false);openGrace('adventures');}},[miniGamesOpen,openGrace]);
   const [photoMode, setPhotoMode] = useState(false);
   useEffect(() => { const k = (e: KeyboardEvent) => { if (photoMode && (e.key === "Escape" || e.key.toLowerCase() === "p")) { setPhotoMode(false); return; } if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLElement && e.target.closest("input, textarea, [role=dialog]"))) setPhone(v => !v); }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [photoMode]);
+  /** Where the next train you board will take you, if you asked staff for somewhere. */
+  const plannedStop = useRef<RideStop | null>(null);
+  /** Walk straight from the platform into a real carriage. No cutscene: the ride happens around you. */
+  const boardTrain = useCallback((from: RideStop) => {
+    const to = plannedStop.current && !(plannedStop.current.kind === "station" && from.kind === "station" && plannedStop.current.id === from.id) ? plannedStop.current : nextStop(from);
+    plannedStop.current = null;
+    // You stepped in during boarding: the doors close behind you shortly after.
+    RIDE.current = { from, to, at: performance.now() - 600, leg: 0 };
+    setBike(null); setDriving(null); setTube(null);
+    void gainXp("train");
+    play("train", soundOn());
+    const door = CARRIAGE_DOORS[1];
+    setArrive({ x: (door + 1) * TILE, y: 1.9 * TILE });
+    setMapId("train-carriage");
+    setTrip((n) => n + 1);
+  }, [gainXp]);
+  /** Doors open at the platform: step off into that station, or out at the end of the line. */
+  const alight = useCallback(() => {
+    const now = performance.now();
+    const ride = RIDE.current && advanceRide(RIDE.current, now);
+    if (!ride || !rideFrame(now - ride.at).canAlight) { say("Wait for the doors to open at the next station."); return; }
+    RIDE.current = null;
+    if (ride.to.kind === "station") {
+      const inside = stationMap(ride.to.id);
+      if (!inside) return;
+      // The train you just left is still standing at the platform, doors open, then pulls away.
+      TRAIN_CALL.at = now - 8200;
+      const doorX = inside.cols / 2 - 12.7 + 6.2 + 3;
+      setArrive(safeSpot(inside, doorX * TILE, 14.3 * TILE));
+      setMapId(`station-${ride.to.id}`);
+    } else {
+      const next = loadMap(ride.to.mapId);
+      if (!next) return;
+      setArrive(next.spawn);
+      setMapId(ride.to.mapId);
+    }
+    setTrip((n) => n + 1);
+  }, [say]);
+  // Reloading the page aboard a carriage: you're on the next train out of London Square.
+  if (map.kind === "train" && !RIDE.current) {
+    const from = stationStop("london-square");
+    // Preview hook: ?ride=ms starts you that far into the run.
+    const into = typeof location !== "undefined" ? Number(new URLSearchParams(location.search).get("ride") ?? 0) : 0;
+    RIDE.current = { from, to: nextStop(from), at: performance.now() - (Number.isFinite(into) ? into : 0), leg: 0 };
+  }
   const onPortal = useCallback(
     (portal: Portal) => {
       const to = portal.to;
@@ -431,10 +481,12 @@ export function WorldApp({
       else if (to.kind === "tube") {
         if (map.kind === "station") {
           if (!canBoardTrain(performance.now() - TRAIN_CALL.at, map.cols, PLAYER.x / TILE, PLAYER.y / TILE)) return;
-          boardedStation.current = map.id;
+          boardTrain(stationStop(map.id.slice("station-".length)));
+          return;
         }
         setTube(to.station);
       }
+      else if (to.kind === "alight") alight();
       else if (to.kind === "university") router.push("/games/world");
       else if (to.kind === "work" || to.kind === "workstation") say("Explore Kharis Church or open the Bible instead.");
       else if (to.kind === "bike") {setDock(true);}
@@ -456,6 +508,14 @@ export function WorldApp({
         const spot = back
           ? safeSpot(next, back.rect.x + back.rect.w / 2, back.rect.y + (back.rect.y + back.rect.h >= next.height - 4 ? -24 : back.rect.y > next.height / 2 ? -50 : back.rect.h + 50))
           : next.spawn;
+        // Station stairs: no fade, no scene card. You walk down the steps and keep walking.
+        if (isStairway(map, portal)) {
+          const up = map.kind === "station" && next.island;
+          setArrive(up ? safeSpot(next, (STREET_STAIRS.x + STREET_STAIRS.w / 2) * TILE, (STREET_STAIRS.y + 1.5) * TILE) : spot);
+          setMapId(to.mapId);
+          setTrip((n) => n + 1);
+          return;
+        }
         // Fade to black, swap the map underneath, then fade back in.
         play("door", soundOn());
         setSceneName(to.label);
@@ -468,7 +528,7 @@ export function WorldApp({
         }, 430);
       }
     },
-    [router, mapId, map, me.id, updateLife, say, jailed, gainXp, goTo, adventure],
+    [router, mapId, map, me.id, updateLife, say, jailed, gainXp, goTo, adventure, boardTrain, alight],
   );
 
   const courtSteps = useMemo(() => {
@@ -579,67 +639,22 @@ export function WorldApp({
   // Riding the Underground: to another London station, or further afield.
   const ride = useCallback(
     (t: TubeTrip) => {
-      if (map.kind === "station" && boardedStation.current !== map.id) return;
-      boardedStation.current = null;
       setTube(null);
-      let dest = "city";
-      let spot: { x: number; y: number } | undefined;
-      if (t.kind === "station") {
-        const st = STATIONS.find((s) => s.id === t.id);
-        const inside = stationMap(t.id);
-        if (!st || !inside) return;
-        // Ride inside the carriage, then step off onto the other station's platform.
-        setBike(null);
-        // The player has already walked into a stopped train before choosing a destination.
-        void gainXp("train"); setJourney({
-          to: st.name,
-          go: () => {
-            setJourney(null);
-            setArrive(safeSpot(inside, inside.width / 2, (STATION_PLATFORM_Y + 0.5) * TILE));
-            TRAIN_CALL.at = performance.now() - 6500;
-            setMapId(`station-${t.id}`);
-            setTrip((n) => n + 1);
-          },
-        });
-        play("train", soundOn());
+      const stop: RideStop | null = t.kind === "station"
+        ? (STATIONS.some((s) => s.id === t.id) ? stationStop(t.id) : null)
+        : loadMap(t.mapId) ? { kind: "map", mapId: t.mapId, name: t.label } : null;
+      if (!stop) return;
+      if (map.kind === "station") {
+        // Chosen at the ticket hall: take the next train from this platform.
+        plannedStop.current = stop;
+        say(`Next train to ${stop.name}: walk onto the platform and step in when the doors open.`, true);
         return;
-      } else {
-        dest = t.mapId;
-        const next = loadMap(dest);
-        if (!next) return;
-        spot = next.spawn;
-        if (dest === "highlands") {
-          // The long way north: ride the train, then step out at Glen Lorne.
-          setBike(null);
-          setJourney({
-            to: "Glen Lorne",
-            go: () => {
-              setJourney(null);
-              setArrive(spot);
-              setMapId(dest);
-              setTrip((n) => n + 1);
-            },
-          });
-          play("train", soundOn());
-          return;
-        }
       }
-      play("train", soundOn());
-      setMindGap(true);
-      setSceneName(t.kind === "map" ? t.label : "London");
-      setFading(true);
-      if (fadeTimer.current) clearTimeout(fadeTimer.current);
-      fadeTimer.current = setTimeout(() => {
-        setArrive(spot);
-        setMapId(dest);
-        setTrip((n) => n + 1);
-        fadeTimer.current = setTimeout(() => {
-          setFading(false);
-          setMindGap(false);
-        }, 650);
-      }, 700);
+      // Away from a station (map shortcut): you're straight onto a train from London Square.
+      plannedStop.current = stop;
+      boardTrain(stationStop("london-square"));
     },
-    [me.id, gainXp, map.kind, map.id],
+    [map.kind, say, boardTrain],
   );
 
   // Riding the bus: travel between London stops and Kharis gathering places.
@@ -697,7 +712,7 @@ export function WorldApp({
   return (
     <div className={cn("relative h-[calc(100dvh-56px-64px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] md:h-dvh", photoMode && "kp-photo-mode")}>
       <SceneMusic scene={
-        journey || bus ? "journey"
+        bus || map.kind === "train" ? "journey"
           : map.kind === "office" && map.id !== "kharis-hub" ? "quiet"
                   : shop || dealer || map.id === "supermarket" ? "shop"
                     : map.kind === "station" ? "station"
@@ -708,7 +723,7 @@ export function WorldApp({
       } />
       {!(building && mapId === "home") && <WorldView
         key={`${mapId}:${server}:${trip}`}
-        paused={graceOpen || Boolean(challenge) || wardrobe || preaching || Boolean(followUp) || bibleOpen || miniGamesOpen || Boolean(bus || tube || tutorial || mapOpen || dock || dealer || journey || fading || phone || inmate || shop || homeAction || bankOpen || life.hearing) || arrest || policeTransport || pursuit?.stage === "challenge" || pursuit?.stage === "tased"}
+        paused={graceOpen || Boolean(challenge) || wardrobe || preaching || Boolean(followUp) || bibleOpen || miniGamesOpen || Boolean(bus || tube || tutorial || mapOpen || dock || dealer || fading || phone || inmate || shop || homeAction || bankOpen || life.hearing) || arrest || policeTransport || pursuit?.stage === "challenge" || pursuit?.stage === "tased"}
         homeAction={homeAction}
         police={pursuit}
         map={map}
@@ -889,7 +904,6 @@ export function WorldApp({
           {toast.text}
         </div>
       )}
-      {journey && <TrainCutscene to={journey.to} line="Grace" avatar={playerAvatar} onArrive={journey.go} />}
       {policeTransport && <PoliceTransportCutscene onArrive={() => {
         const stars = transportStars.current;
         updateLife(life => ({ ...clearWanted(life), jailUntil: Date.now() + sentenceMs(stars), hearing: null }));

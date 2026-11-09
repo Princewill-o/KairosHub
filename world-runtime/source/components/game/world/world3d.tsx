@@ -13,7 +13,8 @@ import { BUS_ROUTE_CODES, NPC_SPOTS, PLAYER, PLAYER_VEHICLE, TRAFFIC_BOXES, city
 import { cinematicRenderer } from "./cinematic-renderer";
 import { kharisBillboards } from "./kharis-billboards";
 import { buildDoor } from "./door3d";
-import { doorOpenTarget, doorways } from "@/game/core/doors";
+import { doorOpenTarget, doorways, isStairway, stairLift, STREET_STAIRS, STATION_STAIRS } from "@/game/core/doors";
+import { buildCarriage, type Carriage } from "./carriage3d";
 import { CityBroadcast, useCityNews } from "./city-broadcast";
 import { coachModel } from "./coach3d";
 import { ukPhase } from "./fx";
@@ -24,7 +25,7 @@ export { NPC_SPOTS } from "./art";
 import { type Character3D, buildCharacter, npcLook } from "../char3d";
 import { homeFurniture } from "./home-furniture";
 import { makeNameplate, updateNameplateSpeech } from "./nameplate";
-import { TRAIN_CALL } from "./train-state";
+import { RIDE, TRAIN_CALL } from "./train-state";
 import { riverGeometry, riverSurface } from "./water-style3d";
 
 import type { WorldAffiliation } from "@/game/core/affiliation";
@@ -1854,6 +1855,7 @@ export function World3D({
     const stationHoles=new Set<string>();
     if(london) for(const thing of buildLondon().things) if(thing.kind==="station")
       for(let y=thing.y;y<thing.y+thing.h;y++) for(let x=thing.x;x<thing.x+thing.w;x++) stationHoles.add(`${x},${y}`);
+    if(map.island) for(let y=STREET_STAIRS.y;y<STREET_STAIRS.y+STREET_STAIRS.h;y++) for(let x=STREET_STAIRS.x;x<STREET_STAIRS.x+STREET_STAIRS.w;x++) stationHoles.add(`${x},${y}`);
     if (!indoors && !map.story) {
       const ground=groundMesh(tiles, highland,stationHoles,map.id === "woodland");
       const disposeTexture=london?applyGroundStyle(ground):()=>{};
@@ -1895,7 +1897,7 @@ export function World3D({
         stone.position.set(spot.x,1.35,spot.y); world.add(stone);
       }
     } else if (indoors) {
-      interior(world, map, jobs, station);
+      if (map.kind !== "train") interior(world, map, jobs, station);
       if (map.kind === "home") {
         const style = Number(map.art?.split("-")[1] ?? 0);
         const wall = ["#e5dac9", "#b7c8bb", "#b49c8a", "#a9bda4", "#4c6063"][style % 5];
@@ -1914,6 +1916,21 @@ export function World3D({
         box(world, "#b8bcc8", 1, -0.05, ty + 0.9, map.cols - 1, 0, ty + 1.0);
         box(world, "#b8bcc8", 1, -0.05, ty + 2.0, map.cols - 1, 0, ty + 2.1);
         box(world, "#ffd400", 1, 0.02, ty - 0.35, map.cols - 1, 0.04, ty - 0.2);
+        // Way out: real steps up to the street, through an opening in the wall.
+        {
+          const S = STATION_STAIRS, n = 8, depth = S.h / n;
+          for (let i = 0; i < n; i++) {
+            const z1 = S.y + S.h - i * depth, top = Math.min(1.4, (i + 0.5) * depth * 0.6);
+            box(world, i % 2 ? "#cfc6b4" : "#d8cfbd", S.x, 0, z1 - depth, S.x + S.w, top, z1);
+            box(world, "#f2c230", S.x, top - 0.01, z1 - 0.06, S.x + S.w, top + 0.005, z1);
+          }
+          for (const x of [S.x - 0.2, S.x + S.w]) box(world, "#9b8f7a", x, 0, S.y - 0.1, x + 0.2, 1.9, S.y + S.h);
+          box(world, "#0d0c12", S.x, 1.4, 0.98, S.x + S.w, 2.9, 1.02);
+          for (const x of [S.x - 0.12, S.x + S.w + 0.02]) cyl(world, "#d7dbe3", x + 0.05, S.y + S.h / 2, 0.9, 0.95, 0.03, 6);
+          const out = sign("Way out  ·  Street", { bg: "#ffd400", fg: "#141418", w: 2.6, h: 0.4, font: "bold 56px sans-serif" });
+          out.position.set(S.x + S.w / 2, 3.1, 1.06);
+          world.add(out);
+        }
         const board = sign("1 Grace Line · Island trains", { bg: "#141418", fg: "#ffd400", w: 3, h: 0.4, font: "bold 64px monospace" });
         board.position.set(map.cols - 5, 3.4, 8.2);
         world.add(board);
@@ -1984,6 +2001,42 @@ export function World3D({
           const name = sign(st.label.toUpperCase(), { bg: "#1f1a24", fg: shop === "pizzazz" ? "#ffd166" : "#f4ead2", w: 6.4, h: .6 });
           name.position.set(st.x + st.w / 2, 3.1, st.y + st.h - (st.doorInset ?? 0) + .25);
           g.add(name);
+          continue;
+        }
+        if (map.island && st.label.endsWith(" Station")) {
+          // A Grace Line entrance: two kiosks either side of an open stairwell going down.
+          const S = STREET_STAIRS, top = S.y + S.h + 0.2, n = 10, depth = (top - S.y) / n;
+          box(g, "#1b1a20", S.x, -2.3, S.y - 0.6, S.x + S.w, -1.95, top);
+          for (let i = 0; i < n; i++) {
+            const z1 = top - i * depth, y = -Math.min(1.9, (i + 0.5) * depth * 0.6);
+            box(g, i % 2 ? "#b9ad95" : "#d9cfbd", S.x, -2.0, z1 - depth, S.x + S.w, y, z1);
+            box(g, "#8d8270", S.x, y - 0.12, z1 - 0.02, S.x + S.w, y, z1 + 0.005);
+            box(g, "#f2c230", S.x, y - 0.005, z1 - 0.1, S.x + S.w, y + 0.012, z1);
+          }
+          for (const x of [S.x - 0.2, S.x + S.w]) {
+            box(g, "#b6a68a", x, -2.0, S.y - 0.4, x + 0.2, 0.3, top);
+            for (let z = S.y + 0.3; z < top; z += 0.45) box(g, "#293d3c", x + 0.07, 0.3, z, x + 0.13, 1.05, z + 0.06);
+            box(g, "#293d3c", x + 0.03, 1.0, S.y, x + 0.17, 1.08, top);
+          }
+          // The passage at the bottom, lit inside.
+          box(g, "#d8cfbd", S.x - 0.2, -2.0, S.y - 0.8, S.x + S.w + 0.2, 0.9, S.y - 0.6);
+          box(g, "#0d0c12", S.x + 0.2, -1.95, S.y - 0.6, S.x + S.w - 0.2, -0.2, S.y - 0.55);
+          box(g, "#fff1c9", S.x + 0.2, -0.35, S.y - 0.55, S.x + S.w - 0.2, -0.25, S.y - 0.5);
+          for (const [x0, x1] of [[st.x, S.x - 0.2], [S.x + S.w + 0.2, st.x + st.w]]) {
+            box(g, "#e8dfcc", x0, 0, st.y, x1, 2.6, st.y + st.h);
+            box(g, "#253e3c", x0 - 0.05, 2.6, st.y - 0.05, x1 + 0.05, 2.9, st.y + st.h + 0.05);
+            box(g, "#2b5fd9", x0, 1.9, st.y + st.h, x1, 2.1, st.y + st.h + 0.04);
+            facadeWindow(g, x0 + 0.35, 0.9, st.y + st.h, 0.9, 0.8);
+          }
+          box(g, "#253e3c", S.x - 0.3, 2.6, S.y - 0.8, S.x + S.w + 0.3, 2.8, S.y + 0.6);
+          const name = sign(st.label.replace(/ Station$/, ""), { bg: "#ffffff", fg: "#13203a", w: 4.6, h: 0.6, badge: true });
+          name.position.set(st.x + st.w / 2, 3.25, st.y + st.h + 0.06);
+          g.add(name);
+          for (const x of [st.x + 1.4, st.x + st.w - 1.4]) {
+            const hex = cyl(g, "#2b5fd9", x, st.y + st.h + 0.35, 2.4, 2.46, 0.38, 6);
+            hex.rotation.x = Math.PI / 2;
+            cyl(g, "#2a2730", x, st.y + st.h + 0.35, 0, 2.4, 0.05, 8);
+          }
           continue;
         }
         if (map.island && st.label === "Kharis Church") {
@@ -2208,7 +2261,8 @@ export function World3D({
     const doorLight = new THREE.PointLight("#ffcf8a", 0, 6, 1.8);
     scene.add(doorLight);
     for (const p of map.portals) {
-      if (p.to.kind === "bus" || doorPortals.has(p.id)) continue;
+      // Stairs, train doors and the platform edge are the visual: no ring.
+      if (p.to.kind === "bus" || p.to.kind === "alight" || p.id === "board" || isStairway(map, p) || doorPortals.has(p.id)) continue;
       if (p.to.kind === "bike") {
         const b = lymeBike();
         b.position.set((p.rect.x + p.rect.w / 2) / TILE, 0.12, (p.rect.y + p.rect.h / 2) / TILE);
@@ -2272,6 +2326,33 @@ export function World3D({
       b.walking = on;
       b.char?.play(on ? "walk" : "idle");
     };
+    // Aboard a Grace Line train: a real carriage, passengers, and the line going by outside.
+    let carriage: Carriage | null = null;
+    const seated: Body[] = [];
+    const standers: Body[] = [];
+    if (map.kind === "train") {
+      carriage = buildCarriage(world, {
+        box, cyl, sign, scene, hemi, sun,
+        getRide: () => RIDE.current,
+        person: (i) => { const b = makeBody(npcLook(30 + Math.floor(i) % 50), null, true); return { root: b.root, dispose: b.dispose }; },
+      });
+      const seatBudget = Math.max(8, Math.min(24, budget.residents));
+      carriage.seats.filter((_, i) => ((i * 7 + 3) % 5) < 2).slice(0, seatBudget).forEach((seat, i) => {
+        const b = makeBody(npcLook(i + 5), null, true);
+        b.root.position.set(seat.x, 0.16, seat.z + (seat.facing === 0 ? 0.08 : -0.08));
+        b.root.rotation.y = seat.facing;
+        scene.add(b.root);
+        seated.push(b);
+      });
+      carriage.standing.slice(0, 4).forEach((spot, i) => {
+        const b = makeBody(npcLook(i + 61), null, true);
+        b.root.position.set(spot.x, 0, spot.z);
+        b.root.rotation.order = "ZYX";
+        b.root.rotation.y = spot.facing;
+        scene.add(b.root);
+        standers.push(b);
+      });
+    }
 
     let disposed = false;
     const mountainMaterials: THREE.Material[] = [];
@@ -2295,13 +2376,18 @@ export function World3D({
         original.dispose();
         material.fog = false;
         material.side = THREE.DoubleSide;
+        // The mountains curve away with the rest of the world. Without this the
+        // map edges (platforms, roads, cars) dip under the flat backdrop and
+        // the ranges look like they're rolling in over the game.
         // The ground skirt fills everything beyond the map, so it is never cut away.
-        if (node.name.startsWith("Ground skirt")) { node.receiveShadow = true; node.material = material; mountainMaterials.push(material); return; }
+        if (node.name.startsWith("Ground skirt")) { node.receiveShadow = true; node.material = material; bend(material); mountainMaterials.push(material); return; }
         // Keep the near, camera-facing ridge from concealing the character.
         // Far and side ranges remain continuous beyond the playable boundary.
         material.onBeforeCompile = shader => {
           shader.uniforms.uMountainFocus = FOCUS;
-          shader.vertexShader = "varying vec3 vMountainWorld;\n" + shader.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\nvMountainWorld = (modelMatrix * vec4(position, 1.0)).xyz;");
+          shader.uniforms.uFocus = FOCUS;
+          shader.uniforms.uBend = BEND;
+          shader.vertexShader = "varying vec3 vMountainWorld;\n" + curvedVertexShader(shader.vertexShader).replace("#include <begin_vertex>", "#include <begin_vertex>\nvMountainWorld = (modelMatrix * vec4(position, 1.0)).xyz;");
           shader.fragmentShader = "uniform vec3 uMountainFocus;\nvarying vec3 vMountainWorld;\n" + shader.fragmentShader.replace("#include <clipping_planes_fragment>", "#include <clipping_planes_fragment>\nif (vMountainWorld.z > uMountainFocus.z + 5.0) discard;");
         };
         node.material = material;
@@ -2664,7 +2750,7 @@ export function World3D({
       if (p.heading !== undefined) carHolder.rotation.y = -p.heading;
       else if (Math.hypot(dx, dz) > 0.002) carHolder.rotation.y = Math.atan2(-dz, dx);
       lastMe.set(mx, 0, mz);
-      me.root.position.set(mx, p.jumpHeight ?? 0, mz);
+      me.root.position.set(mx, (p.jumpHeight ?? 0) + stairLift(map, mx, mz), mz);
       me.root.rotation.x = 0;
       carHolder.position.set(mx, 0.08, mz);
       setWalking(me, p.walking && !bikeRef.current);
@@ -2978,6 +3064,12 @@ export function World3D({
       }
       TRAFFIC_BOXES.length = ti;
 
+      if (carriage) {
+        carriage.update(now);
+        for (const b of seated) b.char?.play("sit");
+        const lean = THREE.MathUtils.clamp(-carriage.accel() * 0.03, -0.09, 0.09);
+        for (const b of standers) b.root.rotation.z += (lean - b.root.rotation.z) * 0.1;
+      }
       for (const s of spinners) {
         if (s.userData.train) {
           const train = trainFrame(now - TRAIN_CALL.at, map.cols);
@@ -3107,6 +3199,7 @@ export function World3D({
       cancelAnimationFrame(raf);
       disposed = true;
       for (const body of bodies) body.dispose();
+      carriage?.dispose();
       for (const vehicle of traffic) if (vehicle.obj.userData.coach) vehicle.obj.userData.dispose();
       TRAFFIC_BOXES.length = 0;
       NPC_SPOTS.length = 0;

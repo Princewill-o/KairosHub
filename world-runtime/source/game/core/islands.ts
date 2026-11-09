@@ -28,8 +28,9 @@ export function islandMap(id: string): WorldMap | null {
   // Station is at the shore. Its path leads into the island rather than straight to the church.
   fill(20, 34, 9, 3, "X");
   structures.push({ x: 20, y: 34, w: 9, h: 3, label: `${island.name} Station`, accent: "#6b4598", door: "bottom" });
-  portals.push({ id: `tube-${island.station}`, rect: rect(23, 37, 3), label: `${island.name} station · trains to other islands`, to: { kind: "map", mapId: `station-${island.station}`, label: `${island.name} Station` } });
-  fill(22, 30, 6, 4, "-"); fill(22, 37, 6, 5, "-");
+  // A stairwell cut into the middle of the station: walk down the steps and you're in.
+  portals.push({ id: `tube-${island.station}`, rect: rect(23, 34, 3), label: `${island.name} station · trains to other islands`, to: { kind: "map", mapId: `station-${island.station}`, label: `${island.name} Station` } });
+  fill(22, 30, 6, 4, "-"); fill(22, 37, 6, 5, "-"); fill(23, 34, 3, 3, "-");
   if (id === "woodland") {
     // Dense tree belt, winding south-to-north approach and a lawn revealed at the end.
     for (let y = 3; y < 43; y += 2) for (let x = 3; x < 49; x += 2) if ((x * 7 + y * 13) % 11 !== 0) tiles[y][x] = "T";
@@ -44,7 +45,7 @@ export function islandMap(id: string): WorldMap | null {
     fill(7, 26, 8, 6, "g"); fill(36, 26, 9, 6, "g");
     for (const x of [8, 12, 37, 42]) tiles[29][x] = "B";
     // Restore the station clearing after planting the forest.
-    fill(19, 33, 11, 9, "-"); fill(20, 34, 9, 3, "X");
+    fill(19, 33, 11, 9, "-"); fill(20, 34, 9, 3, "X"); fill(23, 34, 3, 3, "-");
   } else if (id === "city") {
     fill(4, 25, 44, 8, "="); fill(4, 9, 8, 24, "="); fill(40, 9, 8, 24, "="); fill(4, 9, 44, 8, "=");
     fill(16, 8, 9, 1, "-"); fill(12, 17, 28, 1, "-"); fill(12, 24, 28, 1, "-"); fill(4, 33, 44, 1, "-"); fill(23, 18, 4, 7, "-");

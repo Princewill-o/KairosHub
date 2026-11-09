@@ -18,7 +18,8 @@ import { type Connection, type Me, useWorld } from "./use-world";
 const World3D = dynamic(() => import("./world3d").then((module) => module.World3D), { ssr: false });
 import MOVERS from "../../../../public/world/movers.json";
 import { play, soundOn } from "../sound";
-import { TRAIN_CALL } from "./train-state";
+import { RIDE, TRAIN_CALL } from "./train-state";
+import { advanceRide, rideFrame } from "@/game/core/ride";
 
 import type { WorldAffiliation } from "@/game/core/affiliation";
 import { driveStep, nearestDrivingSpot, nudgePedestrianFromTraffic, vehicleFits, type DrivingCollision, type VehicleObstacle } from "@/game/core/driving";
@@ -29,7 +30,7 @@ import { acceptRoadViolation, checkRoadViolation, createRoadCooldown, type RoadV
 import { canBoardTrain, trainDoorOpenAt } from "@/game/core/train";
 import { CAR_LENGTH } from "@/game/core/vehicles";
 import { readVisualQuality, type VisualQuality } from "@/game/core/visual-quality";
-import { doorways } from "@/game/core/doors";
+import { doorways, isStairway } from "@/game/core/doors";
 import { TILE, WALK_SPEED, type Portal, type WorldMap, portalAt, roomAt, safeSpot, step } from "@/game/core/world";
 import { nearbyPlayers, VISIBLE_PLAYERS } from "@/game/core/world-network";
 import { cn } from "@/lib/utils";
@@ -568,6 +569,14 @@ export function WorldView({
       }
 
       const portal = portalAt(map, p.x, p.y);
+      // Aboard: once the doors are open, walking out through them puts you on the platform.
+      if (!pausedRef.current && moved && dy < 0 && map.kind === "train" && portal?.to.kind === "alight" && RIDE.current &&
+          rideFrame(now - advanceRide(RIDE.current, now).at).canAlight) {
+        target.current = null;
+        keys.current.clear();
+        stick.current = { x: 0, y: 0 };
+        portalCallback.current(portal);
+      }
       if (!pausedRef.current && moved && dy > 0 && map.kind === "station" &&
           canBoardTrain(now - TRAIN_CALL.at, map.cols, p.x / TILE, p.y / TILE)) {
         const boardingPortal = map.portals.find(item => item.id === "board");
@@ -582,7 +591,7 @@ export function WorldView({
         nearRef.current = portal;
         setNear(portal);
         // Walking through an open door goes straight in: no button or teleport ring.
-        if (portal && doorIds.has(portal.id) && moved && !pausedRef.current && now - mountedAt > 1200) {
+        if (portal && (doorIds.has(portal.id) || isStairway(map, portal)) && moved && !pausedRef.current && now - mountedAt > 1200) {
           target.current = null;
           keys.current.clear();
           stick.current = { x: 0, y: 0 };

@@ -27,7 +27,7 @@ export function doorways(map: WorldMap): Doorway[] {
   const out: Doorway[] = [];
   const indoors = !["city", "campus", "woodland"].includes(map.kind) && !map.island && map.art !== "london" && map.art !== "highlands";
   for (const portal of map.portals) {
-    if (NOT_DOORS.has(portal.to.kind) || !ENTER_KINDS.has(portal.to.kind)) continue;
+    if (NOT_DOORS.has(portal.to.kind) || !ENTER_KINDS.has(portal.to.kind) || isStairway(map, portal)) continue;
     if (portal.to.kind === "act" && portal.to.activity !== "eat") continue;
     const cx = (portal.rect.x + portal.rect.w / 2) / TILE;
     const top = portal.rect.y / TILE, bottom = (portal.rect.y + portal.rect.h) / TILE;
@@ -77,4 +77,24 @@ export const isDoorPortal = (map: WorldMap, portal: Portal | null | undefined) =
 /** 0 = shut, 1 = open. Doors start opening 3 tiles away and are fully open at 1.4. */
 export function doorOpenTarget(distance: number) {
   return Math.max(0, Math.min(1, (3 - distance) / 1.6));
+}
+
+/** Station entrances are stairs, not doors: you walk down (or up) them and you're there. */
+export const isStairway = (map: WorldMap, portal: Portal | null | undefined) =>
+  Boolean(portal && portal.to.kind === "map" &&
+    (portal.to.mapId.startsWith("station-") || (map.kind === "station" && portal.id === "way-out")));
+
+/** Island stairwell (street level, going down) and station stairs (platform level, going up). Tiles. */
+export const STREET_STAIRS = { x: 23, y: 34, w: 3, h: 3 };
+export const STATION_STAIRS = { x: 13, y: 1, w: 4, h: 2.4 };
+/** How far your feet are above (+) or below (-) the floor at a spot, in world units. */
+export function stairLift(map: WorldMap, x: number, z: number) {
+  if (map.island) {
+    const s = STREET_STAIRS;
+    if (x >= s.x && x <= s.x + s.w && z >= s.y && z <= s.y + s.h + 0.2) return -Math.min(1.9, (s.y + s.h + 0.2 - z) * 0.6);
+  } else if (map.kind === "station") {
+    const s = STATION_STAIRS;
+    if (x >= s.x && x <= s.x + s.w && z >= s.y && z <= s.y + s.h) return Math.min(1.4, (s.y + s.h - z) * 0.6);
+  }
+  return 0;
 }

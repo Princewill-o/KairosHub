@@ -55,7 +55,8 @@ export type PortalTarget =
   | { kind: "shop"; shop: "tescow" | "bootz" }
   | { kind: "doctor" }
   | { kind: "bank" }
-  | { kind: "guide"; guide: "careers" | "study" | "transport" };
+  | { kind: "guide"; guide: "careers" | "study" | "transport" }
+  | { kind: "alight" };
 
 export interface Portal {
   id: string;
@@ -92,7 +93,7 @@ export interface WorldMap {
   story?: { id: "david" | "ruth" | "esther" | "daniel"; chapter: number };
   island?: boolean;
   id: string;
-  kind: "city" | "campus" | "woodland" | "office" | "home" | "station" | "hospital" | "court" | "prison" | "church";
+  kind: "city" | "campus" | "woodland" | "office" | "home" | "station" | "hospital" | "court" | "prison" | "church" | "train";
   /** Pre-rendered 3D art (Blender) drawn instead of the tile set. */
   art?: "london" | "highlands" | `home-${number}`;
   /** Furniture placement (homes only). */
@@ -718,6 +719,34 @@ export function stationMap(stationId: string): WorldMap | null {
       spawn: centre(15, 3),
       accent: "#2b5fd9",
       sign: { x: 15, y: 4, text: st.name },
+    },
+    g,
+  );
+}
+
+/** Carriage door gaps (tile x of each 2-wide door) on the platform (north) side. */
+export const CARRIAGE_DOORS = [7, 16, 25];
+/**
+ * Inside a Grace Line carriage: a walkable car with bench seats along both
+ * walls, a wide aisle and three pairs of doors that open onto the platform.
+ */
+export function trainCarriageMap(): WorldMap {
+  const cols = 34, rows = 8;
+  const g = new Grid(cols, rows, ".");
+  g.border("#");
+  g.fill(1, 1, cols - 2, 1, "s");
+  g.fill(1, rows - 2, cols - 2, 1, "s");
+  for (const x of CARRIAGE_DOORS) { g.fill(x, 1, 2, 1, "."); g.fill(x, rows - 2, 2, 1, "."); }
+  return finish(
+    {
+      id: "train-carriage",
+      kind: "train",
+      name: "Grace Line train",
+      structures: [],
+      portals: CARRIAGE_DOORS.map((x, i) => ({ id: `alight-${i}`, rect: px(x, 1, 2, 1), label: "Step off onto the platform", to: { kind: "alight" as const } })),
+      rooms: [],
+      spawn: centre(17, 3),
+      accent: "#2b5fd9",
     },
     g,
   );

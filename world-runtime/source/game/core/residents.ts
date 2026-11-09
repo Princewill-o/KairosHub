@@ -15,6 +15,7 @@ export function residentPaths(map: WorldMap, count: number): ResidentPath[] {
       : new Set(["-", "_", ".", "m", "g"]);
   const paths: ResidentPath[] = [];
   const open = (x: number, z: number) =>
+    !(map.island && x >= 22 && x <= 26 && z >= 33 && z <= 37) &&
     allowed.has(map.tiles[z]?.[x]) &&
     !blocked(map, (x + 0.5) * TILE, (z + 0.5) * TILE);
   for (const vertical of [false, true]) {
