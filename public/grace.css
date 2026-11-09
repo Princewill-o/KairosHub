@@ -940,3 +940,96 @@ html.grace-embedded .character-studio > .kg-back {
     flex-wrap: nowrap;
   }
 }
+
+/* ── Grace as Safari (November 2026) ─────────────────────────────────
+   macOS Safari on desktop: traffic lights, unified toolbar, centred
+   smart-search field and a favourites bar. iOS Safari on phones: the
+   address field and controls move to a frosted bar at the bottom. */
+.grace-window:has(.safari) {
+  border: 1px solid #0000002e;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 0 0 .5px #0006, 0 22px 70px #0008;
+}
+.grace-browser.safari { background: #fff; font-family: -apple-system, "SF Pro Text", var(--kg-body, system-ui), sans-serif; }
+.safari-toolbar {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 14px;
+  background: linear-gradient(#f6f5f7, #ecebee);
+  border-bottom: 1px solid #d3d1d6;
+  flex: none;
+}
+.safari-lights { display: flex; gap: 8px; padding-right: 4px; }
+.safari-light {
+  width: 13px; height: 13px; padding: 0; border-radius: 50%;
+  border: .5px solid #0003; display: block; cursor: default;
+}
+.safari-light.red { background: #ff5f57; cursor: pointer; }
+.safari-light.yellow { background: #febc2e; }
+.safari-light.green { background: #28c840; }
+.safari-light.red:hover::after { content: "×"; display: block; font: 700 11px/12px system-ui; color: #4d0000; text-align: center; }
+.safari-nav, .safari-actions { display: flex; align-items: center; gap: 2px; }
+.safari-nav button, .safari-actions button, .safari-field button {
+  display: grid; place-items: center; width: 32px; height: 28px; padding: 0;
+  border: 0; border-radius: 6px; background: transparent; color: #3c3c43; cursor: pointer;
+}
+.safari-nav button:hover, .safari-actions button:hover, .safari-field button:hover { background: #0000000f; }
+.safari-nav button:disabled { color: #3c3c434d; background: transparent; cursor: default; }
+.safari-toolbar svg { width: 18px; height: 18px; }
+.safari-field {
+  justify-self: center;
+  width: min(640px, 100%);
+  display: flex; align-items: center; gap: 8px;
+  height: 34px; padding: 0 4px 0 12px;
+  border-radius: 9px; background: #e3e2e6;
+  border: 1px solid transparent;
+}
+.safari-field:focus-within { background: #fff; border-color: #0a84ff; box-shadow: 0 0 0 3px #0a84ff40; }
+.safari-field input {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+  text-align: center; color: #1d1d1f; font: 500 13.5px -apple-system, system-ui;
+}
+.safari-field .grace-lock { margin: 0; color: #6e6e73; display: grid; }
+.safari-field .grace-lock svg { width: 13px; height: 13px; }
+.safari-brand { display: flex; align-items: center; gap: 7px; margin-left: 6px; color: #1d1d1f; font: 700 13px -apple-system, system-ui; }
+.safari-brand .grace-mark { width: 22px; height: 22px; border-radius: 6px; font-size: 18px; }
+.safari-favourites {
+  display: flex; gap: 2px; overflow-x: auto; flex: none;
+  padding: 5px 12px; background: #f4f3f6; border-bottom: 1px solid #dddce0;
+  scrollbar-width: none;
+}
+.safari-favourites button {
+  display: flex; align-items: center; gap: 7px; flex: none;
+  min-height: 30px; padding: 4px 10px; border: 0; border-radius: 7px;
+  background: transparent; color: #1d1d1f; font: 500 12.5px -apple-system, system-ui; cursor: pointer;
+}
+.safari-favourites button:hover { background: #0000000d; }
+.safari-favourites i {
+  display: grid; place-items: center; width: 18px; height: 18px; border-radius: 5px;
+  background: #6b3fa0; color: #fff; font: 800 10px system-ui; font-style: normal;
+}
+.safari-favourites button[aria-current="true"] { background: #fff; box-shadow: 0 0 0 1px #0000001a, 0 1px 2px #0000001f; font-weight: 650; }
+.grace-browser.safari .grace-browser-body > iframe { background: #fff; }
+
+@media (max-width: 700px) {
+  .grace-window:has(.safari) { width: 100vw; height: 100dvh; border-radius: 0; }
+  .grace-browser.safari { flex-direction: column-reverse; }
+  .safari-toolbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 10px 12px max(14px, env(safe-area-inset-bottom));
+    background: #f9f9fbe6; backdrop-filter: blur(20px) saturate(1.6);
+    border-top: 1px solid #d3d1d6; border-bottom: 0;
+  }
+  .safari-lights { display: none; }
+  .safari-brand { display: none; }
+  .safari-field { height: 42px; border-radius: 13px; background: #fff; box-shadow: 0 1px 6px #0002; }
+  .safari-favourites { order: -1; border-top: 1px solid #dddce0; border-bottom: 0; }
+  .grace-browser.safari .grace-close { display: block; }
+  .safari-lights:has(.grace-close) { display: flex; position: absolute; top: max(10px, env(safe-area-inset-top)); right: 10px; z-index: 3; }
+  .safari-light.red { width: 30px; height: 30px; background: #1d1d1fcc; }
+  .safari-light.red::after { content: "×"; display: block; font: 600 20px/28px system-ui; color: #fff; text-align: center; }
+  .safari-light.yellow, .safari-light.green { display: none; }
+}

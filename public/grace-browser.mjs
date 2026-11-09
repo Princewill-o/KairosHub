@@ -8,7 +8,7 @@ export function mountGraceBrowser(
     index = -1,
     current = "home",
     disposed = false;
-  dialog.innerHTML = `<section class="grace-browser"><header class="grace-titlebar"><div><b class="grace-mark">g</b><strong>Grace</strong><span>THE KAIROS WORLD WEB</span></div><button class="grace-close" aria-label="Close Grace and return to world">×</button></header><div class="grace-browser-controls"><button data-nav="back" aria-label="Go back">←</button><button data-nav="forward" aria-label="Go forward">→</button><button data-nav="refresh" aria-label="Refresh page">↻</button><button data-nav="home" aria-label="Grace home">⌂</button><label><span class="grace-lock" aria-hidden="true">◇</span><input readonly aria-label="Grace address" value="grace://home"></label><span class="grace-browser-local">IN WORLD</span></div><div class="grace-browser-body"><nav aria-label="Grace apps">${[
+  const apps = [
     ["home", "Home"],
     ["bible", "Games"],
     ["adventures", "Bible worlds"],
@@ -18,14 +18,16 @@ export function mountGraceBrowser(
     ["scripture", "Scripture"],
     ["character", "Character"],
     ["journey", "My journey"],
-  ]
+  ];
+  const chevron = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  // Safari-style window: traffic lights, unified toolbar, centred smart search
+  // field, favourites bar. Same controls and data attributes as before.
+  dialog.innerHTML = `<section class="grace-browser safari"><header class="safari-toolbar"><div class="safari-lights"><button class="grace-close safari-light red" aria-label="Close Grace and return to world"></button><span class="safari-light yellow" aria-hidden="true"></span><span class="safari-light green" aria-hidden="true"></span></div><div class="safari-nav"><button data-nav="back" aria-label="Go back">${chevron("M15 5l-7 7 7 7")}</button><button data-nav="forward" aria-label="Go forward">${chevron("M9 5l7 7-7 7")}</button></div><label class="safari-field"><span class="grace-lock" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg></span><input readonly aria-label="Grace address" value="grace://home"><button data-nav="refresh" aria-label="Refresh page">${chevron("M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5")}</button></label><div class="safari-actions"><button data-nav="home" aria-label="Grace home">${chevron("M4 11l8-7 8 7M6 10v10h12V10")}</button><span class="safari-brand"><b class="grace-mark">g</b>Grace</span></div></header><nav class="safari-favourites" aria-label="Grace apps">${apps
     .map(
       ([route, name]) =>
         `<button data-site="${route}"><i aria-hidden="true">${name.slice(0, 1)}</i><span>${name}</span></button>`,
     )
-    .join(
-      "",
-    )}</nav><iframe title="Grace in-game browser" allow="autoplay; encrypted-media; fullscreen"></iframe></div><footer class="grace-browser-status"><span>Grace · Your platform inside Kairos World</span><span>Progress stays with this device and player</span></footer></section>`;
+    .join("")}</nav><div class="grace-browser-body"><iframe title="Grace in-game browser" allow="autoplay; encrypted-media; fullscreen"></iframe></div></section>`;
   const frame = dialog.querySelector("iframe"),
     address = dialog.querySelector("input");
   function update() {

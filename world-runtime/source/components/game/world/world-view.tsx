@@ -29,6 +29,7 @@ import { acceptRoadViolation, checkRoadViolation, createRoadCooldown, type RoadV
 import { canBoardTrain, trainDoorOpenAt } from "@/game/core/train";
 import { CAR_LENGTH } from "@/game/core/vehicles";
 import { readVisualQuality, type VisualQuality } from "@/game/core/visual-quality";
+import { doorways } from "@/game/core/doors";
 import { TILE, WALK_SPEED, type Portal, type WorldMap, portalAt, roomAt, safeSpot, step } from "@/game/core/world";
 import { nearbyPlayers, VISIBLE_PLAYERS } from "@/game/core/world-network";
 import { cn } from "@/lib/utils";
@@ -251,6 +252,7 @@ export function WorldView({
   const [quality, setQuality] = useState<VisualQuality>("auto");
   const immersive = false;
   useEffect(() => { try {setQuality(readVisualQuality(localStorage.getItem("world-graphics")));} catch { /* Storage is optional. */ } }, []);
+  useEffect(() => { const change = (e: Event) => setQuality(readVisualQuality((e as CustomEvent<string>).detail)); window.addEventListener("kairos-graphics", change); return () => window.removeEventListener("kairos-graphics", change); }, []);
   const [graphicsState, setGraphicsState] = useState<"loading" | "ready" | "unavailable">("loading");
   const is3d = graphicsState === "ready";
   // Start the 3D renderer directly; the world never flashes a flat-map view.
@@ -375,6 +377,8 @@ export function WorldView({
   useEffect(() => {
     let raf = 0;
     let last = performance.now();
+    const mountedAt = last;
+    const doorIds = new Set(doorways(map).map(d => d.portal.id));
     const simulationDue = frameBudget(60);
     const fx = createFx(map);
     const cam = { x: NaN, y: NaN };
@@ -577,6 +581,13 @@ export function WorldView({
       if (portal?.id !== nearRef.current?.id) {
         nearRef.current = portal;
         setNear(portal);
+        // Walking through an open door goes straight in: no button or teleport ring.
+        if (portal && doorIds.has(portal.id) && moved && !pausedRef.current && now - mountedAt > 1200) {
+          target.current = null;
+          keys.current.clear();
+          stick.current = { x: 0, y: 0 };
+          portalCallback.current(portal);
+        }
       }
       const room = roomAt(map, p.x, p.y);
       if (room !== roomRef.current) {

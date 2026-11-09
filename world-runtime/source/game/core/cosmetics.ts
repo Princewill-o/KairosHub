@@ -150,8 +150,8 @@ export const COSMETICS: Cosmetic[] = [
 
   C("bottom-jeans", "bottom", "Jeans", 0, { color: "#3c5a9a" }),
   C("bottom-joggers", "bottom", "Joggers", 0, { color: "#3a2d58", set: "sporty" }),
-  C("bottom-shorts", "bottom", "Shorts", 0, { color: "#c9a46b" }),
-  C("bottom-skirt", "bottom", "Pleated skirt", 0, { color: "#2d1b69" }),
+  C("bottom-shorts", "bottom", "Knee-length shorts", 0, { color: "#c9a46b" }),
+  C("bottom-skirt", "bottom", "Pleated midi skirt", 0, { color: "#2d1b69" }),
   C("bottom-cargo", "bottom", "Cargo trousers", 100, { color: "#6b6b4a" }),
   R("bottom-smart", "bottom", "Smart trousers", 250, { color: "#24203a", set: "office" }),
   E("bottom-tartan", "bottom", "Tartan trousers", 700, { color: "#c4433a" }),

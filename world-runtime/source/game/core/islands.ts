@@ -34,10 +34,12 @@ export function islandMap(id: string): WorldMap | null {
     // Dense tree belt, winding south-to-north approach and a lawn revealed at the end.
     for (let y = 3; y < 43; y += 2) for (let x = 3; x < 49; x += 2) if ((x * 7 + y * 13) % 11 !== 0) tiles[y][x] = "T";
     fill(18, 31, 10, 3, "-"); fill(17, 23, 4, 10, "-"); fill(17, 22, 15, 4, "-"); fill(28, 15, 4, 10, "-"); fill(9, 3, 34, 17, "g");
-    fill(13, 5, 26, 11, "X");
-    structures.push({ x: 13, y: 5, w: 26, h: 11, label: "Kharis Church", accent: "#d3c6a9", door: "bottom" });
-    fill(23, 16, 6, 6, "-");
-    portals.push({ id: "kharis-church", rect: rect(25, 16), label: "Kharis Church · enter the blank hall", to: { kind: "map", mapId: "church", label: "Kharis Church" } });
+    // Spurgeon's College (public/world3d/spurgeons-college.glb) fills 34 × 15 tiles.
+    // The house front sits ~3.9 tiles behind the terrace; the terrace is walkable.
+    fill(9, 1, 34, 11, "X");
+    structures.push({ x: 9, y: 1, w: 34, h: 15, label: "Kharis Church", accent: "#d3c6a9", door: "bottom", doorInset: 3.87 });
+    fill(21, 12, 3, 4, "-"); fill(21, 16, 8, 6, "-");
+    portals.push({ id: "kharis-church", rect: rect(21, 12, 2), label: "Kharis Church · Spurgeon's College", to: { kind: "map", mapId: "church", label: "Kharis Church" } });
     for (const x of [12, 17, 34, 39]) tiles[20][x] = "B";
     fill(7, 26, 8, 6, "g"); fill(36, 26, 9, 6, "g");
     for (const x of [8, 12, 37, 42]) tiles[29][x] = "B";
@@ -88,6 +90,10 @@ export function islandMap(id: string): WorldMap | null {
   if(id === 'city') {
     fill(5,35,9,5,'X');structures.push({x:5,y:35,w:9,h:5,label:'Social House',accent:'#b189c9',door:'bottom',grace:'social'});
     fill(8,40,18,2,'-');portals.push({id:'social-house',rect:rect(8,40,3),label:'Social House · fellowship & games together',to:{kind:'grace',route:'social'}});
+    // High-street restaurants (Blender shopfronts: create_restaurants.py) on the north pavement.
+    fill(28,3,8,3,'X');fill(38,3,8,3,'X');fill(26,6,22,3,'-');
+    structures.push({x:28,y:3,w:8,h:5,label:'Pizzazz Pizza',accent:'#c8322d',door:'bottom',doorInset:1.6},{x:38,y:3,w:8,h:5,label:'Kharis Café',accent:'#3f7d4f',door:'bottom',doorInset:1.6});
+    portals.push({id:'pizzazz',rect:rect(31,6,2),label:'Pizzazz Pizza · restaurant',to:{kind:'map',mapId:'workplace-pizzazz',label:'Pizzazz Pizza'}},{id:'kharis-cafe',rect:rect(41,6,2),label:'Kharis Café · grab a bite',to:{kind:'act',activity:'eat'}});
     const welcome=structures.find(s=>s.label==='London Welcome');if(welcome){welcome.label='Grace Game Hall';welcome.grace='bible';}
     portals.push({id:'grace-hall',rect:rect(19,8,3),label:'Grace Game Hall · all Bible games',to:{kind:'grace',route:'bible'}});
   }
