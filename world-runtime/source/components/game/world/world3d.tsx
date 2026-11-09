@@ -11,6 +11,9 @@ import { STORY_DISCOVERIES, type StoryWorldPhase } from "@/game/core/story-world
 import { finishArchitecture } from "./architecture-finish3d";
 import { BUS_ROUTE_CODES, NPC_SPOTS, PLAYER, PLAYER_VEHICLE, TRAFFIC_BOXES, cityRoadPaint, citySignalPosts } from "./art";
 import { cinematicRenderer } from "./cinematic-renderer";
+import { kharisBillboards } from "./kharis-billboards";
+import { buildDoor } from "./door3d";
+import { doorOpenTarget, doorways } from "@/game/core/doors";
 import { CityBroadcast, useCityNews } from "./city-broadcast";
 import { coachModel } from "./coach3d";
 import { ukPhase } from "./fx";
@@ -264,9 +267,16 @@ async function place(g: THREE.Group, url: string, x: number, z: number, w: numbe
 }
 
 /** The kit's compact cars need a shared real footprint, including their mirrors. */
+/** Owner's LowPoly Cars pack (exported from LowPoly_Cars_01.blend); police/ambulance keep the kit models. */
+const LOWPOLY_CARS: Record<string, string> = {
+  sedan: "lp-04", suv: "lp-10", van: "lp-15", cab: "lp-07", taxi: "lp-07", "hatchback-sports": "lp-03", delivery: "lp-22",
+  coupe: "lp-01", "coupe-yellow": "lp-02", estate: "lp-05", muscle: "lp-06", "suv-blue": "lp-11", "suv-red": "lp-19", "suv-yellow": "lp-23",
+};
 async function placeCar(g: THREE.Group, model: string) {
-  const gltf = await load(`/world3d/cars/${model}.glb`);
+  const gltf = await load(LOWPOLY_CARS[model] ? `/world3d/cars/lowpoly/${LOWPOLY_CARS[model]}.glb?v=1` : `/world3d/cars/${model}.glb`);
   const car = gltf.scene.clone(true);
+  // The pack's material is exported fully metallic; without an environment that renders black.
+  if (LOWPOLY_CARS[model]) car.traverse(node => { const m = (node as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (m && "metalness" in m && m.metalness > .2) { m.metalness = 0.05; m.roughness = 0.55; } });
   car.rotation.y = Math.PI / 2;
   const bounds = new THREE.Box3().setFromObject(car);
   const size = bounds.getSize(new THREE.Vector3());
@@ -296,7 +306,7 @@ const GROUND: Record<string, [string, number]> = {
   k: ["#8fd16f", 0.05],
 };
 
-function groundMesh(tiles: string[], highland: boolean, holes = new Set<string>()) {
+function groundMesh(tiles: string[], highland: boolean, holes = new Set<string>(), forest = false) {
   const pos: number[] = [];
   const col: number[] = [];
   const c = new THREE.Color();
@@ -318,8 +328,13 @@ function groundMesh(tiles: string[], highland: boolean, holes = new Set<string>(
       // A soft checker on grass and paving, like hand-laid tiles.
       if ((x + y) % 2 && (ch === "-" || ch === "X" || ch === "L")) hex = "#e2d9c6";
       if ((x * 7 + y * 3) % 5 === 0 && (ch === "g" || ch === "T" || ch === "k")) hex = "#a8bf80";
+      // Kharis Forest: bright faceted greens and a winding dirt trail.
+      const n = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      const wave = Math.sin(x * .33 + y * .11) + Math.cos(y * .29 - x * .07);
+      if (forest && (ch === "g" || ch === "T" || ch === "f" || ch === "B")) hex = wave > .9 ? "#8dcb4b" : wave < -.9 ? "#78ba3e" : n % 7 === 0 ? "#86c647" : "#82c344";
+      if (forest && ch === "-" && y < 33) hex = n % 5 === 0 ? "#a26641" : "#a96d45";
       quad(x, y, x + 1, y + 1, h, hex);
-      if (!highland && ["-", "X", "L"].includes(ch)) {
+      if (!highland && !(forest && ch === "-" && y < 33) && ["-", "X", "L"].includes(ch)) {
         // Staggered sandstone flags, baked into the existing ground mesh.
         const joint = "#c6bba7";
         quad(x, y + 0.49, x + 1, y + 0.51, h + 0.002, joint);
@@ -462,12 +477,12 @@ function muralMaterial(variant: number) {
   ctx.font = "italic 900 104px system-ui, sans-serif";
   ctx.lineJoin = "round";
   ctx.lineWidth = 17; ctx.strokeStyle = "#101c2b";
-  const word = ["STAY CURIOUS", "CREATE MORE", "DREAM BIG"][variant];
+  const word = ["GRACE FOR ALL", "WALK IN FAITH", "LOVE GOD"][variant];
   ctx.strokeText(word, 0, 0, 670);
   ctx.fillStyle = palette[1]; ctx.fillText(word, 0, 0, 670);
   ctx.font = "700 20px system-ui, sans-serif";
   ctx.fillStyle = "#fff4df";
-  ctx.fillText("KAIROS GAMES WORLD  /  THE CITY IS YOUR CANVAS", 0, 57);
+  ctx.fillText("KHARIS CHURCH  /  CHANGING THE WORLD WITH A TOUCH OF HIS GRACE", 0, 57);
   ctx.restore();
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -906,7 +921,7 @@ function restaurantShop(g: THREE.Group, t: Extract<ReturnType<typeof buildLondon
 
 async function building(g: THREE.Group, t: Extract<ReturnType<typeof buildLondon>["things"][number], { kind: "building" }>) {
   if (t.id === "district-kharis-church")
-    return place(g, "/world3d/kharis-manor.glb", t.x, t.y, t.w, t.h, 0, Math.PI);
+    return place(g, "/world3d/spurgeons-college.glb?v=2", t.x, t.y, t.w, t.h, 0, Math.PI);
   const x0 = t.x + 0.08;
   const z0 = t.y + 0.08;
   const w = t.w - 0.16;
@@ -1490,6 +1505,17 @@ function heritageLamp(g: THREE.Group, x: number, z: number) {
 function interior(world: THREE.Group, map: WorldMap, jobs: Promise<unknown>[], station: boolean) {
   const g = new THREE.Group();
   world.add(g);
+  // Blender-built interiors (Kharis sanctuary, Pizzazz) replace the tile walls and floor.
+  const builtInterior = map.id === "church" ? "/world3d/spurgeons-interior.glb?v=2" : map.id === "workplace-pizzazz" ? "/world3d/pizzazz-interior.glb?v=1" : null;
+  if (builtInterior) {
+    jobs.push(load(builtInterior).then(gltf => {
+      const hall = gltf.scene.clone(true);
+      hall.traverse(node => { const mesh = node as THREE.Mesh; if (mesh.isMesh) { mesh.castShadow = true; mesh.receiveShadow = true; } });
+      bendAll(hall);
+      g.add(hall);
+    }));
+    return;
+  }
   const rows = map.tiles;
   const H = rows.length;
   const Wd = rows[0].length;
@@ -1771,7 +1797,7 @@ export function World3D({
     const visual = visualProfile(quality,mobile,window.devicePixelRatio||1);
     renderer.setPixelRatio(visual.pixelRatio);
     renderer.shadowMap.enabled = visual.shadows;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = visual.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     el.appendChild(renderer.domElement);
     renderer.domElement.style.display = "block";
@@ -1816,7 +1842,7 @@ export function World3D({
 
     let presentation: ReturnType<typeof cinematicRenderer>;
     try { presentation=cinematicRenderer(renderer,scene,camera,visual); }
-    catch { presentation={render:()=>renderer.render(scene,camera),resize:()=>{},dispose:()=>{}}; }
+    catch { presentation={render:()=>renderer.render(scene,camera),resize:()=>{},dispose:()=>{}} as unknown as typeof presentation; }
 
     // ── Build the world ──
     const world = new THREE.Group();
@@ -1829,7 +1855,7 @@ export function World3D({
     if(london) for(const thing of buildLondon().things) if(thing.kind==="station")
       for(let y=thing.y;y<thing.y+thing.h;y++) for(let x=thing.x;x<thing.x+thing.w;x++) stationHoles.add(`${x},${y}`);
     if (!indoors && !map.story) {
-      const ground=groundMesh(tiles, highland,stationHoles);
+      const ground=groundMesh(tiles, highland,stationHoles,map.id === "woodland");
       const disposeTexture=london?applyGroundStyle(ground):()=>{};
       disposeGroundStyle=()=>{disposeTexture();ground.material.dispose();};
       world.add(ground);
@@ -1924,7 +1950,20 @@ export function World3D({
           const ch = map.tiles[y][x];
           const g = new THREE.Group();
           world.add(g);
-          if (ch === "T") jobs.push(place(g, `/world3d/suburban/${(x + y) % 3 === 1 ? "tree-small" : "tree-large"}.glb`, x - (map.id === "woodland" ? 1 : .4), y - (map.id === "woodland" ? 1 : .4), map.id === "woodland" ? 3.3 : 2.2, map.id === "woodland" ? 3.3 : 2.2));
+          const r = (((x * 2654435761) ^ (y * 40503)) >>> 0) / 4294967296;
+          if (ch === "T" && map.id === "woodland") {
+            // Forest kit from Blender (create_forest_kit.py): tiered and tall pines, round broadleaves.
+            const kind = ["pine-tiered-0", "pine-tall-0", "pine-tiered-2", "tree-round-0", "pine-tall-1", "pine-tiered-1", "tree-round-1"][Math.floor(r * 7)];
+            const size = kind.startsWith("tree-round") ? 2.4 : kind.startsWith("pine-tall") ? 2.6 : 2.8;
+            jobs.push(place(g, `/world3d/forest/${kind}.glb`, x + .5 - size / 2 + (r - .5) * .5, y + .5 - size / 2 + (r * 7 % 1 - .5) * .5, size, size));
+          } else if (ch === "T") jobs.push(place(g, `/world3d/suburban/${(x + y) % 3 === 1 ? "tree-small" : "tree-large"}.glb`, x - .4, y - .4, 2.2, 2.2));
+          else if (ch === "g" && map.id === "woodland" && r < .14) {
+            // Undergrowth: flowers, mushrooms and ferns everywhere; rocks, bushes and logs near the trees.
+            const nearTrees = ["T"].includes(map.tiles[y - 1]?.[x] ?? "") || map.tiles[y + 1]?.[x] === "T" || map.tiles[y]?.[x - 1] === "T" || map.tiles[y]?.[x + 1] === "T";
+            const kind = r < .04 ? "flowers" : r < .065 ? "mushrooms" : r < .1 ? "fern" : !nearTrees ? null : r < .118 ? "bush" : r < .132 ? (r * 1000 % 2 < 1 ? "rock-0" : "rock-1") : "log";
+            const size = kind === "bush" ? 1.2 : kind?.startsWith("rock") ? 1.1 : kind === "log" ? 1.4 : .7;
+            if (kind) jobs.push(place(g, `/world3d/forest/${kind}.glb`, x + .5 - size / 2, y + .5 - size / 2, size, size));
+          }
           else if (ch === "L") jobs.push(place(g, "/world3d/roads/light-square.glb", x, y, 1, 1, 0.12));
           else if (ch === "-") {
             const path = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat("#cdbb94"));
@@ -1939,12 +1978,21 @@ export function World3D({
       for (const [index, st] of map.structures.entries()) {
         const g = new THREE.Group();
         world.add(g);
+        if (map.island && (st.label === "Pizzazz Pizza" || st.label === "Kharis Café")) {
+          const shop = st.label === "Pizzazz Pizza" ? "pizzazz" : "cafe";
+          jobs.push(place(g, `/world3d/restaurant-${shop}.glb?v=1`, st.x, st.y, st.w, st.h, 0, Math.PI));
+          const name = sign(st.label.toUpperCase(), { bg: "#1f1a24", fg: shop === "pizzazz" ? "#ffd166" : "#f4ead2", w: 6.4, h: .6 });
+          name.position.set(st.x + st.w / 2, 3.1, st.y + st.h - (st.doorInset ?? 0) + .25);
+          g.add(name);
+          continue;
+        }
         if (map.island && st.label === "Kharis Church") {
-          jobs.push(place(g, "/world3d/kharis-manor.glb?v=forest-estate", st.x, st.y, st.w, st.h, 0, Math.PI));
-          // Low garden balustrade and an open central approach, matching the reference lawn.
-          for (const [left, right] of [[st.x-1, st.x+st.w/2-2], [st.x+st.w/2+2, st.x+st.w+1]]) {
-            box(g,"#d8cdb8",left,.55,st.y+st.h+3,right,.69,st.y+st.h+3.2);
-            for (let x=left;x<right;x+=.55) cyl(g,"#d8cdb8",x,st.y+st.h+3.1,.1,.58,.065,8);
+          jobs.push(place(g, "/world3d/spurgeons-college.glb?v=2", st.x, st.y, st.w, st.h, 0, Math.PI));
+          // Teak benches on the lawn, as in the photographs; the terrace balustrade is in the model.
+          for (const bx of [st.x + 3, st.x + st.w - 6]) {
+            box(g, "#8b6a4c", bx, .42, st.y + st.h + 2.2, bx + 2.2, .5, st.y + st.h + 2.7);
+            box(g, "#8b6a4c", bx, .5, st.y + st.h + 2.6, bx + 2.2, .95, st.y + st.h + 2.7);
+            for (const lx of [bx + .1, bx + 2]) box(g, "#6c513a", lx, 0, st.y + st.h + 2.2, lx + .1, .42, st.y + st.h + 2.7);
           }
           continue;
         }
@@ -2154,8 +2202,13 @@ export function World3D({
     const rings: THREE.Mesh[] = [];
     const ringMat = new THREE.MeshBasicMaterial({ color: "#f2d9a6", transparent: true, opacity: 0.55 });
     bend(ringMat);
+    // Buildings get real doors that swing open as you approach; no ring needed.
+    const doors = map.story ? [] : doorways(map).map(d => { const door = buildDoor(d, bendAll); world.add(door.root); return door; });
+    const doorPortals = new Set(doors.map(d => d.doorway.portal.id));
+    const doorLight = new THREE.PointLight("#ffcf8a", 0, 6, 1.8);
+    scene.add(doorLight);
     for (const p of map.portals) {
-      if (p.to.kind === "bus") continue;
+      if (p.to.kind === "bus" || doorPortals.has(p.id)) continue;
       if (p.to.kind === "bike") {
         const b = lymeBike();
         b.position.set((p.rect.x + p.rect.w / 2) / TILE, 0.12, (p.rect.y + p.rect.h / 2) / TILE);
@@ -2222,7 +2275,7 @@ export function World3D({
 
     let disposed = false;
     const mountainMaterials: THREE.Material[] = [];
-    if (!indoors && !map.story) jobs.push(loader.loadAsync("/world3d/mountain-surround.glb?v=sculpted-3").then(asset => {
+    if (!indoors && !map.story) jobs.push(loader.loadAsync("/world3d/mountain-surround.glb?v=lowpoly-tunnels-1").then(asset => {
       if (disposed) {
         asset.scene.traverse(node => {
           if (!(node instanceof THREE.Mesh)) return;
@@ -2242,6 +2295,8 @@ export function World3D({
         original.dispose();
         material.fog = false;
         material.side = THREE.DoubleSide;
+        // The ground skirt fills everything beyond the map, so it is never cut away.
+        if (node.name.startsWith("Ground skirt")) { node.receiveShadow = true; node.material = material; mountainMaterials.push(material); return; }
         // Keep the near, camera-facing ridge from concealing the character.
         // Far and side ranges remain continuous beyond the playable boundary.
         material.onBeforeCompile = shader => {
@@ -2309,7 +2364,7 @@ export function World3D({
     const L = london ? buildLondon() : map.island && map.id === "city" ? { routes: Array.from({length:3}, () => [[8,13],[44,13],[44,29],[8,29],[8,13]] as [number,number][]) } : null;
     const traffic: { obj: THREE.Group; route: number; at: number; distance: number; speed: number; velocity?: number; commuter?: { body: Body; offset: number } }[] = [];
     if (L) {
-      const kinds = ["bus", "taxi", "sedan", "bus", "van", "delivery"];
+      const kinds = ["bus", "taxi", "sedan", "bus", "van", "delivery", "coupe", "suv-blue", "muscle", "suv-red", "estate", "coupe-yellow"];
       kinds.forEach((k, i) => {
         const route = i % 3;
         const g = new THREE.Group();
@@ -2547,6 +2602,18 @@ export function World3D({
       for(const item of graceOccluders){const st=item.bounds,px=p.x/TILE,pz=p.y/TILE;const obscures=px>st.x-.5&&px<st.x+st.w+.5&&pz<st.y+st.h&&pz>st.y-6;for(const m of item.materials){m.opacity=obscures?.16:1;m.depthWrite=!obscures;}}
       const mx = p.x / TILE;
       const mz = p.y / TILE;
+      // Doors swing open as you approach, with warm light spilling out.
+      let litDoor: (typeof doors)[number] | null = null;
+      for (const door of doors) {
+        const d = door.doorway;
+        door.update(doorOpenTarget(Math.hypot(mx - d.x, mz - d.z)), dt);
+        if (door.open > (litDoor?.open ?? 0.01)) litDoor = door;
+      }
+      if (litDoor) {
+        const d = litDoor.doorway, out = { south: [0, 0.7], north: [0, -0.7], east: [0.7, 0], west: [-0.7, 0] }[d.facing];
+        doorLight.position.set(d.x + out[0], 1.7, d.z + out[1]);
+      }
+      doorLight.intensity = (litDoor?.open ?? 0) * 2.4;
       if (!indoors) {
         phase = forced === "day" || forced === "dusk" || forced === "night" ? forced : ukPhase();
         const blend = 1 - Math.exp(-dt * 1.5);
@@ -2985,7 +3052,7 @@ export function World3D({
         }
       }
       for (const c of cyclists) seatRider(c.body, c.bike, c.body.root.rotation.y, c.moving, secs * 8 + c.at * 10);
-      presentation.render();
+      presentation.render(dt * 1000);
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -3073,32 +3140,18 @@ export function World3D({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, avatarKey, overview, identityKey, quality]);
 
-  // The London billboards advertise church gatherings only.
+  // London screens play Kharis Church sermons and rotate church announcements.
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene || map.art !== "london") return;
-    const g = new THREE.Group();
-    const spots = [[30, 18.6], [56, 18.6], [24, 62.4], [62, 62.4], [44, 36.6], [80, 36.6]];
-    spots.forEach(([x, z], i) => {
-      const board = new THREE.Group();
-      box(board, "#2a2733", -0.06, 0, -0.06, 0.06, 2.2, 0.06);
-      box(board, "#171221", -1.7, 2.1, -0.08, 1.7, 3.6, 0.02);
-      const top = sign("KHARIS CHURCH", { bg: "#f2d15b", fg: "#171221", w: 3.2, h: 0.32 });
-      top.position.set(0, 3.38, 0.03);
-      board.add(top);
-      const title = sign(["SUNDAY WORSHIP", "BIBLE STUDY", "PRAYER & COMMUNITY"][i % 3], { bg: "#171221", fg: "#ffffff", w: 3.2, h: 0.6 });
-      title.position.set(0, 2.9, 0.03);
-      board.add(title);
-      const sub = sign("VISIT KHARIS CHURCH", { bg: "#171221", fg: "#f2d15b", w: 3.2, h: 0.3 });
-      sub.position.set(0, 2.4, 0.03);
-      board.add(sub);
-      board.position.set(x, 0, z);
-      bendAll(board);
-      g.add(board);
-    });
-    scene.add(g);
+    const boards = kharisBillboards(bendAll);
+    scene.add(boards.group);
+    boards.update();
+    const timer = setInterval(() => boards.update(), 500);
     return () => {
-      scene.remove(g);
+      clearInterval(timer);
+      scene.remove(boards.group);
+      boards.dispose();
     };
   }, [map]);
 

@@ -35,7 +35,10 @@ import { useLife } from "./use-life";
 import { useNeeds, doActivity } from "./use-needs";
 import { type Me, useLobby } from "./use-world";
 import { WorldView } from "./world-view";
-import { FollowUpDialog, PreachDialog } from "./preach-dialog";
+import { FollowUpDialog } from "./preach-dialog";
+import { KairosPhone } from "./kairos-phone";
+import { MinistryDialog } from "./ministry-dialog";
+import { personaFor } from "@/game/core/ministry";
 const BusStop = dynamic(() => import("./bus-stop").then((module) => module.BusStop), { ssr: false, loading: () => null });
 const TubeMap = dynamic(() => import("./tube-map").then((module) => module.TubeMap), { ssr: false, loading: () => null });
 const HomeEditor = dynamic(() => import("../../careers/home-editor").then(module => module.HomeEditor), { ssr: false });
@@ -204,7 +207,7 @@ export function WorldApp({
   const releaseReason = useRef("released");
   const arrestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (arrestTimer.current) clearTimeout(arrestTimer.current); }, []);
-  useEffect(() => { if (new URLSearchParams(window.location.search).get("phone") === "1") setPhone(true); }, []);
+  useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get("phone") === "1") setPhone(true); if (q.get("talk") === "1") setPreaching(true); }, []);
   const [arrest, setArrest] = useState(false);
   const [policeTransport, setPoliceTransport] = useState(false);
   const transportStars = useRef(4);
@@ -379,7 +382,8 @@ export function WorldApp({
   useEffect(()=>{if(wardrobe){setWardrobe(false);openGrace('character');}},[wardrobe,openGrace]);
   useEffect(()=>{if(bibleOpen){setBibleOpen(false);openGrace('scripture');}},[bibleOpen,openGrace]);
   useEffect(()=>{if(miniGamesOpen){setMiniGamesOpen(false);openGrace('adventures');}},[miniGamesOpen,openGrace]);
-  useEffect(()=>{if(phone){setPhone(false);openGrace('home');}},[phone,openGrace]);
+  const [photoMode, setPhotoMode] = useState(false);
+  useEffect(() => { const k = (e: KeyboardEvent) => { if (photoMode && (e.key === "Escape" || e.key.toLowerCase() === "p")) { setPhotoMode(false); return; } if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLElement && e.target.closest("input, textarea, [role=dialog]"))) setPhone(v => !v); }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [photoMode]);
   const onPortal = useCallback(
     (portal: Portal) => {
       const to = portal.to;
@@ -554,7 +558,7 @@ export function WorldApp({
     return () => clearInterval(t);
   }, [outdoors]);
   const talk = useCallback(() => {
-    const person = ["Amina", "Daniel", "Grace", "Jordan", "Maya", "Noah", "Sam", "Talia"][nearPersonIndex % 8];
+    const person = personaFor(nearPersonIndex).name;
     try {
       const records = JSON.parse(localStorage.getItem(`kairos-outreach:${me.id}`) ?? "[]") as { name: string; outcome: string; followedUp?: boolean }[];
       if (records.some((record) => record.name === person && record.outcome === "contact" && !record.followedUp)) {
@@ -691,7 +695,7 @@ export function WorldApp({
   </div>;
 
   return (
-    <div className="relative h-[calc(100dvh-56px-64px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] md:h-dvh">
+    <div className={cn("relative h-[calc(100dvh-56px-64px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] md:h-dvh", photoMode && "kp-photo-mode")}>
       <SceneMusic scene={
         journey || bus ? "journey"
           : map.kind === "office" && map.id !== "kharis-hub" ? "quiet"
@@ -804,16 +808,10 @@ export function WorldApp({
         </button>
       )}
       <button type="button" onClick={() => setBibleOpen(true)} className="absolute left-3 bottom-24 z-[100001] flex min-h-11 items-center gap-2 rounded-full border border-[#f2d15b]/50 bg-[#171221] px-4 py-2 text-sm font-black text-[#f2d15b] shadow-lg"><BookOpen className="size-4"/> Bible</button>
-      {preaching && <GraceWorldPanel address="outreach/conversation" onClose={()=>setPreaching(false)}><PreachDialog person={["Amina","Daniel","Grace","Jordan","Maya","Noah","Sam","Talia"][nearPersonIndex % 8]} onClose={() => setPreaching(false)} onComplete={result => {
+      {preaching && <MinistryDialog persona={personaFor(nearPersonIndex)} onClose={() => setPreaching(false)} onDone={message => {
         void recordKairosActivity("outreach_conversation");
-        try {
-          const key = `kairos-outreach:${me.id}`;
-          const previous = JSON.parse(localStorage.getItem(key) ?? "[]") as { name: string; outcome: string; at: number }[];
-          localStorage.setItem(key, JSON.stringify([...previous, { name: result.name, outcome: result.outcome, at: Date.now() }].slice(-100)));
-          window.dispatchEvent(new Event("kairos-outreach-updated"));
-        } catch { /* Outreach notes are optional local progress. */ }
-        say(result.outcome === "faith" ? `${result.name} chose to follow Jesus. Offer a warm welcome and support.` : result.outcome === "contact" ? `${result.name} chose to stay in touch.` : `${result.name} appreciated being heard.`, true);
-      }} /></GraceWorldPanel>}
+        say(message, true);
+      }} />}
       {followUp && <GraceWorldPanel address="outreach/follow-up" onClose={()=>setFollowUp(null)}><FollowUpDialog person={followUp} onClose={() => setFollowUp(null)} onComplete={() => {
         void recordKairosActivity("outreach_followup");
         try {
@@ -834,6 +832,15 @@ export function WorldApp({
         else { setArrest(true); arrestTimer.current=setTimeout(()=>{updateLife(l=>({...clearWanted(l),hearing:{stars:l.stars,charge:wantedCharge(l)}}));setArrest(false);goTo("court","Crown Court");},2600); }
       }}/ >}
       {arrest && <ArrestOverlay />}
+      <button type="button" onClick={() => setPhone(true)} aria-label="Open phone (P)" className="kp-launch"><Smartphone className="size-5"/><span>Phone</span></button>
+      {phone && <KairosPhone gameTime={gameDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })} playerName={me.username}
+        onClose={() => setPhone(false)}
+        onMap={() => { setPhone(false); setMapOpen(true); }}
+        onBible={() => { setPhone(false); setBibleOpen(true); }}
+        onGrace={route => { setPhone(false); openGrace(route); }}
+        onWardrobe={() => { setPhone(false); setWardrobe(true); }}
+        onPhoto={() => { setPhone(false); setPhotoMode(true); }} />}
+      {photoMode && <div className="kp-photo-hint" role="status">Photo mode · HUD hidden · press P or Esc to return</div>}
       <button type="button" onClick={()=>openGrace('home')} aria-label="Open Grace browser" className="absolute right-3 bottom-24 z-[100001] grid size-12 place-items-center rounded-2xl border-2 border-[#f1cc85] bg-[#58377b] text-[#fff1c8] shadow-lg"><span className="font-serif text-3xl italic">g</span></button>
       {inmate && <div className="absolute inset-0 z-[100008] grid place-items-center bg-black/60 p-4"><section role="dialog" aria-label={inmate} className="w-full max-w-md rounded-3xl bg-[#f7f1e6] p-6 text-[#13203a]"><h2 className="text-2xl font-black">{inmate}</h2><p className="mt-3 leading-relaxed">{inmate==="Sam"?"Sam is waiting for his sentence to end. The cell doors are open, but the service corridor is watched.":"The service corridor starts through the eastern wall. The gaps alternate north and south. Watch the patrolling guards; getting caught adds time."}</p><p className="mt-3 text-xs text-[#5a6272]">Scripted character dialogue — no live chat.</p><button type="button" onClick={()=>setInmate(null)} className="mt-5 rounded-full bg-[#2b5fd9] px-5 py-2 font-black text-white">End conversation</button></section></div>}
       {mapId === "court" && life.hearing && (
@@ -925,4 +932,4 @@ export function WorldApp({
       )}
     </div>
   );
-}
+}

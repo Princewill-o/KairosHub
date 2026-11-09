@@ -77,6 +77,8 @@ export interface Structure {
   accent: string;
   /** Which side the door is on. */
   door: "bottom" | "top";
+  /** Tiles the front wall (and its door) sits behind the footprint edge, e.g. behind a terrace. */
+  doorInset?: number;
   companyId?: string;
 }
 
@@ -211,6 +213,16 @@ export function workplaceMap(id: string): WorldMap | null {
   if (!w) return null;
   const g = new Grid(26, 20, ".");
   g.border("#");
+  if (id === "pizzazz") {
+    // Collision for the Blender pizzeria (public/world3d/pizzazz-interior.glb).
+    g.fill(1, 1, 24, 1, "|");            // back prep counters
+    g.fill(11, 1, 4, 3, "|");            // wood-fired oven
+    g.fill(3, 5, 20, 1, "|");            // service counter
+    g.fill(1, 8, 1, 8, "|"); g.fill(24, 8, 1, 8, "|"); // booths
+    for (const x of [6, 10, 15, 19]) for (const y of [9, 12]) g.set(x, y, "o");
+    g.fill(3, 14, 5, 1, "r");            // till
+    g.fill(18, 14, 5, 1, "s");           // waiting bench
+  } else {
   for (let x = 2; x < 24; x++) g.set(x, 0, "W");
   g.fill(3, 14, 5, 1, "r");
   g.fill(18, 14, 5, 1, "s");
@@ -235,8 +247,9 @@ export function workplaceMap(id: string): WorldMap | null {
     g.set(x + 1, 4, practical ? "b" : "v");
     g.set(x + 1, 7, "c");
   }
+  }
   return finish({id:`workplace-${id}`,kind:"office",name:w.name,structures:[],accent:w.accent,
-    spawn:centre(13,17),sign:{x:13,y:10,text:`${w.name} · walk to a work station`},rooms:[],
+    spawn:centre(13,17),...(id === "pizzazz" ? {} : {sign:{x:13,y:10,text:`${w.name} · walk to a work station`}}),rooms:[],
     portals:[
       {id:"exit",rect:px(12,18,2,1),label:"Leave workplace",to:{kind:"map",mapId:"city",label:"London"}},
       {id:"recruitment",rect:px(4,15,3,1),label:"Reception · apply for a role",to:{kind:"workstation",workplace:id,station:"reception"}},
@@ -558,17 +571,24 @@ function legacyLondonMap(): WorldMap {
   };
 }
 
-/** A deliberately unfinished, open church hall for the future interior build. */
+/**
+ * Kharis Church sanctuary inside Spurgeon's College. The 3D hall is the Blender
+ * model public/world3d/spurgeons-interior.glb (26 × 22 tiles); this grid only
+ * provides collision: walls, the stage and the two blocks of chairs, with a
+ * central aisle and side aisles.
+ */
 export function churchMap(): WorldMap {
-  const g = new Grid(24, 18, ".");
+  const g = new Grid(26, 22, ".");
   g.border("#");
-  for (let x = 2; x < 22; x++) { g.set(x, 0, "W"); g.set(x, 17, "W"); }
-  g.set(11, 17, "."); g.set(12, 17, ".");
+  g.fill(6, 1, 14, 4, "|");          // stage
+  g.fill(3, 7, 7, 12, "|");          // west chairs
+  g.fill(15, 7, 7, 12, "|");         // east chairs
+  g.set(12, 21, "."); g.set(13, 21, ".");
   return finish({
     id: "church", kind: "church", name: "Kharis Church", accent: "#6f48a8",
     structures: [], rooms: [],
-    portals: [{ id: "church-exit", rect: px(11, 17, 2, 1), label: "Return to Kharis Forest", to: { kind: "map", mapId: "woodland", label: "Kharis Forest" } }],
-    spawn: { x: 12 * TILE, y: 14 * TILE }, sign: { x: 12, y: 10, text: "KHARIS CHURCH · OPEN HALL" },
+    portals: [{ id: "church-exit", rect: px(12, 21, 2, 1), label: "Return to Kharis Forest", to: { kind: "map", mapId: "woodland", label: "Kharis Forest" } }],
+    spawn: { x: 13 * TILE, y: 19.5 * TILE },
   }, g);
 }
 

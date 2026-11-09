@@ -379,13 +379,18 @@ function route() {
   const hash = location.hash.slice(1);
   if(PUBLIC_PLAY)accounts.ensureGuest();
   if(GRACE_EMBED&&hash==='world'){parent.postMessage({type:'kairos-grace:action',action:'world'},location.origin);location.replace('#home');return;}
+  // The mini landing page always comes first; "Enter Kairos World" goes to #world.
+  if(!GRACE_EMBED && (!hash || hash==='landing')){
+    stop();document.documentElement.classList.remove('world-playing');
+    document.documentElement.dataset.audience='landing';
+    activeModule=mountLanding(document.querySelector('#app'));window.scrollTo(0,0);return;
+  }
   if(!GRACE_EMBED && accounts.active()){
     applyAudience();stop();document.documentElement.classList.add('world-playing');
     document.querySelector('#app').innerHTML='<main id="kairos-world-root"></main>';
     activeModule=mountKairosWorld(document.querySelector('#kairos-world-root'),accounts.active(),{initialRoute:hash&&hash!=='world'&&!['welcome','family','family/signup','landing','multiplayer','together'].includes(hash)?graceRoute(hash):null});return;
   }
   if(PUBLIC_PLAY&&['welcome','family','family/signup'].includes(hash)){location.replace('#home');return;}
-  if(PUBLIC_PLAY&&!hash){location.replace('#home');return;}
   if (!hash || hash === 'landing') {
     stop();
     document.documentElement.dataset.audience = 'landing';

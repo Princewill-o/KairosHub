@@ -3,7 +3,11 @@ export function readVisualQuality(value: string | null): VisualQuality {
   return value === "low" || value === "cinematic" ? value : "auto";
 }
 
-/** Adaptive presentation: soft lighting and HDR are standard on desktop. */
+/**
+ * Low-poly presentation. Every tier keeps the ink outline (one cheap screen pass);
+ * the expensive extras (bloom, HDR, environment lighting, soft shadows) are only
+ * used in Cinematic. Resolution then adapts to the measured frame time.
+ */
 export function visualProfile(
   quality: VisualQuality,
   mobile: boolean,
@@ -11,21 +15,45 @@ export function visualProfile(
 ) {
   const performance = quality === "low";
   const cinematic = quality === "cinematic";
+  const device = Math.max(1, Number.isFinite(dpr) ? dpr : 1);
   return {
     pixelRatio: performance
       ? 0.75
-      : Math.min(
-          cinematic ? (mobile ? 1.25 : 1.5) : mobile ? 1 : 1.25,
-          Math.max(1, Number.isFinite(dpr) ? dpr : 1),
-        ),
+      : Math.min(cinematic ? (mobile ? 1.5 : 1.75) : mobile ? 1.25 : 1.25, device),
+    minPixelRatio: performance ? 0.6 : mobile ? 0.7 : 0.8,
     shadows: !performance,
+    softShadows: cinematic,
     shadowSize: cinematic && !mobile ? 2048 : 1024,
-    postProcessing: !performance && (!mobile || cinematic),
-    environment: !performance && !mobile,
-    samples: !performance && !mobile ? 4 : 0,
-    bloom: !performance && !mobile,
+    postProcessing: true,
+    environment: cinematic && !mobile,
+    samples: 0,
+    bloom: cinematic && !mobile,
     bloomStrength: 0.035,
-    exposure: 0.95,
+    exposure: 0.98,
+  };
+}
+
+/**
+ * Drops resolution when frames take too long and restores it when there is
+ * headroom. Returns a new pixel ratio, or null when nothing should change.
+ */
+export function adaptivePixelRatio(max: number, min: number) {
+  let current = max,
+    average = 16.7,
+    samples = 0,
+    cooldown = 90;
+  return (frameMs: number) => {
+    if (!Number.isFinite(frameMs) || frameMs <= 0 || frameMs > 250) return null;
+    average += (frameMs - average) * 0.05;
+    samples++;
+    if (--cooldown > 0 || samples < 60) return null;
+    let next = current;
+    if (average > 24 && current > min) next = Math.max(min, +(current - 0.15).toFixed(2));
+    else if (average < 15 && current < max) next = Math.min(max, +(current + 0.1).toFixed(2));
+    if (next === current) return null;
+    current = next;
+    cooldown = 120;
+    return next;
   };
 }
 

@@ -114,8 +114,9 @@ export async function buildCharacter(
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       if (custom?.trousers === "shorts" && /^trouser_[LR]$/.test(mesh.name)) {
-        mesh.scale.y = 0.6;
-        mesh.position.y = -0.18;
+        // Modest cut: shorts finish at the knee.
+        mesh.scale.y = 0.78;
+        mesh.position.y = -0.09;
       }
       if (custom?.trousers === "shorts" && mesh.name.startsWith("sewn_crease"))
         mesh.visible = false;
