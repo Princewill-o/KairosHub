@@ -3330,6 +3330,7 @@ export function World3D({
       };
     });
     let lastPunch = CAMERA_VIEW.punchAt, lastPush = CAMERA_VIEW.pushAt ?? 0;
+    let luckyMesh: THREE.Mesh | null = null;
     const crossingNpcs = london ? crossingPedestrianPoses(Date.now()).map((pose, i) => {
       const body = makeBody(npcLook(90 + i)); scene.add(body.root);
       return { id: pose.id, body };
@@ -3969,6 +3970,22 @@ export function World3D({
           }
         }
       });
+      // A lucky block in the world: textured pixel cube that bobs and spins; punch it to mine.
+      {
+        const L = (globalThis as { __kairosLucky?: { current: { url: string; x: number; z: number } | null } }).__kairosLucky?.current ?? null;
+        if (L && (!luckyMesh || luckyMesh.userData.url !== L.url)) {
+          if (luckyMesh) { world.remove(luckyMesh); luckyMesh.geometry.dispose(); }
+          const tex = new THREE.TextureLoader().load(L.url); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace;
+          luckyMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), new THREE.MeshBasicMaterial({ map: tex }));
+          luckyMesh.userData.url = L.url; world.add(luckyMesh);
+        }
+        if (!L && luckyMesh) { world.remove(luckyMesh); luckyMesh.geometry.dispose(); luckyMesh = null; }
+        if (L && luckyMesh) {
+          luckyMesh.position.set(L.x, 0.75 + Math.sin(secs * 2.2) * 0.12, L.z);
+          luckyMesh.rotation.y = secs * 0.9;
+          if (CAMERA_VIEW.punchAt !== lastPunch && Math.hypot(me.root.position.x - L.x, me.root.position.z - L.z) < 2.2) window.dispatchEvent(new Event("kairos-lucky-mine"));
+        }
+      }
       // Fighting: a punch (F) or a shove (G) lands on whoever is right in front of you.
       // They stagger or go down, and the world reacts (see world-app's assault handler).
       {

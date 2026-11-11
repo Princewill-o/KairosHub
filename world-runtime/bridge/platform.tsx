@@ -22,7 +22,7 @@ export function useWorld({mapId,serverId,start,me}:any){
   const lastSent=useRef({x:-1,y:-1,t:0});
   useEffect(()=>{
     if(!serverId||serverId==='solo'||(window as any).__kairosOffline){setStatus('solo');players.current.clear();return;}
-    let closed=false,retry=0,timer:any,pinger:any;
+    let closed=false,retry=0,timer:any,pinger:any,ever=false;
     const remote=(p:any)=>{const old=players.current.get(p.id);players.current.set(p.id,{...old,...p,x:old?.x??p.x,y:old?.y??p.y,tx:p.x,ty:p.y,walking:false,chat:old?.chat??null});};
     const connect=()=>{
       if(closed)return;
@@ -30,7 +30,7 @@ export function useWorld({mapId,serverId,start,me}:any){
       let sock:WebSocket;
       try{sock=new WebSocket(worldUrl(mapId,serverId));}catch{setStatus('error');return;}
       ws.current=sock;
-      sock.onopen=()=>{retry=0;const m=meRef.current||{};const p=position.current||{};sock.send(JSON.stringify({t:'hello',name:m.username||m.name||'Guest',avatar:m.avatar,badge:m.badge,affiliation:m.affiliation,x:p.x??0,y:p.y??0}));
+      sock.onopen=()=>{retry=0;ever=true;const m=meRef.current||{};const p=position.current||{};sock.send(JSON.stringify({t:'hello',name:m.username||m.name||'Guest',avatar:m.avatar,badge:m.badge,affiliation:m.affiliation,x:p.x??0,y:p.y??0}));
         pinger=setInterval(()=>{if(sock.readyState===1)sock.send(JSON.stringify({t:'ping',at:performance.now()}));},5000);};
       sock.onmessage=(e)=>{let m:any;try{m=JSON.parse(e.data);}catch{return;}
         if(m.t==='welcome'){players.current.clear();for(const p of m.players)remote(p);setCount(m.players.length+1);setStatus('live');}
@@ -42,7 +42,7 @@ export function useWorld({mapId,serverId,start,me}:any){
         else if(m.t==='full'){setStatus('full');closed=true;}
       };
       sock.onclose=()=>{clearInterval(pinger);ws.current=null;if(closed)return;players.current.clear();setCount(1);
-        retry++;if(retry>6){setStatus('error');return;}setStatus(navigator.onLine===false?'offline':'reconnecting');timer=setTimeout(connect,Math.min(15000,600*2**retry));};
+        retry++;if(!ever&&retry>=3){setStatus('solo');return;}if(retry>6){setStatus('error');return;}setStatus(navigator.onLine===false?'offline':'reconnecting');timer=setTimeout(connect,Math.min(15000,600*2**retry));};
       sock.onerror=()=>{try{sock.close();}catch{}};
     };
     connect();

@@ -57,12 +57,13 @@ import * as KL from "@/game/core/kairos-life";
 import { FLIGHT, LIFE_WORLD, setWorldBranch, setWorldFamily } from "@/game/core/life-world";
 import { FollowUpDialog } from "./preach-dialog";
 import { KairosPhone } from "./kairos-phone";
-import { LuckyBlock } from "./lucky-block";
+import { LUCKY_WORLD, LuckyBlock, luckyFace, luckyFaceUrl } from "./lucky-block";
 import { GameShow } from "./game-show";
 import { LifeHub } from "./life-hub";
 import { DARK, buyDark } from "@/game/core/web";
 import { NowPlaying } from "./music-app";
 import { NextStationBoard } from "./next-station";
+import { InPersonGame } from "./in-person-game";
 import { PoliceVan } from "./police-van";
 import { FIND_CHANCE, TIERS, rollTier, type Tier } from "@/game/core/lucky-blocks";
 import { MinistryDialog } from "./ministry-dialog";
@@ -247,6 +248,12 @@ export function WorldApp({
   const [luckySpotted, setLuckySpotted] = useState<Tier | null>(null);
   const [luckyOpen, setLuckyOpen] = useState<Tier | null>(null);
   const [gameShow, setGameShow] = useState(false);
+  useEffect(() => {
+    if (!luckySpotted) { LUCKY_WORLD.current = null; return; }
+    const t = TIERS.find((x) => x.id === luckySpotted)!;
+    const a = Math.random() * Math.PI * 2;
+    LUCKY_WORLD.current = { tier: luckySpotted, url: luckyFaceUrl(t.colour, t.edge), x: PLAYER.x / TILE + Math.cos(a) * 3, z: PLAYER.y / TILE + Math.sin(a) * 3 };
+  }, [luckySpotted]);
   const [lifeHub, setLifeHub] = useState(false);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -258,7 +265,9 @@ export function WorldApp({
     window.addEventListener("kairos-open-lifehub", hub);
     if (q.get("lifehub") === "1") setLifeHub(true);
     const search = setInterval(() => { if (!document.hidden && Math.random() < FIND_CHANCE) setLuckySpotted((cur) => cur ?? rollTier()); }, 60_000);
-    return () => { clearInterval(search); window.removeEventListener("kairos-open-gameshow", open); window.removeEventListener("kairos-open-lifehub", hub); };
+    const mine = () => setLuckySpotted((cur) => { if (cur) setLuckyOpen(cur); return null; });
+    window.addEventListener("kairos-lucky-mine", mine);
+    return () => { clearInterval(search); window.removeEventListener("kairos-lucky-mine", mine); window.removeEventListener("kairos-open-gameshow", open); window.removeEventListener("kairos-open-lifehub", hub); };
   }, []);
   const [miniGamesOpen, setMiniGamesOpen] = useState(false);
   const [nativeChallenge,setNativeChallenge] = useState<string|null>(null);
@@ -332,6 +341,7 @@ export function WorldApp({
     const hearing = q.get("hearing");
     if (hearing) setTimeout(() => updateLifeRef.current((l) => ({ ...l, hearing: { stars: Number(q.get("stars") ?? 3), charge: hearing } })), 2500);
     if (q.get("arrest") === "1") setTimeout(() => setArrest(true), 1500);
+    if (q.get("challenge")) setTimeout(() => setNativeChallenge(q.get("challenge")), 2500);
     const talkTo = q.get("talk");
     if (talkTo !== null) setTimeout(() => chatRef.current(Number(talkTo) || 0), 3000);
   }, []);
@@ -1250,12 +1260,12 @@ export function WorldApp({
       <button type="button" data-hud="ltbs" data-tone="violet" onClick={() => setMiniGamesOpen(true)} className="absolute right-3 bottom-40 z-[100001] flex min-h-11 items-center gap-1.5 rounded-full bg-[#6d45a2] px-3 py-1.5 text-xs font-black text-white shadow-lg">
         <Gamepad2 className="size-4" aria-hidden /> LTBS · Stories & games
       </button>
-      {challenge && map.id === "scripture-island" && !fading && <GraceWorldPanel address={`scripture-games/${challenge.id}`} onClose={()=>setNativeChallenge(null)}><section aria-label={challenge.title} className="m-auto w-full max-w-3xl overflow-y-auto rounded-2xl bg-[#20182b] p-4 text-white">
+      {challenge && map.id === "scripture-island" && !fading && <InPersonGame kind={challenge.type} title={challenge.title} reference={challenge.reference} onClose={()=>setNativeChallenge(null)}><section aria-label={challenge.title} className="ip-game">
         <ScriptureChallenge key={challenge.id} game={challenge} onExit={()=>setNativeChallenge(null)} onAward={(id,amount)=>{
           const current=readStorySave(),key=`challenge:${id}`;
           if(!current.completed[key]){const next={...current,grace:current.grace+amount,completed:{...current.completed,[key]:{choice:0,grace:amount}}};try{localStorage.setItem(LTBS_SAVE_KEY,JSON.stringify(next));}catch{/* Device storage optional. */}setWallet(value=>value+amount);void recordKairosActivity("scripture_game");say(`+${amount} Grace · Scripture challenge complete`);}
         }}/>
-      </section></GraceWorldPanel>}
+      </section></InPersonGame>}
       <WantedStars stars={life.stars} />
       {veil && <img src={veil.src} alt="" aria-hidden className={`kw-veil${veil.fading ? " out" : ""}`} />}
       {parcel && !mallDept && <button type="button" data-hud="parcel" data-tone="paper" onClick={() => setMallDept("orders")} className="absolute z-[100001] px-3 py-2 text-xs font-black">{parcel}</button>}
@@ -1433,8 +1443,8 @@ export function WorldApp({
       )}
       {bus && <GraceWorldPanel address="bus-travel" onClose={()=>setBus(null)}><BusStop here={bus} stops={BUS_STOPS} onGo={busRide} onClose={() => setBus(null)} /></GraceWorldPanel>}
       {luckySpotted && !luckyOpen && (
-        <button type="button" data-hud="lucky" className="lb-spotted" style={{ ["--lb" as string]: TIERS.find((x) => x.id === luckySpotted)!.colour }} onClick={() => { setLuckyOpen(luckySpotted); setLuckySpotted(null); }}>
-          <span className="lb-mini" aria-hidden>?</span> You spotted a {TIERS.find((x) => x.id === luckySpotted)!.name}! Mine it
+        <button type="button" data-hud="lucky" className="lb-spotted" style={{ ["--lb" as string]: TIERS.find((x) => x.id === luckySpotted)!.colour, ["--lb-face" as string]: luckyFace(TIERS.find((x) => x.id === luckySpotted)!.colour, TIERS.find((x) => x.id === luckySpotted)!.edge) }} onClick={() => { setLuckyOpen(luckySpotted); setLuckySpotted(null); }}>
+          <span className="lb-mini" aria-hidden /> You spotted a {TIERS.find((x) => x.id === luckySpotted)!.name}! Mine it
         </button>
       )}
       {luckyOpen && <LuckyBlock tier={luckyOpen} onDone={(o) => {
