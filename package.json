@@ -10,6 +10,7 @@
     "build": "node scripts/build.mjs",
     "db:generate": "drizzle-kit generate",
     "lan": "node tools/lan-relay.mjs",
+    "world-server": "node server/world-server.mjs",
     "test:arcade": "node tests/arcade-browser.mjs",
     "test:mobile": "node tests/mobile-web.mjs",
     "build:world": "node scripts/build-world.mjs"

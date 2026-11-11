@@ -270,6 +270,8 @@ export function WorldApp({
   const drivingOffenceAt = useRef(-Infinity);
   const releaseReason = useRef("released");
   const arrestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Set when the police tase you; cleared when the stop is resolved or the stars go. */
+  const tasedOnce = useRef(false);
   useEffect(() => () => { if (arrestTimer.current) clearTimeout(arrestTimer.current); }, []);
   useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get("phone") === "1") setPhone(true); if (q.get("talk") === "1") setPreaching(true); }, []);
   const [arrest, setArrest] = useState(false);
@@ -314,7 +316,10 @@ export function WorldApp({
   const kharis = useKharisUpdates();
   const [cut, setCut] = useState<(Cutscene & { after?: () => void }) | null>(null);
   const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  // Entering the world from the landing page opens the main menu first.
+  const [menuOpen, setMenuOpen] = useState(() => { try { return new URLSearchParams(location.search).get("menu") === "1"; } catch { return false; } });
+  const showMenu = !kl.mode || menuOpen;
+  useEffect(() => { try { parent.postMessage({ type: "kairos-world:menu", open: showMenu }, location.origin); } catch { /* not embedded */ } }, [showMenu]);
   const closeLesson = useCallback(() => setLesson(null), []);
   // Preview hooks for art review: ?cutscene=<set> or ?lesson=<id>.
   useEffect(() => {
@@ -853,11 +858,16 @@ export function WorldApp({
   // Police catch the player with a brief taser stop before the challenge or escort.
   useEffect(() => {
     if (life.stars < 1 || jailed || life.hearing || !outdoors) {
-      pursuitRef.current = null; setPursuit(null); return;
+      pursuitRef.current = null; setPursuit(null);
+      if (life.stars < 1 || jailed || life.hearing) tasedOnce.current = false;
+      return;
     }
     if (arrest || policeTransport) return;
     const timer = setInterval(() => {
       const current = pursuitRef.current ?? startPursuit(map, PLAYER);
+      // Once you're tased, the chase is over: no more ticks until the stop is resolved
+      // (otherwise the taser/arrest screen fires again and again).
+      if (current.stage === "tased" || current.stage === "challenge" || tasedOnce.current) return;
       const next = tickPursuit(current, map, PLAYER, Date.now(), 0.2);
       if (next.escaped) {
         pursuitRef.current = null; setPursuit(null);
@@ -866,6 +876,7 @@ export function WorldApp({
       } else {
         pursuitRef.current = next; setPursuit(next);
         if (next.stage === "tased") {
+          tasedOnce.current = true;
           setArrest(true);
           arrestTimer.current = setTimeout(() => {
             setArrest(false);
@@ -1280,6 +1291,7 @@ export function WorldApp({
       }} /></GraceWorldPanel>}
       {pursuit && pursuit.stage !== "challenge" && pursuit.stage !== "tased" && <div role="status" className="pointer-events-none absolute top-40 left-1/2 z-[65] max-w-[60%] -translate-x-1/2 rounded-2xl bg-[#13203a]/95 px-4 py-2 text-center text-sm font-bold text-white">{pursuit.stage === "arriving" ? "Police car responding" : "Officers are searching"}<p className="text-xs text-white/80">Leave the red search circle for 6 seconds to clear your stars.{pursuit.outsideSince !== null ? ` ${Math.max(0,6-Math.floor((Date.now()-pursuit.outsideSince)/1000))}s left` : ""}</p></div>}
       {pursuit?.stage === "challenge" && <PoliceChallenge onResult={correct=>{
+        tasedOnce.current = false;
         pursuitRef.current = null; setPursuit(null);
         if(correct) { updateLife(clearWanted); say("Correct. The officers let you go with a warning.",true); }
         else { setArrest(true); arrestTimer.current=setTimeout(()=>{updateLife(l=>({...clearWanted(l),hearing:{stars:l.stars,charge:wantedCharge(l)}}));setArrest(false);escort("court");},2600); }
@@ -1370,7 +1382,7 @@ export function WorldApp({
         </section>;
       })()}
       {/* ── Kairos Life ── */}
-      {(!kl.mode || menuOpen) && <KairosMenu initial={kl.mode ?? "online"} onPick={(m) => { setMenuOpen(false); if (m !== kl.mode) kl.setMode(m); }} />}
+      {showMenu && <KairosMenu initial={kl.mode ?? "online"} onPick={(m) => { setMenuOpen(false); if (m !== kl.mode) kl.setMode(m); }} />}
       {offline && !kl.life && <NewLife onBorn={(l) => { kl.begin(l); say(`${l.name.first} ${l.name.last} was born in London.`, true); }} onOnline={() => kl.setMode("online")} />}
       {kl.mode === "online" && <button type="button" data-hud="kairos-life" className="kl-chip kl-chip-online" onClick={() => setMenuOpen(true)}><span><b>Quick play</b><small>Online · no ageing · start Kairos Life</small></span></button>}
       {lifeAlive && kl.life && <LifeChip life={kl.life} gameDate={gameDate} onOpen={() => setLifeOpen(true)} onAge={() => { kl.update((l) => ({ ...(KL.ageUp(l, Math.random, { issue: true }) as typeof l), lastDay: l.lastDay })); }} />}

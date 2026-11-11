@@ -10,6 +10,10 @@
       "migrations_dir": "drizzle"
     }
   ],
+  "durable_objects": {
+    "bindings": [{ "name": "WORLD_ROOMS", "class_name": "WorldRoom" }]
+  },
+  "migrations": [{ "tag": "world-rooms-v1", "new_classes": ["WorldRoom"] }],
   "observability": {
     "enabled": true
   },

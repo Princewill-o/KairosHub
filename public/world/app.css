@@ -6235,4 +6235,10 @@ html.dark body:has(.app-theme) {
 .pv-caption small { display: block; font-family: var(--pixel); font-size: 10px; color: #f2d21b; margin-bottom: 4px; }
 @media (prefers-reduced-motion: reduce) { .pv-scene *, .pv-scene { animation-duration: .01s !important; animation-iteration-count: 1 !important; } .pv-van { left: 30%; } }
 
+/* Kairos Life logo */
+.km-life-logo { display: block; height: clamp(64px, 11vh, 110px); width: auto; filter: drop-shadow(0 6px 0 #0006); animation: km-float 2.4s ease-in-out infinite alternate; }
+@keyframes km-float { to { transform: translateY(-5px); } }
+.kl-logo { display: block; width: min(320px, 80%); height: auto; margin: 0 auto 6px; }
+@media (prefers-reduced-motion: reduce) { .km-life-logo { animation: none; } }
+
 html,body,#world-root{height:100%;margin:0;overflow:hidden}#world-root>div{height:100dvh!important}@media(max-width:700px){.world-lobby-bar{display:none}}
