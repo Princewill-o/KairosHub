@@ -1,1 +1,1 @@
-export {avatarColours,buildCharacter,npcLook,type Character3D} from "./kairos-citizen3d";
+export {avatarColours,buildCharacter,npcLook,skinLook,type Character3D} from "./kairos-human3d";

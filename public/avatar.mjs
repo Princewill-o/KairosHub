@@ -148,6 +148,8 @@ export function normalizeAvatar(raw = {}) {
   for (const k of ["glasses", "scarf", "backpack"])
     if (typeof raw?.[k] === "boolean") a[k] = raw[k];
   if (AVATAR_PRINTS.includes(raw?.print)) a.print = raw.print;
+  // An uploaded Minecraft skin (64×64 or legacy 64×32 PNG), kept as a data URL.
+  if (typeof raw?.skin64 === "string" && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(raw.skin64) && raw.skin64.length < 40000) a.skin64 = raw.skin64;
   return a;
 }
 const memory = new Map();

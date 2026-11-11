@@ -102,7 +102,7 @@ export function mountCharacterStudio(root, { onChange = () => {} } = {}) {
         }),
     );
   }
-  root.innerHTML = `<section class="character-studio"><a class="kg-back" href="#bible">Games</a><header><span class="cs-eyebrow">CHARACTER STUDIO</span><h1>Make this explorer yours.</h1><p>Shape a new look, choose an outfit and make it your own. Your character joins you throughout the platform.</p></header><div class="cs-layout"><aside class="cs-preview"><span class="cs-preview-label">YOUR EXPLORER</span><div class="cs-avatar"></div><div class="cs-pose" role="group" aria-label="Preview pose">${["wave", "cheer", "read", "think"].map((p) => `<button data-pose="${p}" aria-pressed="${p === pose}">${p[0].toUpperCase() + p.slice(1)}</button>`).join("")}</div><div class="cs-actions"><button id="cs-shuffle">Shuffle look</button><button id="cs-reset">Reset look</button></div><a class="pm-button pm-gold" href="#bible">Play with this look →</a></aside><div class="cs-panel"><nav class="cs-tabs" role="tablist" aria-label="Customize character">${[
+  root.innerHTML = `<section class="character-studio"><a class="kg-back" href="#bible">Games</a><header><span class="cs-eyebrow">CHARACTER STUDIO</span><h1>Make this explorer yours.</h1><p>Shape a new look, choose an outfit and make it your own. Your character joins you throughout the platform.</p></header><div class="cs-layout"><aside class="cs-preview"><span class="cs-preview-label">YOUR EXPLORER</span><div class="cs-avatar"></div><div class="cs-pose" role="group" aria-label="Preview pose">${["wave", "cheer", "read", "think"].map((p) => `<button data-pose="${p}" aria-pressed="${p === pose}">${p[0].toUpperCase() + p.slice(1)}</button>`).join("")}</div><div class="cs-actions"><button id="cs-shuffle">Shuffle look</button><button id="cs-reset">Reset look</button></div><div class="cs-skin"><label class="cs-skin-upload">Use a Minecraft skin<input id="cs-skin-file" type="file" accept="image/png" /></label><button id="cs-skin-clear" type="button" hidden>Remove skin</button><p id="cs-skin-note" class="cs-skin-note">Any standard 64×64 (or classic 64×32) Minecraft skin PNG dresses your 3D character.</p></div><a class="pm-button pm-gold" href="#bible">Play with this look →</a></aside><div class="cs-panel"><nav class="cs-tabs" role="tablist" aria-label="Customize character">${[
     ["look", "Appearance"],
     ["clothes", "Clothes"],
     ["extras", "Extras"],
@@ -135,6 +135,26 @@ export function mountCharacterStudio(root, { onChange = () => {} } = {}) {
         preview();
       }),
   );
+  // Minecraft skins: checked for size, kept as a small data URL on this device.
+  const skinNote = root.querySelector("#cs-skin-note"), skinClear = root.querySelector("#cs-skin-clear");
+  const showSkin = () => { skinClear.hidden = !value.skin64; if (value.skin64) skinNote.textContent = "Wearing your Minecraft skin in 3D. Colours below still shape the 2D badge."; };
+  showSkin();
+  root.querySelector("#cs-skin-file").onchange = (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    if (file.type !== "image/png" || file.size > 28000) { skinNote.textContent = "Choose a PNG skin under 28 KB."; return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        if (img.width !== 64 || (img.height !== 64 && img.height !== 32)) { skinNote.textContent = "That image is not a Minecraft skin (64×64 or 64×32)."; return; }
+        value = normalizeAvatar({ ...value, skin64: reader.result });
+        save(); showSkin();
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  skinClear.onclick = () => { const { skin64, ...rest } = value; value = normalizeAvatar(rest); save(); showSkin(); skinNote.textContent = "Back to your painted look."; };
   root.querySelector("#cs-shuffle").onclick = () => {
     value = Object.fromEntries(
       Object.entries(avatarOptions).map(([key, options]) => [

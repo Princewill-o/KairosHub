@@ -2,7 +2,7 @@
 import * as THREE from "three";
 import { look, type Avatar } from "@/game/core/cosmetics";
 import { normalizeAvatar } from "../../../../public/avatar.mjs";
-import { buildCharacter, type Character3D } from "./kairos-citizen3d";
+import { buildCharacter, type Character3D } from "./kairos-human3d";
 import type { Costume } from "@/game/core/story-cast";
 
 /**

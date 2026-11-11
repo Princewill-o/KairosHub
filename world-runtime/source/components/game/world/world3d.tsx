@@ -2129,9 +2129,9 @@ export function World3D({
       const sleeveMat = new THREE.MeshLambertMaterial({ color: (look as { top?: string } | undefined)?.top ?? "#6b3fa0", flatShading: true });
       for (const side of [-1, 1]) {
         const fist = new THREE.Group();
-        const knuckles = new THREE.Mesh(new THREE.IcosahedronGeometry(0.032, 0), skinMat); knuckles.scale.set(1.05, 0.8, 1.3);
-        const thumb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.013, 0), skinMat); thumb.position.set(-side * 0.024, -0.008, -0.012);
-        const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.03, 0.16, 6), sleeveMat); wrist.rotation.x = Math.PI / 2 - 0.3; wrist.position.set(side * 0.006, -0.026, 0.085);
+        const knuckles = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.07), skinMat); // blocky, like the Kairos human
+        const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.018, 0.03), skinMat); thumb.position.set(-side * 0.024, -0.008, -0.012);
+        const wrist = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.16, 0.055), sleeveMat); wrist.rotation.x = Math.PI / 2 - 0.3; wrist.position.set(side * 0.006, -0.026, 0.085);
         fist.add(knuckles, thumb, wrist);
         fist.rotation.set(0.15, side * 0.12, side * -0.25);
         fists.add(fist);
