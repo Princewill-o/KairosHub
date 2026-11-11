@@ -150,15 +150,18 @@ export const EVENTS = [
 ];
 
 export const TEMPTATIONS = [
+  ev("t-shoplift", "temptation", GROWN, "Self-checkout", "The scanner missed a few things. You could just walk out.", [o("Go back and pay", { fruit: 3, walk: 2 }), o("Walk out", { money: 40, walk: -5, drift: 1, crime: { charge: "Theft from a shop", stars: 2, caught: 0.45 } })]),
+  ev("t-joyride", "temptation", ["teen", "young-adult"], "Keys in the ignition", "Your friends dare you to take a parked car for a spin.", [o("Walk away", { walk: 3, fruit: 2 }), o("Get in and drive", { happiness: 3, walk: -6, drift: 1, risk: 0.01, crime: { charge: "Taking a car without consent", stars: 3, caught: 0.55 } })]),
+  ev("t-fight", "temptation", ["teen", "young-adult", "adult"], "Outside the chip shop", "Someone shoves you and squares up.", [o("Walk away", { walk: 4, fruit: 3 }), o("Throw the first punch", { health: -4, walk: -5, drift: 1, crime: { charge: "Assault", stars: 3, caught: 0.6 } })]),
   ev("t-lie", "temptation", KIDS, "Broken vase", "You broke something. Nobody saw.", [o("Own up", { walk: 3, fruit: 3 }), o("Blame your sibling", { walk: -4, fruit: -3, drift: 1 })]),
-  ev("t-steal", "temptation", ["child", "teen"], "Pick 'n' mix", "Your friends dare you to take sweets without paying.", [o("Refuse", { fruit: 3, walk: 2 }), o("Do it", { walk: -5, drift: 1, risk: 0 })]),
+  ev("t-steal", "temptation", ["child", "teen"], "Pick 'n' mix", "Your friends dare you to take sweets without paying.", [o("Refuse", { fruit: 3, walk: 2 }), o("Do it", { walk: -5, drift: 1, crime: { charge: "Shoplifting", stars: 1, caught: 0.35 } })]),
   ev("t-vape", "temptation", TEEN, "Behind the bike sheds", "Someone offers you a vape.", [o("No thanks", { health: 2, walk: 1 }), o("Try it", { health: -6, habit: { smoking: 1 }, drift: 1 })]),
   ev("t-cheat", "temptation", ["teen", "young-adult"], "Exam answers", "Someone is selling the exam answers.", [o("Report it", { fruit: 4, walk: 3 }), o("Buy them", { smarts: -2, walk: -6, drift: 1 })]),
   ev("t-party", "temptation", ["teen", "young-adult"], "The party", "There's a party with heavy drinking on Saturday.", [o("Skip it, see friends another way", { health: 2, walk: 2 }), o("Go and drink with everyone", { health: -6, habit: { drinking: 1 }, walk: -4, drift: 1, risk: 0.01 })]),
   ev("t-porn", "temptation", ["teen", "young-adult", "adult"], "Alone online", "Something you know is wrong is one click away.", [o("Close it, tell an accountability partner", { walk: 5, happiness: 2 }), o("Click", { walk: -8, happiness: -4, drift: 2 })]),
   ev("t-relationship", "temptation", ["young-adult"], "Moving too fast", "Your relationship is crossing lines you'd set before God.", [o("Set boundaries together", { walk: 5 }), o("It's fine, everyone does it", { walk: -8, drift: 2 })], (s) => s.partner),
   ev("t-unequal", "temptation", ["young-adult", "adult"], "Charming but cold", "Someone attractive pursues you but mocks your faith.", [o("Walk away kindly", { walk: 5 }), o("Date them anyway", { walk: -6, drift: 2, partner: "new" })], (s) => s.saved && !s.partner),
-  ev("t-greed", "temptation", GROWN, "Fiddle the books", "You could quietly round up your expenses claims.", [o("Be honest", { fruit: 4, walk: 3 }), o("Nobody will notice", { money: 2000, walk: -7, drift: 1 })]),
+  ev("t-greed", "temptation", GROWN, "Fiddle the books", "You could quietly round up your expenses claims.", [o("Be honest", { fruit: 4, walk: 3 }), o("Nobody will notice", { money: 2000, walk: -7, drift: 1, crime: { charge: "Expenses fraud", stars: 3, caught: 0.4 } })]),
   ev("t-affair", "temptation", ["adult"], "A work friendship", "A colleague's attention feels flattering. Your marriage is hard right now.", [o("Keep distance, invest in your marriage", { walk: 6, happiness: 2 }), o("Keep texting late at night", { walk: -10, drift: 3, happiness: -6 })], (s) => s.partner?.married),
   ev("t-gossip", "temptation", ALLUP.filter((x) => x !== "child"), "Have you heard?", "Someone at church wants to share juicy news about another member.", [o("Change the subject", { fruit: 3 }), o("Lean in", { fruit: -4, walk: -3 })]),
   ev("t-bitterness", "temptation", ["adult", "elder"], "An old wound", "Someone who hurt you badly asks for forgiveness.", [o("Forgive, as Christ forgave you", { walk: 8, happiness: 6 }), o("Never", { walk: -6, happiness: -4, drift: 1 })]),
@@ -166,6 +169,15 @@ export const TEMPTATIONS = [
   ev("t-pride", "temptation", ["adult", "elder"], "Praised", "Your ministry is growing and people praise you.", [o("Give God the glory", { walk: 5, fruit: 3 }), o("Start believing your own hype", { walk: -6, drift: 1 })], (s) => s.saved && s.faith.witness > 10),
   ev("t-drink-adult", "temptation", GROWN, "One more", "A glass in the evening has become a bottle.", [o("Cut down, ask for help", { health: 5, habit: { drinking: -1 } }), o("You've earned it", { health: -6, habit: { drinking: 1 }, drift: 1 })], (s) => s.habits.drinking > 0),
   ev("t-smoke-adult", "temptation", GROWN, "Stressful week", "You think about smoking again.", [o("Go for a run instead", { health: 3, habit: { exercise: 1 } }), o("Buy a pack", { health: -8, habit: { smoking: 1 } })]),
+];
+
+/** Prison years: the choices you face inside (only while serving a sentence). */
+const INSIDE = (s) => (s.prisonUntil || 0) > s.age;
+export const PRISON_EVENTS = [
+  ev("p-chapel", "spiritual", ["teen", "young-adult", "adult", "elder"], "The prison chapel", "The chaplain runs a Bible study on Thursday nights.", [o("Go every week", { walk: 8, fruit: 3, happiness: 3 }), o("Stay in your cell", { happiness: -3 })], INSIDE),
+  ev("p-education", "work", ["teen", "young-adult", "adult"], "Education wing", "You can sit qualifications while you're inside.", [o("Enrol and study", { smarts: 6, happiness: 2 }), o("Not interested", { smarts: -2 })], INSIDE),
+  ev("p-gang", "temptation", ["teen", "young-adult", "adult"], "Protection", "A wing gang offers you protection, for a price.", [o("Keep your head down, stay with the chapel lads", { walk: 4, health: -2 }), o("Join them", { walk: -6, drift: 2, health: -4, crime: { charge: "Violence in custody", stars: 2, caught: 0.5 } })], INSIDE),
+  ev("p-release", "family", ["young-adult", "adult", "elder"], "Letters home", "Your family write asking how you are.", [o("Write back honestly", { happiness: 5, fruit: 2 }), o("Don't reply", { happiness: -5 })], INSIDE),
 ];
 
 /** Life issues: when you add a year yourself, one of these lands on top of the year's decision. */
@@ -324,8 +336,31 @@ function applyEffect(s, e, r) {
   if (e.illness === "treat" && s.illness) { s.illness.found = true; s.illness.treated = true; }
   if (e.illness === "screen" && s.illness) { s.illness.found = true; s.illness.treated = true; say(s, "Screening caught an illness early. You're being treated."); }
   if (e.contact && s.saved) { const sex = r() < 0.5 ? "male" : "female"; s.contacts.push({ id: id(r), name: `${pick(r, FIRST[sex])} ${pick(r, LAST)}`, stage: "met", warmth: 55, metAge: s.age }); }
+  if (e.crime && r() < e.crime.caught) {
+    // Caught: the case follows you into the world — the police come for you.
+    s.case = { charge: e.crime.charge, stars: e.crime.stars, age: s.age };
+    say(s, `You were seen. The police are looking for you over ${e.crime.charge.toLowerCase()}.`, "crime");
+  }
   if (e.risk && r() < e.risk) die(s, "an accident that precautions could have prevented");
 }
+
+/** The court's outcome, written into the life: a record, and prison years if sentenced. */
+export function sentenced(s0, { charge, verdict, months }) {
+  const s = clone(s0);
+  s.case = null;
+  if (verdict === "acquitted") { say(s, `Found not guilty of ${charge.toLowerCase()}.`, "court"); return fix(s); }
+  s.record = [...(s.record || []), { age: s.age, charge, months }];
+  s.happiness -= Math.min(20, 4 + months);
+  if (months <= 0) say(s, `Cautioned for ${charge.toLowerCase()}. It stays on your record.`, "court");
+  else {
+    const years = Math.max(1, Math.round(months / 12));
+    s.prisonUntil = Math.max(s.prisonUntil || 0, s.age + years);
+    if (s.job) { say(s, `You lost your job as a ${s.job.title.toLowerCase()}.`); s.job = null; }
+    say(s, `Sentenced to ${months} months for ${charge.toLowerCase()}. You'll be inside until you're ${s.prisonUntil}.`, "court");
+  }
+  return fix(s);
+}
+export const inPrison = (s) => (s.prisonUntil || 0) > s.age;
 
 export function choose(s0, index, r = Math.random) {
   if (!s0.pending) return s0;
@@ -465,6 +500,14 @@ export function ageUp(s0, r = Math.random, opts = {}) {
     const freshFirst = (list) => { const all = list.filter(okNow), fresh = all.filter((e) => !s.recent.includes(e.id)); return fresh.length ? fresh : all; };
     const issues = freshFirst(ISSUES), events = s.age >= 3 ? freshFirst(EVENTS) : [], temptations = s.age >= 3 ? freshFirst(TEMPTATIONS) : [];
     const prefer = neglected(s.lastYear || {}, s);
+    // Serving a sentence: the year happens inside.
+    const inside = PRISON_EVENTS.filter(okNow);
+    if (inside.length) {
+      const e = pick(r, inside.filter((x) => !s.recent.includes(x.id)).length ? inside.filter((x) => !s.recent.includes(x.id)) : inside);
+      s.pending = toPending(e); s.recent = [...s.recent, e.id].slice(-10);
+      if (s.age + 1 >= s.prisonUntil) say(s, "Your sentence is nearly over.", "court");
+      return withContext(s);
+    }
     const pool = [...issues, ...events, ...temptations];
     const preferred = pool.filter((e) => prefer.includes(e.category));
     let from;

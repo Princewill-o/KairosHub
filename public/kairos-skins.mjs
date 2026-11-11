@@ -109,12 +109,20 @@ export function paintSkin(ctx, a, { seed = 1 } = {}) {
   if (outfit === "hivis") { const vest = "#d7e51f"; rect([bx + 1, by + 1, 6, 10], vest, 0.03); for (const r of [B.back, B.right, B.left]) rows(r, 1, 11, vest, 0.03); for (const y of [4, 8]) for (const r of [B.front, B.back, B.right, B.left]) rows(r, y, y + 1, "#c9cdd4", 0); }
   if (outfit === "uniform") { px(bx + 1, by + 3, "#e0b25a", 0); px(bx + 2, by + 3, "#e0b25a", 0); for (let y = 1; y < 10; y++) px(bx + 4, by + y, shade(top, -0.25), 0); for (const r of [B.front, B.back, B.right, B.left]) rows(r, 10, 11, "#1d2638", 0); px(bx + 4, by + 10, "#e0b25a", 0); }
   if (outfit === "tunic" || longHem) for (const r of [B.front, B.back, B.right, B.left]) rows(r, 9, 10, outfit === "abaya" ? "#e0b25a" : shade(top, -0.2), 0);
+  if (outfit === "jumpsuit") {
+    // Prison issue: one-piece orange with a white number patch and a dark collar.
+    rows(B.front, 0, 1, shade(top, -0.25), 0); rows(B.back, 0, 1, shade(top, -0.25), 0);
+    rect([bx + 1, by + 3, 3, 2], "#f4f1ea", 0);
+    for (const [x, y] of [[1, 3], [3, 3], [2, 4]]) px(bx + x, by + y, "#2a2a2a", 0);
+    for (const r of [B.back]) { rect([r[0] + 2, r[1] + 3, 4, 3], "#f4f1ea", 0); for (const x of [2, 3, 5]) px(r[0] + x, r[1] + 4, "#2a2a2a", 0); }
+    for (let y = 2; y < 12; y++) px(bx + 4, by + y, shade(top, -0.15), 0);
+  }
   if (a.print === "kharis-church" || a.print === "kharis-phase-2" || a.print === "kharis-on-campus") { for (let x = 1; x < 7; x++) px(bx + x, by + 4, "#111111", 0); for (const x of [1, 3, 5]) px(bx + x, by + 5, "#111111", 0); }
   if (a.backpack) { rect(B.back, shade(legs, -0.2)); for (const x of [1, 6]) for (let y = 0; y < 6; y++) px(bx + x, by + y, shade(legs, -0.3), 0); }
   if (a.scarf) { rows(B.front, 0, 2, "#e3b64f", 0.04); rows(B.back, 0, 2, "#e3b64f", 0.04); for (let y = 2; y < 6; y++) px(bx + 5, by + y, "#c99a2e", 0); }
 
   // ---- arms: sleeves, then skin, hands ----
-  const sleeve = ["hoodie", "jacket", "tracksuit", "suit", "uniform", "labcoat", "abaya", "skirt"].includes(outfit) ? 11 : ["tshirt", "polo", "stripes", "scrubs", "dress"].includes(outfit) ? 4 : outfit === "hivis" || outfit === "overalls" || outfit === "tunic" ? 5 : 4;
+  const sleeve = ["jumpsuit", "hoodie", "jacket", "tracksuit", "suit", "uniform", "labcoat", "abaya", "skirt"].includes(outfit) ? 11 : ["tshirt", "polo", "stripes", "scrubs", "dress"].includes(outfit) ? 4 : outfit === "hivis" || outfit === "overalls" || outfit === "tunic" ? 5 : 4;
   const sleeveColour = outfit === "labcoat" ? "#f4f4f1" : top;
   for (const arm of ["rightArm", "leftArm"]) {
     const A = box(arm, skin, false, 0.03);

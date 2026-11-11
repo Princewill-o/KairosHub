@@ -305,3 +305,18 @@ test("little children aren't judged on their prayer life, and Christian homes ta
   const kid = L.withContext({ ...s, saved: false, age: 5, pending: { id: "x", title: "x", text: "x", category: "temptation", options: [{ label: "a", effect: { walk: 1 } }, { label: "b", effect: { walk: -1 } }] } });
   assert.deepEqual(kid.pending.context, []);
 });
+
+test("life crimes can be caught: the case follows you, a sentence puts you inside", () => {
+  let s = L.newLife({ first: "Ada", last: "Bell", sex: "female", city: "london" }, L.makeRng(3));
+  s.age = 25; s.pending = { id: "t-fight", title: "Outside the chip shop", options: [{ label: "Walk away", effect: {} }, { label: "Throw the first punch", effect: { crime: { charge: "Assault", stars: 3, caught: 1 } } }] };
+  s = L.choose(s, 1, () => 0);
+  assert.equal(s.case.charge, "Assault");
+  s = L.sentenced(s, { charge: "Assault", verdict: "guilty", months: 24 });
+  assert.equal(s.case, null);
+  assert.equal(s.record.length, 1);
+  assert.ok(L.inPrison(s));
+  const inside = L.ageUp(s, L.makeRng(1), { issue: true });
+  assert.ok(inside.pending && inside.pending.id.startsWith("p-"), "a year inside brings a prison choice");
+  const freed = L.sentenced(L.newLife({ first: "Bo", last: "Day", sex: "male", city: "london" }, L.makeRng(2)), { charge: "Theft", verdict: "acquitted", months: 0 });
+  assert.equal((freed.record || []).length, 0);
+});

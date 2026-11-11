@@ -24,7 +24,10 @@ import type { BusTrip } from "./bus-stop";
 import { MiniMap, PLACES, type Place, nearest, placeForTask } from "./city-map";
 import { DeveloperTeleport, type TeleportDestination } from "./developer-teleport";
 import { PoliceChallenge } from "./law-dialogs";
-import { ArrestOverlay, HearingDialog, PrisonHud, ShopDialog, WantedStars } from "./life";
+import { ArrestOverlay, PrisonHud, ShopDialog, WantedStars } from "./life";
+import { JusticeDialog } from "./justice-dialog";
+import { ARREST_SCENE } from "@/game/core/pursuit";
+import { conductOf, fullSentence } from "@/game/core/justice";
 import { LevelBadge, LifeHud, type Quest } from "./life-hud";
 import { PoliceTransportCutscene } from "./police-transport-cutscene";
 import { SceneWipe, Tutorial } from "./scene";
@@ -80,6 +83,8 @@ import {
   trainCarriageMap,
   motorwayMap,
   hospitalMap,
+  courtMap,
+  prisonMap,
   CARRIAGE_DOORS,
   type Portal,
   SERVERS,
@@ -117,6 +122,8 @@ function loadMap(id: string): WorldMap | null {
   if (id === "greater-london") return greaterLondonMap();
   if (id === "branch") return LIFE_WORLD.branch ? branchMap(LIFE_WORLD.branch.name) : null;
   if (id === "hospital") return hospitalMap();
+  if (id === "court") return courtMap();
+  if (id === "prison") return prisonMap();
   if (id === "mall") return mallMap();
   if (id.startsWith("lobby-")) return lobbyMap(id);
   return null;
@@ -240,6 +247,7 @@ export function WorldApp({
   const [policeTransport, setPoliceTransport] = useState(false);
   const transportStars = useRef(4);
   const { life, update: updateLife } = useLife(me.id,wantedResetToken);
+  const updateLifeRef = useRef(updateLife); updateLifeRef.current = updateLife;
   const { needs } = useNeeds();
   const [nearPerson, setNearPerson] = useState(false);
   const [nearPersonIndex, setNearPersonIndex] = useState(0);
@@ -275,6 +283,10 @@ export function WorldApp({
     const lead = q.get("lead") === "preacher" ? ({ ...playerAvatar, graceAppearance: normalizeAvatar({ skin: "#6e4630", hair: "crop", hairColor: "#1c1412", top: "#f5c518", outfit: "hoodie", print: "kharis-church", trousers: "jeans", scarf: false }) } as typeof playerAvatar) : undefined;
     if (set) setCut({ set: set as Cutscene["set"], eyebrow: `Preview · ${set}`, caption: "A cutscene preview from the Kairos Life kit.", ms: 60000, lead, leadAt: at?.length === 3 ? at : undefined, pose: q.get("pose") ?? undefined, solo: q.has("solo") });
     if (id) { const l = lessonById(id); if (l) setLesson(l); }
+    // ?hearing=<charge> opens a court case; ?arrest=1 shows the cuffing scene (art review and tests).
+    const hearing = q.get("hearing");
+    if (hearing) setTimeout(() => updateLifeRef.current((l) => ({ ...l, hearing: { stars: Number(q.get("stars") ?? 3), charge: hearing } })), 2500);
+    if (q.get("arrest") === "1") setTimeout(() => setArrest(true), 1500);
   }, []);
   const lifeOverlay = !!cut || !kl.mode || (offline && (!kl.life || !kl.life.alive || !!kl.life.pending)) || lifeOpen || churchService || menuOpen;
   useLifeClock(kl.mode, kl.life, gameDate, kl.update, garage.length > 0);
@@ -735,6 +747,18 @@ export function WorldApp({
     [router, mapId, map, me.id, updateLife, say, jailed, gainXp, goTo, adventure, boardTrain, alight, driving],
   );
 
+  // Kairos Life: a crime you were caught for becomes a wanted level in the world.
+  const handledCase = useRef<string | null>(null);
+  useEffect(() => {
+    const c = (kl.life as { case?: { charge: string; stars: number; age: number } | null } | null)?.case;
+    if (!offline || !c) return;
+    const key = `${kl.life?.id}:${c.age}:${c.charge}`;
+    if (handledCase.current === key) return;
+    handledCase.current = key;
+    updateLife((l) => { let n = l; for (let i = 0; i < c.stars; i++) n = addStar(n, Date.now(), c.charge); return n; });
+    say(`Wanted for ${c.charge.toLowerCase()}. The police are looking for you.`, true);
+  }, [offline, kl.life, updateLife, say]);
+  useEffect(() => { ARREST_SCENE.active = arrest; }, [arrest]);
   const courtSteps = useMemo(() => {
     const p = CITY.portals.find((q) => q.id === "court");
     return p ? safeSpot(CITY, p.rect.x + p.rect.w / 2, p.rect.y + p.rect.h + 40) : undefined;
@@ -1073,22 +1097,23 @@ export function WorldApp({
       {photoMode && <div className="kp-photo-hint" role="status">Photo mode · HUD hidden · press P or Esc to return</div>}
       <button type="button" data-hud="grace" data-tone="violet" onClick={()=>openGrace('home')} aria-label="Open Grace browser" className="absolute right-3 bottom-24 z-[100001] grid size-12 place-items-center rounded-2xl border-2 border-[#f1cc85] bg-[#58377b] text-[#fff1c8] shadow-lg"><span className="font-serif text-3xl italic">g</span></button>
       {inmate && <div className="absolute inset-0 z-[100008] grid place-items-center bg-black/60 p-4"><section role="dialog" aria-label={inmate} className="w-full max-w-md rounded-3xl bg-[#f7f1e6] p-6 text-[#13203a]"><h2 className="text-2xl font-black">{inmate}</h2><p className="mt-3 leading-relaxed">{inmate==="Sam"?"Sam is waiting for his sentence to end. The cell doors are open, but the service corridor is watched.":"The service corridor starts through the eastern wall. The gaps alternate north and south. Watch the patrolling guards; getting caught adds time."}</p><p className="mt-3 text-xs text-[#5a6272]">Scripted character dialogue — no live chat.</p><button type="button" onClick={()=>setInmate(null)} className="mt-5 rounded-full bg-[#2b5fd9] px-5 py-2 font-black text-white">End conversation</button></section></div>}
-      {mapId === "court" && life.hearing && (
-        <HearingDialog
-          charge={life.hearing.charge}
-          stars={life.hearing.stars}
-          onVerdict={(v) => {
-            const h = life.hearing!;
-            if (v === "guilty") {
-              updateLife((l) => ({ ...l, hearing: null, jailUntil: Date.now() + sentenceMs(h.stars) }));
-            } else {
-              updateLife((l) => ({ ...l, hearing: null }));
-              say("Not guilty. You're free to go.", true);
-              goTo("city", "London", courtSteps);
-            }
-          }}
-        />
-      )}
+      {mapId === "court" && life.hearing && (() => {
+        const h = life.hearing;
+        const priors = offline ? (kl.life?.record?.length ?? 0) : (life.record?.length ?? 0);
+        const c = { charge: h.charge, stars: Math.max(1, Math.min(5, h.stars)), priors, conduct: offline ? conductOf(kl.life) : priors ? -0.2 * priors : 0.15 };
+        const full = fullSentence(c);
+        const unit = (f: number) => offline ? `${Math.max(1, Math.round(full * f * 6))} months` : `${Math.round(sentenceMs(c.stars) * full / Math.max(1, c.stars) * f / 1000)} seconds`;
+        return <JusticeDialog c={c} unit={unit} onDone={(o) => {
+          const served = o.verdict === "guilty" && o.deal !== "caution" && o.deal !== "community" && o.fraction > 0;
+          const ms = Math.max(15_000, sentenceMs(c.stars) * full / Math.max(1, c.stars) * o.fraction);
+          updateLife((l) => ({ ...l, hearing: null, record: o.verdict === "guilty" ? [...(l.record ?? []), h.charge] : l.record ?? [], jailUntil: served ? Date.now() + ms : l.jailUntil }));
+          if (offline && kl.life) kl.update(() => KL.sentenced(kl.life!, { charge: h.charge, verdict: o.verdict, months: o.verdict === "guilty" ? (o.deal === "caution" ? 0 : o.deal === "community" ? 0 : Math.max(1, Math.round(full * o.fraction * 6))) : 0 }) as typeof kl.life);
+          if (!served) {
+            say(o.verdict === "acquitted" ? "Not guilty. You're free to go." : o.deal === "community" ? "Community service: you'll help at the food bank. It stays on your record." : "A formal caution. Don't let it happen again.", true);
+            goTo("city", "London", courtSteps);
+          }
+        }} />;
+      })()}
       {jailed && mapId === "prison" && (
         <PrisonHud
           leftMs={life.jailUntil - Date.now()}

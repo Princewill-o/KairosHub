@@ -27,6 +27,8 @@ export interface LifeState {
   hearing: { stars: number; charge: string } | null;
   /** Prevents an overdue bank loan from reopening the same hearing. */
   bankCourtSeen?: boolean;
+  /** Convictions so far (charges), which shape later deals and sentences. */
+  record?: string[];
 }
 
 export const freshLife = (): LifeState => ({ stars: 0, heatAt: 0, lastOffence: null, sick: false, jailUntil: 0, hearing: null, bankCourtSeen: false });

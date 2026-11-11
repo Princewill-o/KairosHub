@@ -27,7 +27,8 @@ import { applyGroundStyle } from "./ground-style3d";
 import { londonEye } from "./london-eye3d";
 import { addStreetscape } from "./streetscape3d";
 export { NPC_SPOTS } from "./art";
-import { type Character3D, buildCharacter, npcLook } from "../char3d";
+import { type Character3D, buildCharacter, npcLook, officerLook } from "../char3d";
+import { ARREST_SCENE } from "@/game/core/pursuit";
 import { homeFurniture } from "./home-furniture";
 import { makeNameplate, updateNameplateSpeech } from "./nameplate";
 import { PASSENGERS, RIDE, TRAIN_CALL } from "./train-state";
@@ -3090,7 +3091,7 @@ export function World3D({
     if (L) {
       const kinds = map.id === "m25"
         ? ["sedan", "van", "coupe", "suv-blue", "delivery", "estate", "muscle", "suv-red", "taxi", "coupe-yellow", "suv", "hatchback-sports", "suv-yellow", "sedan", "delivery", "estate", "coupe", "van"]
-        : ["bus", "taxi", "sedan", "bus", "van", "delivery", "coupe", "suv-blue", "muscle", "suv-red", "estate", "coupe-yellow"];
+        : ["bus", "taxi", "sedan", "bus", "police", "van", "delivery", "coupe", "suv-blue", "muscle", "police", "suv-red", "estate", "coupe-yellow"];
       // Riders sit inside every car and on both decks of each bus, visible through the glass.
       const seatRiders = (g: THREE.Group, bus: boolean, seed: number) => {
         if (disposed) return;
@@ -3117,7 +3118,10 @@ export function World3D({
         if (k === "bus") {
           jobs.push(busModel(BUS_ROUTE_CODES[route]).then(b => { if (!disposed) { g.add(b); seatRiders(g, true, i); } }));
           g.userData.label = BUS_ROUTE_CODES[route];
-        } else void placeCar(g, k).then(() => seatRiders(g, false, i));
+        } else void placeCar(g, k).then((fitted) => {
+          if (k === "police") { const b = new THREE.Box3().setFromObject(fitted); lightBar(g, b.max.y + 0.05); g.userData.police = true; }
+          seatRiders(g, false, i);
+        });
         scene.add(g);
         // Motorway traffic is fast: inside lane steady, outside lane quickest.
         traffic.push({ obj: g, route, at: (i * 0.173) % 1, distance: 0, speed: map.id === "m25" ? [7, 8.5, 10][route] : [2.6, 2.8, 2.5][route] });
@@ -3281,7 +3285,7 @@ export function World3D({
     const residentLimit = map.kind === "home" || map.story || map.id === "branch" || map.id === "flight" ? 0 : Math.min(budget.residents, london || map.id === "woodland" ? budget.residents : highland || map.kind === "station" || map.kind === "campus" ? Math.max(12, budget.residents - 4) : Math.max(8, Math.floor(budget.residents / 2)));
     const riderAt = new THREE.Vector3();
     const npcs = residentPaths(map, residentLimit).filter(path=>map.kind !== "prison" || path.x0<25&&path.x1<25).map((path, i) => {
-      const body = makeBody(map.kind === "prison" ? {...npcLook(i),...PRISON_LOOK} : npcLook(i), null, true);
+      const body = makeBody(map.kind === "prison" ? {...npcLook(i),...PRISON_LOOK} : london && i % 9 === 4 ? officerLook(i) : npcLook(i), null, true);
       const speech = speechMark(); body.root.add(speech);
       scene.add(body.root);
       return {
@@ -3356,16 +3360,50 @@ export function World3D({
     // A responding car and its officers are tied to the actual pursuit simulation.
     const responseCar = new THREE.Group();
     let wasTased = false;
-    const responders = london || highland ? [makeBody({...npcLook(51),top:"top-suit",topColor:"topcol-navy",hat:"hat-cap"}),makeBody({...npcLook(52),top:"top-suit",topColor:"topcol-navy",hat:"hat-cap"})] : [];
+    const responders = london || highland ? [makeBody(officerLook(51)),makeBody(officerLook(52))] : [];
+    const lightBars: THREE.Mesh[][] = [];
+    /** A blue-and-red light bar on a police car; it flashes when the car is responding. */
+    const lightBar = (car: THREE.Group, y = 0.62) => {
+      const blue = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.1, 0.22), new THREE.MeshBasicMaterial({ color: "#2b5fd9" }));
+      const red = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.1, 0.22), new THREE.MeshBasicMaterial({ color: "#e04a3f" }));
+      blue.position.set(0, y, -0.12); red.position.set(0, y, 0.12); car.add(blue, red); lightBars.push([blue, red]);
+    };
     if (london || highland) {
-      void placeCar(responseCar, "police");
-      box(responseCar,"#2b5fd9",-0.4,1.4,-0.42,0.05,1.56,0.42);
-      box(responseCar,"#e04a3f",0.05,1.4,-0.42,0.5,1.56,0.42);
+      void placeCar(responseCar, "police").then((fitted) => { const b = new THREE.Box3().setFromObject(fitted); lightBar(responseCar, b.max.y + 0.05); });
       scene.add(responseCar,...responders.map(b=>b.root));
     }
     const carLast = new THREE.Vector3();
-    const guardBodies = map.kind === "prison" ? [makeBody({...npcLook(53),top:"top-suit",topColor:"topcol-navy",hat:"hat-cap"}),makeBody({...npcLook(54),top:"top-suit",topColor:"topcol-navy",hat:"hat-cap"})] : [];
+    const guardBodies = map.kind === "prison" ? [makeBody(officerLook(53)),makeBody(officerLook(54))] : [];
     guardBodies.forEach(b=>scene.add(b.root));
+    // The penitentiary: grey stone walls topped with razor wire, four guard towers
+    // with sweeping searchlights, and the name over the wing.
+    const searchlights: THREE.Group[] = [];
+    if (map.kind === "prison") {
+      const stone = "#8d8a84", dark = "#5c5a56";
+      for (const [x0, z0, x1, z1] of [[0, 0, map.cols, 0.6], [0, map.rows - 0.6, map.cols, map.rows], [0, 0, 0.6, map.rows], [map.cols - 0.6, 0, map.cols, map.rows]] as const) {
+        box(world, stone, x0, 0, z0, x1, 4.2, z1);
+        box(world, dark, x0, 4.2, z0, x1, 4.35, z1);
+        const len = Math.max(x1 - x0, z1 - z0), along = x1 - x0 > z1 - z0;
+        for (let t = 0.5; t < len; t += 0.55) {
+          const coil = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 4, 8), new THREE.MeshLambertMaterial({ color: "#c9ccd2" }));
+          coil.position.set(along ? x0 + t : (x0 + x1) / 2, 4.6, along ? (z0 + z1) / 2 : z0 + t);
+          coil.rotation.y = along ? Math.PI / 2 : 0;
+          world.add(coil);
+        }
+      }
+      for (const [x, z] of [[1.5, 1.5], [map.cols - 1.5, 1.5], [1.5, map.rows - 1.5], [map.cols - 1.5, map.rows - 1.5]]) {
+        box(world, dark, x - 0.5, 0, z - 0.5, x + 0.5, 6.2, z + 0.5);
+        box(world, stone, x - 1, 6.2, z - 1, x + 1, 6.35, z + 1);
+        box(world, "#2a2f36", x - 0.9, 6.35, z - 0.9, x + 0.9, 7.4, z + 0.9);
+        box(world, dark, x - 1.05, 7.4, z - 1.05, x + 1.05, 7.6, z + 1.05);
+        const light = new THREE.Group();
+        const beam = new THREE.Mesh(new THREE.ConeGeometry(1.6, 7, 12, 1, true), new THREE.MeshBasicMaterial({ color: "#fff6c8", transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide }));
+        beam.rotation.x = -Math.PI / 2.6; beam.position.set(0, -1.8, 3.2);
+        light.add(beam); light.position.set(x, 7, z); world.add(light); searchlights.push(light);
+      }
+      const name = sign("HMP THAMES · STATE PENITENTIARY", { bg: "#2a2f36", fg: "#e8e4da", w: 9, h: 0.7 });
+      name.position.set(map.cols / 2, 3.4, 0.7); world.add(name);
+    }
     if(map.kind === "prison") for(const portal of map.portals.filter(p=>p.to.kind === "prison"&&p.to.action === "talk")) {
       const person=makeBody({...npcLook(portal.id === "inmate-sam"?57:58),...PRISON_LOOK});
       person.root.position.set(portal.rect.x/TILE+0.5,0,portal.rect.y/TILE+0.5);
@@ -3741,7 +3779,22 @@ export function World3D({
         if(Math.hypot(cx-carLast.x,cz-carLast.z)>0.01)responseCar.rotation.y=Math.atan2(-(cz-carLast.z),cx-carLast.x);
         responseCar.position.set(cx,0.05,cz); carLast.set(cx,0,cz);
       }
-      responders.forEach((body,i)=>{
+      // Lights: patrol cars glow steady; responding cars (and arrests) flash.
+      const flashing = !!pursuit || ARREST_SCENE.active;
+      lightBars.forEach(([blue, red], i) => { const on = Math.floor(now / 160 + i) % 2 === 0; (blue.material as THREE.MeshBasicMaterial).color.set(flashing && !on ? "#14244a" : "#2b5fd9"); (red.material as THREE.MeshBasicMaterial).color.set(flashing && on ? "#4a1410" : "#e04a3f"); });
+      if (ARREST_SCENE.active && (london || highland)) {
+        // The arrest: two officers stand either side, you're cuffed, the car waits behind.
+        me.char?.play("cuffed");
+        responseCar.visible = true;
+        responseCar.position.set(mx + 2.2, 0.05, mz - 1.6); responseCar.rotation.y = 0;
+        responders.forEach((body, i) => {
+          body.root.visible = true;
+          const side = i ? 1 : -1;
+          body.root.position.set(mx + side * 0.75, 0, mz + 0.15);
+          body.root.rotation.y = Math.atan2(mx - body.root.position.x, mz - body.root.position.z);
+          setWalking(body, false); body.char?.play(i ? "arrest" : "idle");
+        });
+      } else responders.forEach((body,i)=>{
         const officer=pursuit?.officers[i];
         body.root.visible=!!officer;
         if(officer){
@@ -3751,6 +3804,7 @@ export function World3D({
           setWalking(body,pursuit?.stage === "chasing");
         }
       });
+      searchlights.forEach((l, i) => { l.rotation.y = reduce ? i : secs * 0.35 + i * 1.6; });
       const patrols=prisonGuardPositions(Date.now()/1000);
       guardBodies.forEach((body,i)=>{const p=patrols[i];body.root.position.set(p.x/TILE,0,p.y/TILE);body.root.rotation.y=p.angle;setWalking(body,!reduce);});
 

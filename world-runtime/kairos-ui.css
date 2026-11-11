@@ -503,3 +503,33 @@
 .km-select:hover,.km-select:focus-visible{background:#fff;color:#0a0810}
 @media (max-width:760px){.km-grid{grid-template-columns:1fr;grid-template-rows:none;grid-auto-rows:150px}.km-grid>*{grid-column:auto!important;grid-row:auto!important}.km-grid>:first-child{min-height:220px}.km-head{justify-content:center}}
 @media (prefers-reduced-motion:reduce){.km-grid,.km-tile:hover .km-label,.km-glass-text{animation:none}.km-tile{transform:none}}
+
+/* Justice: the deal, then the judge */
+.kj-backdrop{position:absolute;inset:0;z-index:100006;display:grid;place-items:center;padding:16px;background:rgba(10,8,16,.6);animation:kj-in .35s cubic-bezier(.16,1,.3,1)}
+@keyframes kj-in{from{opacity:0}to{opacity:1}}
+.kj-card{width:min(560px,100%);background:#f7f1e6;color:#17151f;border:3px solid #17151f;border-radius:18px;box-shadow:8px 8px 0 #17151f;padding:22px;animation:kj-pop .45s cubic-bezier(.55,0,.2,1.12)}
+@keyframes kj-pop{from{transform:translateY(18px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+.kj-eyebrow{display:flex;gap:6px;align-items:center;font:800 11px "DM Sans",system-ui;letter-spacing:.18em;text-transform:uppercase;color:#7a4f32;margin:0}
+.kj-title{font:800 28px Outfit,system-ui;margin:.2rem 0 .6rem}
+.kj-facts{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:0 0 12px}
+.kj-facts dt{font:700 11px "DM Sans",system-ui;text-transform:uppercase;letter-spacing:.08em;opacity:.6}
+.kj-facts dd{margin:0;font-weight:800}
+.kj-who{margin:.4rem 0;font-style:italic}
+.kj-offer{margin:0 0 12px;padding:12px 14px;border-left:4px solid #7c3aed;background:#fff;border-radius:8px;font-weight:700}
+.kj-row{display:flex;gap:8px;flex-wrap:wrap}
+.kj-primary,.kj-ghost,.kj-arg{all:unset;box-sizing:border-box;cursor:pointer;border:2px solid #17151f;border-radius:999px;padding:10px 16px;font-weight:800;box-shadow:3px 3px 0 #17151f}
+.kj-primary{background:#17151f;color:#fff}
+.kj-ghost{background:#fff}
+.kj-primary:focus-visible,.kj-ghost:focus-visible,.kj-arg:focus-visible{outline:3px solid #7c3aed;outline-offset:2px}
+.kj-args{display:grid;gap:8px}
+.kj-arg{display:grid;gap:2px;border-radius:14px;background:#fff}
+.kj-arg span{font-style:italic;font-weight:600}
+.kj-arg small{opacity:.65}
+.kj-deciding{display:flex;gap:10px;align-items:center;font-weight:800}
+.kj-gavel{animation:kj-gavel .6s ease-in-out infinite alternate;transform-origin:80% 80%}
+@keyframes kj-gavel{from{transform:rotate(-25deg)}to{transform:rotate(10deg)}}
+.kj-free,.kj-guilty{font:800 22px Outfit,system-ui;padding:10px 14px;border-radius:12px;margin:0}
+.kj-free{background:#e3f5ec;color:#15987f}.kj-guilty{background:#fdeceb;color:#c8322d}
+.kj-judge{font-style:italic}
+.kj-note{margin:12px 0 0;font-size:11px;opacity:.6}
+@media (prefers-reduced-motion:reduce){.kj-backdrop,.kj-card,.kj-gavel{animation:none}}

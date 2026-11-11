@@ -44,6 +44,12 @@ type SkinLook = ReturnType<typeof normalizeAvatar> & { skin64?: string };
 export function skinLook(input: Avatar): SkinLook {
   const a = look(input);
   const raw = (a as Avatar & { graceAppearance?: unknown }).graceAppearance as Record<string, unknown> | undefined;
+  // Prison issue: an orange jumpsuit over whoever you are.
+  const prison = (input as { topColor?: string; bottomColor?: string }).topColor === "topcol-orange" && (input as { bottomColor?: string }).bottomColor === "botcol-orange";
+  if (prison) {
+    const who = raw ? normalizeAvatar(raw) : normalizeAvatar({});
+    return { ...who, outfit: "jumpsuit", top: "#e98a1f", legs: "#e98a1f", shoe: "#d8d5cb", hat: "none", scarf: false, backpack: false, glasses: who.glasses, print: "none" } as SkinLook;
+  }
   if (raw) return { ...normalizeAvatar(raw), skin64: typeof raw.skin64 === "string" ? raw.skin64 : undefined } as SkinLook;
   const c = outfitColours(a);
   const hair = ({ "hair-short": "swoop", "hair-curly": "curly", "hair-bob": "bob", "hair-braids": "braids", "hair-buns": "puffs", "hair-afro": "afro", "hair-buzz": "crop", "hair-bald": "bald", "hair-long": "long" } as Record<string, string>)[a.hair] ?? "swoop";
@@ -86,7 +92,7 @@ function overlayParts(ctx: CanvasRenderingContext2D) {
 }
 const PART_OF: [RegExp, string][] = [[/^(head|neck)_/, "head"], [/^(chest|waist|pelvis)_/, "body"], [/^right_(arm|hand)/, "rightArm"], [/^left_(arm|hand)/, "leftArm"], [/^right_(leg|foot)/, "rightLeg"], [/^left_(leg|foot)/, "leftLeg"]];
 
-const CLIP: Record<string, string> = { idle: "idle", walk: "walk", run: "run", sprint: "run", cycle: "walk", jump: "jump", punch: "punch_basic", hit: "hit_take", death: "death", dead: "death" };
+const CLIP: Record<string, string> = { die: "death", tased: "hit_take", idle: "idle", walk: "walk", run: "run", sprint: "run", cycle: "walk", jump: "jump", punch: "punch_basic", hit: "hit_take", death: "death", dead: "death" };
 
 export async function buildCharacter(input: Avatar, height = 1.15, _logo: string | null = null, _style: "avatar" | "felt" = "avatar"): Promise<Character3D> {
   const source = await load();
@@ -143,6 +149,10 @@ export async function buildCharacter(input: Avatar, height = 1.15, _logo: string
   const arm = { r: node("right_arm_upper"), l: node("left_arm_upper"), rl: node("right_arm_lower"), ll: node("left_arm_lower") };
   const leg = { r: node("right_leg_upper"), l: node("left_leg_upper"), rl: node("right_leg_lower"), ll: node("left_leg_lower") };
   const q = new THREE.Quaternion(), e = new THREE.Euler();
+  // Clips don't key every joint, so each frame starts from the rest pose:
+  // otherwise the layered poses would add up frame after frame (a spinning head).
+  const posed = [head, neck, chest, arm.r, arm.l, arm.rl, arm.ll, leg.r, leg.l, leg.rl, leg.ll].filter((o): o is THREE.Object3D => !!o);
+  const rest = new Map(posed.map((o) => [o, o.quaternion.clone()]));
   const turn = (o: THREE.Object3D | null, x: number, y = 0, z = 0) => { if (!o) return; q.setFromEuler(e.set(x, y, z)); o.quaternion.multiply(q); };
 
   // Blinks: the eye pixels on the face are painted over for 120 ms.
@@ -169,6 +179,7 @@ export async function buildCharacter(input: Avatar, height = 1.15, _logo: string
       if (dead) return;
       dt = Math.min(0.1, Math.max(0, dt));
       time += dt;
+      for (const [o, r] of rest) o.quaternion.copy(r);
       mixer.update(reduced ? 0 : dt);
       // Layer the poses the clips don't cover.
       if (/wave|cheer|celebrate/.test(mode)) { turn(arm.r, 0, 0, -2.5 + Math.sin(time * 7) * 0.18); turn(arm.rl, -0.4); if (mode !== "wave") turn(arm.l, 0, 0, 2.5); }
@@ -177,6 +188,8 @@ export async function buildCharacter(input: Avatar, height = 1.15, _logo: string
       else if (mode === "read") { turn(arm.r, -0.8); turn(arm.l, -0.8); turn(arm.rl, -1.0); turn(arm.ll, -1.0); }
       else if (/sit|drive/.test(mode)) { turn(leg.r, -1.45); turn(leg.l, -1.45); turn(leg.rl, 1.5); turn(leg.ll, 1.5); turn(arm.r, -0.6); turn(arm.l, -0.6); }
       else if (mode === "sleep") { turn(arm.r, 0, 0, -0.1); }
+      else if (mode === "cuffed") { turn(arm.r, 0.55, 0, 0.35); turn(arm.l, 0.55, 0, -0.35); turn(arm.rl, -0.9); turn(arm.ll, -0.9); if (head) turn(head, 0.25); }
+      else if (mode === "arrest") { turn(arm.r, -1.2); turn(arm.rl, -0.4); }
       if (reaction.kind === "nod" && time - reaction.at < 0.6 && head) turn(head, Math.sin((time - reaction.at) * 14) * 0.25);
       if (neck && !/sit|drive|sleep/.test(mode) && !reduced) turn(neck, 0, Math.sin(time * 0.35) * 0.12);
       // Blink.
@@ -192,6 +205,12 @@ export async function buildCharacter(input: Avatar, height = 1.15, _logo: string
       texture.dispose(); base.dispose(); over.dispose();
     },
   };
+}
+
+/** Police officers: uniform shirt, duty belt and peaked cap. */
+export function officerLook(i: number): Avatar {
+  const base = npcLook(i) as Avatar & { graceAppearance: Record<string, unknown> };
+  return { ...base, lifeAge: 28 + (i % 25), graceAppearance: normalizeAvatar({ ...base.graceAppearance, outfit: "uniform", hat: "police", top: "#2f4a73", legs: "#1d2638", shoe: "#151515", scarf: false, backpack: false, glasses: false }) } as Avatar;
 }
 
 /** Residents: a mixed city of every age, frame and job. */

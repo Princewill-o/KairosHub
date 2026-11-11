@@ -258,3 +258,6 @@ export function caughtByPrisonGuard(
     return true;
   });
 }
+
+/** The arrest moment, shared with the 3D view: officers close in and cuff you. */
+export const ARREST_SCENE = ((globalThis as unknown as { __kairosArrest?: { active: boolean } }).__kairosArrest ??= { active: false });
