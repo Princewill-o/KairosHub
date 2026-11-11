@@ -436,6 +436,9 @@
   .top-\[234px\] {
     top: 234px;
   }
+  .top-\[290px\] {
+    top: 290px;
+  }
   .top-full {
     top: 100%;
   }
@@ -2296,6 +2299,12 @@
       background-color: color-mix(in oklab, var(--color-black) 40%, transparent);
     }
   }
+  .bg-black\/45 {
+    background-color: color-mix(in srgb, #000 45%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-black) 45%, transparent);
+    }
+  }
   .bg-black\/50 {
     background-color: color-mix(in srgb, #000 50%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -3354,6 +3363,13 @@
     &:hover {
       @media (hover: hover) {
         background-color: color-mix(in oklab, #6d45a2 40%, transparent);
+      }
+    }
+  }
+  .hover\:bg-\[\#33204a\] {
+    &:hover {
+      @media (hover: hover) {
+        background-color: #33204a;
       }
     }
   }

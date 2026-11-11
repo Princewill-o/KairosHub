@@ -1,5 +1,6 @@
 "use client";
 
+import { CAMERA_VIEW, nextMode, steerInput } from "@/game/core/camera-view";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import dynamic from "next/dynamic";
@@ -368,6 +369,11 @@ export function WorldView({
         target.current = null;
       } else if (k === "e" || k === "enter") {
         enter();
+      } else if (k === "v" && !e.repeat) {
+        CAMERA_VIEW.mode = nextMode(CAMERA_VIEW.mode);
+        window.dispatchEvent(new CustomEvent("kairos-camera-view", { detail: CAMERA_VIEW.mode }));
+      } else if (k === "f" && !e.repeat) {
+        CAMERA_VIEW.punchAt = performance.now();
       }
     };
     const up = (e: KeyboardEvent) => keys.current.delete(e.key.toLowerCase());
@@ -418,6 +424,11 @@ export function WorldView({
       if (!dx && !dy && (stick.current.x || stick.current.y)) {
         dx = stick.current.x;
         dy = stick.current.y;
+      }
+      // Close and first-person views: W/S along the way you face, A/D turn.
+      if (!carRef.current) {
+        const steered = steerInput(CAMERA_VIEW.mode, CAMERA_VIEW.yaw, dx, dy, dt);
+        dx = steered.dx; dy = steered.dy; CAMERA_VIEW.yaw = steered.yaw;
       }
       const p = pos.current;
       if (!pausedRef.current && (p.jumpVelocity !== 0 || p.jumpHeight > 0)) {

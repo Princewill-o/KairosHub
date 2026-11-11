@@ -57,6 +57,7 @@ import { BUS_LENGTH, BUS_WIDTH, CAR_LENGTH, CAR_WIDTH, ROAD_LANE_OFFSET } from "
 import { frameMapCamera, followPlayerCamera } from "@/game/core/view-framing";
 import { curvedVertexShader, immersiveMotion, physicalSurface, visualProfile, type VisualQuality } from "@/game/core/visual-quality";
 import { STATION_PLATFORM_Y } from "@/game/core/world";
+import { CAMERA_LABEL, CAMERA_VIEW, nextMode } from "@/game/core/camera-view";
 import { AIRPORT, TILE, blocked, roadEnds, type Portal, type WorldMap } from "@/game/core/world";
 import { CHURCH_SCREEN, wrapLines } from "@/game/core/church-service";
 import { STORY_BIOMES } from "@/game/core/islands";
@@ -284,9 +285,67 @@ const LOWPOLY_CARS: Record<string, string> = {
   sedan: "lp-04", suv: "lp-10", van: "lp-15", cab: "lp-07", taxi: "lp-07", "hatchback-sports": "lp-03", delivery: "lp-22",
   coupe: "lp-01", "coupe-yellow": "lp-02", estate: "lp-05", muscle: "lp-06", "suv-blue": "lp-11", "suv-red": "lp-19", "suv-yellow": "lp-23",
 };
+/** See-through glazing shared by every car and bus window. */
+const GLASS = new THREE.MeshStandardMaterial({ color: "#a9c4d4", transparent: true, opacity: 0.28, roughness: 0.08, metalness: 0, depthWrite: false, side: THREE.DoubleSide });
+const glassSplits = new Map<THREE.BufferGeometry, { body: THREE.BufferGeometry; glass: THREE.BufferGeometry } | null>();
+/**
+ * The low-poly car pack paints from one palette atlas: glazing uses the dark
+ * end of its grey strip (glTF v > 0.8, u > 0.6) on the upper, upright faces.
+ * Dark-bodied cars use that strip for paint too; there only the pack's own
+ * glazing swatch (0.72, 0.84) counts. Glazing moves into a see-through mesh.
+ */
+function splitGlass(geo: THREE.BufferGeometry, matrix: THREE.Matrix4) {
+  if (glassSplits.has(geo)) return glassSplits.get(geo)!;
+  const g = geo.index ? geo.toNonIndexed() : geo.clone();
+  const up = g.clone().applyMatrix4(matrix); up.computeBoundingBox();
+  const upPos = up.getAttribute("position"), uv = g.getAttribute("uv"), box = up.boundingBox!;
+  if (!uv) { glassSplits.set(geo, null); return null; }
+  const h = box.max.y - box.min.y || 1, tri = upPos.count / 3;
+  const broad: boolean[] = [], exact: boolean[] = [];
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), d = new THREE.Vector3(), n = new THREE.Vector3();
+  let upperArea = 0, broadArea = 0;
+  for (let t = 0; t < tri; t++) {
+    let u = 0, v = 0, y = 0;
+    for (let k = 0; k < 3; k++) { u += uv.getX(t * 3 + k) / 3; v += uv.getY(t * 3 + k) / 3; y += upPos.getY(t * 3 + k) / 3; }
+    a.fromBufferAttribute(upPos, t * 3); b.fromBufferAttribute(upPos, t * 3 + 1); d.fromBufferAttribute(upPos, t * 3 + 2);
+    n.subVectors(b, a).cross(d.sub(a)); const area = n.length() / 2; n.normalize();
+    const upper = (y - box.min.y) / h > 0.5 && Math.abs(n.y) < 0.92;
+    if (upper) upperArea += area;
+    const isBroad = upper && v > 0.8 && u > 0.6;
+    if (isBroad) broadArea += area;
+    broad.push(isBroad);
+    exact.push(Math.abs(u - 0.72) < 0.02 && Math.abs(v - 0.84) < 0.02);
+  }
+  const glassTri = upperArea && broadArea / upperArea > 0.45 ? exact : broad;
+  if (glassTri.filter(Boolean).length < 6) { glassSplits.set(geo, null); return null; }
+  const pick = (want: boolean) => {
+    const out = new THREE.BufferGeometry();
+    for (const [name, attr] of Object.entries(g.attributes)) {
+      const src = attr as THREE.BufferAttribute, arr: number[] = [];
+      for (let t = 0; t < tri; t++) if (glassTri[t] === want) for (let k = 0; k < 3; k++) for (let j = 0; j < src.itemSize; j++) arr.push(src.array[(t * 3 + k) * src.itemSize + j]);
+      out.setAttribute(name, new THREE.Float32BufferAttribute(arr, src.itemSize));
+    }
+    return out;
+  };
+  const res = { body: pick(false), glass: pick(true) };
+  glassSplits.set(geo, res);
+  return res;
+}
 async function placeCar(g: THREE.Group, model: string) {
   const gltf = await load(LOWPOLY_CARS[model] ? `/world3d/cars/lowpoly/${LOWPOLY_CARS[model]}.glb?v=1` : `/world3d/cars/${model}.glb`);
   const car = gltf.scene.clone(true);
+  if (LOWPOLY_CARS[model]) {
+    const meshes: THREE.Mesh[] = [];
+    car.traverse(o => { if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh); });
+    for (const mesh of meshes) {
+      mesh.updateMatrix();
+      const split = splitGlass(mesh.geometry, mesh.matrix);
+      if (!split) continue;
+      mesh.geometry = split.body;
+      const glass = new THREE.Mesh(split.glass, GLASS); glass.renderOrder = 2; glass.userData.glass = true;
+      mesh.add(glass);
+    }
+  }
   // The pack's material is exported fully metallic; without an environment that renders black.
   if (LOWPOLY_CARS[model]) car.traverse(node => { const m = (node as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (m && "metalness" in m && m.metalness > .2) { m.metalness = 0.05; m.roughness = 0.55; } });
   car.rotation.y = Math.PI / 2;
@@ -1396,6 +1455,8 @@ export function lymeBike(green = "#4cd137") {
 async function busModel(route: string) {
   const asset = await load("/world3d/london-bus.glb?v=blender-3");
   const bus = asset.scene.clone(true);
+  // Clear glazing so you can see who is riding on both decks.
+  bus.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh && /glazing|glass/i.test((m.material as THREE.Material).name)) { m.material = GLASS; m.renderOrder = 2; } });
   bus.userData.route = route;
   bendAll(bus);
   return bus;
@@ -2008,6 +2069,8 @@ export function World3D({
     } catch { /* Optional camera preference. */ }
     return 1.65;
   });
+  const [view, setView] = useState(CAMERA_VIEW.mode);
+  useEffect(() => { const on = (e: Event) => setView((e as CustomEvent).detail); addEventListener("kairos-camera-view", on); return () => removeEventListener("kairos-camera-view", on); }, []);
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   useEffect(() => { try { localStorage.setItem("kairos-camera-zoom", String(zoom)); } catch { /* Optional camera preference. */ } }, [zoom]);
@@ -2058,6 +2121,33 @@ export function World3D({
     // Outdoor fog is fully opaque by 70 units; don't draw hidden city blocks
     // out to 200 units behind it. Interiors have no fog and retain more range.
     const camera = new THREE.PerspectiveCamera(30, 1, 0.5, indoors ? 120 : 360);
+    // First person: your own fists, low poly, in your skin tone. F throws a punch.
+    const fists = new THREE.Group();
+    {
+      const look = (JSON.parse(avatarKey) as Avatar & { graceAppearance?: { skin?: string } }).graceAppearance;
+      const skinMat = new THREE.MeshLambertMaterial({ color: look?.skin ?? "#8a5a3c", flatShading: true });
+      const sleeveMat = new THREE.MeshLambertMaterial({ color: (look as { top?: string } | undefined)?.top ?? "#6b3fa0", flatShading: true });
+      for (const side of [-1, 1]) {
+        const fist = new THREE.Group();
+        const knuckles = new THREE.Mesh(new THREE.IcosahedronGeometry(0.032, 0), skinMat); knuckles.scale.set(1.05, 0.8, 1.3);
+        const thumb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.013, 0), skinMat); thumb.position.set(-side * 0.024, -0.008, -0.012);
+        const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.03, 0.16, 6), sleeveMat); wrist.rotation.x = Math.PI / 2 - 0.3; wrist.position.set(side * 0.006, -0.026, 0.085);
+        fist.add(knuckles, thumb, wrist);
+        fist.rotation.set(0.15, side * 0.12, side * -0.25);
+        fists.add(fist);
+      }
+      fists.visible = false;
+      camera.add(fists);
+      scene.add(camera);
+    }
+    // Drag the view to turn in the close and first-person views.
+    let dragX: number | null = null;
+    const dragDown = (e: PointerEvent) => { if (CAMERA_VIEW.mode !== "classic" && e.button === 0) dragX = e.clientX; };
+    const dragMove = (e: PointerEvent) => { if (dragX === null) return; CAMERA_VIEW.yaw += (e.clientX - dragX) * 0.006; dragX = e.clientX; };
+    const dragUp = () => { if (dragX !== null && CAMERA_VIEW.mode === "first") CAMERA_VIEW.punchAt = CAMERA_VIEW.punchAt; dragX = null; };
+    host.current?.addEventListener("pointerdown", dragDown);
+    window.addEventListener("pointermove", dragMove);
+    window.addEventListener("pointerup", dragUp);
 
     // ?time=day|dusk|night previews the lighting; otherwise it follows UK time.
     const forced = map.story ? "day" : new URLSearchParams(window.location.search).get("time");
@@ -3001,13 +3091,33 @@ export function World3D({
       const kinds = map.id === "m25"
         ? ["sedan", "van", "coupe", "suv-blue", "delivery", "estate", "muscle", "suv-red", "taxi", "coupe-yellow", "suv", "hatchback-sports", "suv-yellow", "sedan", "delivery", "estate", "coupe", "van"]
         : ["bus", "taxi", "sedan", "bus", "van", "delivery", "coupe", "suv-blue", "muscle", "suv-red", "estate", "coupe-yellow"];
+      // Riders sit inside every car and on both decks of each bus, visible through the glass.
+      const seatRiders = (g: THREE.Group, bus: boolean, seed: number) => {
+        if (disposed) return;
+        const saved = { p: g.position.clone(), r: g.rotation.clone() };
+        g.position.set(0, 0, 0); g.rotation.set(0, 0, 0); g.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(g), size = box.getSize(new THREE.Vector3()), mid = box.getCenter(new THREE.Vector3());
+        g.position.copy(saved.p); g.rotation.copy(saved.r);
+        const seats: [number, number, number][] = bus
+          ? [[-0.28, 0.12, 0.2], [0.02, 0.12, -0.2], [0.24, 0.12, 0.2], [-0.3, 0.55, -0.2], [-0.05, 0.55, 0.2], [0.2, 0.55, -0.2]]
+          : seed % 3 === 0 ? [[0.02, 0.2, 0.2], [0.02, 0.2, -0.2]] : [[0.02, 0.2, 0.2]];
+        seats.forEach(([fx, fy, fz], k) => {
+          const rider = makeBody(npcLook(500 + seed * 7 + k), null, true);
+          rider.root.children[0].visible = false; // no ground shadow inside a vehicle
+          rider.root.position.set(mid.x + fx * size.x, box.min.y + fy * size.y, mid.z + fz * size.z);
+          rider.root.rotation.y = Math.PI / 2; // face the direction of travel (+x)
+          rider.root.scale.setScalar(bus ? 0.82 : 0.7);
+          rider.root.userData.seated = true;
+          g.add(rider.root);
+        });
+      };
       kinds.forEach((k, i) => {
         const route = i % 3;
         const g = new THREE.Group();
         if (k === "bus") {
-          jobs.push(busModel(BUS_ROUTE_CODES[route]).then(b => { if (!disposed) g.add(b); }));
+          jobs.push(busModel(BUS_ROUTE_CODES[route]).then(b => { if (!disposed) { g.add(b); seatRiders(g, true, i); } }));
           g.userData.label = BUS_ROUTE_CODES[route];
-        } else void placeCar(g, k);
+        } else void placeCar(g, k).then(() => seatRiders(g, false, i));
         scene.add(g);
         // Motorway traffic is fast: inside lane steady, outside lane quickest.
         traffic.push({ obj: g, route, at: (i * 0.173) % 1, distance: 0, speed: map.id === "m25" ? [7, 8.5, 10][route] : [2.6, 2.8, 2.5][route] });
@@ -3169,6 +3279,7 @@ export function World3D({
     // Local ambient residents are fictional, scripted characters, separate from connected players.
     // Populate London and the Kharis woodland generously while keeping indoor rooms calmer.
     const residentLimit = map.kind === "home" || map.story || map.id === "branch" || map.id === "flight" ? 0 : Math.min(budget.residents, london || map.id === "woodland" ? budget.residents : highland || map.kind === "station" || map.kind === "campus" ? Math.max(12, budget.residents - 4) : Math.max(8, Math.floor(budget.residents / 2)));
+    const riderAt = new THREE.Vector3();
     const npcs = residentPaths(map, residentLimit).filter(path=>map.kind !== "prison" || path.x0<25&&path.x1<25).map((path, i) => {
       const body = makeBody(map.kind === "prison" ? {...npcLook(i),...PRISON_LOOK} : npcLook(i), null, true);
       const speech = speechMark(); body.root.add(speech);
@@ -3438,7 +3549,11 @@ export function World3D({
       // Face the way you're going.
       const dx = mx - lastMe.x;
       const dz = mz - lastMe.z;
-      if (Math.hypot(dx, dz) > 0.002) {
+      if (CAMERA_VIEW.mode !== "classic" && !p.heading) {
+        const ang = Math.atan2(Math.cos(CAMERA_VIEW.yaw), Math.sin(CAMERA_VIEW.yaw));
+        const difference = Math.atan2(Math.sin(ang - me.root.rotation.y), Math.cos(ang - me.root.rotation.y));
+        me.root.rotation.y += difference * (1 - Math.exp(-dt * 18));
+      } else if (Math.hypot(dx, dz) > 0.002) {
         const ang = Math.atan2(dx, dz);
         const difference = Math.atan2(Math.sin(ang - me.root.rotation.y), Math.cos(ang - me.root.rotation.y));
         me.root.rotation.y += difference * (1 - Math.exp(-dt * 18));
@@ -3492,6 +3607,30 @@ export function World3D({
       FOCUS.value.set(framing.x, 0, framing.z);
       camera.position.set(framing.x, framing.height, framing.z + framing.distance);
       camera.lookAt(framing.x, framing.target, framing.z);
+      // Close and first-person views (V to switch; drag or A/D to turn).
+      const view = overview || carRef.current ? "classic" : CAMERA_VIEW.mode;
+      const fx = Math.cos(CAMERA_VIEW.yaw), fz = Math.sin(CAMERA_VIEW.yaw), jumpY = p.jumpHeight ?? 0;
+      if (view === "behind") {
+        camera.position.set(mx - fx * 3.1, 2.05 + jumpY, mz - fz * 3.1);
+        camera.lookAt(mx + fx * 2.2, 0.95 + jumpY, mz + fz * 2.2);
+      } else if (view === "first") {
+        const bob = p.walking && !reduce ? Math.sin(secs * 9) * 0.025 : 0;
+        camera.position.set(mx + fx * 0.12, 1.02 + jumpY + bob, mz + fz * 0.12);
+        camera.lookAt(mx + fx * 4, 0.95 + jumpY + bob, mz + fz * 4);
+      }
+      if (view === "first" && !getHomeAction?.()) me.root.visible = false;
+      fists.visible = view === "first" && !getHomeAction?.();
+      if (fists.visible) {
+        const since = (performance.now() - CAMERA_VIEW.punchAt) / 1000, punch = since < 0.32 ? Math.sin((since / 0.32) * Math.PI) : 0;
+        const sway = p.walking && !reduce ? Math.sin(secs * 9) : 0;
+        fists.children[0].position.set(-0.11, -0.1 + sway * 0.008, -0.26);
+        fists.children[1].position.set(0.11, -0.1 - sway * 0.008 + punch * 0.04, -0.26 - punch * 0.14);
+      }
+      const fov = view === "first" ? 72 : view === "behind" ? 60 : camera.userData.baseFov ?? camera.fov;
+      const nearClip = view === "first" ? 0.05 : 0.5;
+      if (view !== "classic" && camera.userData.baseFov === undefined) camera.userData.baseFov = camera.fov;
+      if (camera.fov !== fov || camera.near !== nearClip) { camera.fov = fov; camera.near = nearClip; camera.updateProjectionMatrix(); }
+      if (view === "classic") camera.userData.baseFov = undefined;
       // Riding: the view rocks gently with the carriage.
       if (carriage) { camera.position.y += carriage.bump() * 1.6; camera.rotation.z += Math.sin(performance.now() / 650) * 0.0025 * Math.min(1, carriage.speed() / 8); }
       if (map.story && storyPhaseRef.current !== "explore") {
@@ -3882,7 +4021,14 @@ export function World3D({
       water.position.y = -0.3 + Math.sin(secs * 0.8) * 0.02;
       if(!reduce) river.texture.offset.x=secs*0.002;
       // Animate nearby visible bodies only; distant residents still follow their routes.
-      for (const body of bodies) if (body.char && body.root.visible && (body === me || body.root.position.distanceToSquared(me.root.position) < 28 * 28)) body.char.update(dt, reduce);
+      for (const body of bodies) {
+        if (!body.char || !body.root.visible) continue;
+        const seated = body.root.userData.seated;
+        const at = seated ? body.root.getWorldPosition(riderAt) : body.root.position;
+        if (body !== me && at.distanceToSquared(me.root.position) >= 28 * 28) continue;
+        if (seated) body.char.play("drive");
+        body.char.update(dt, reduce);
+      }
       const seatRider = (body: Body, cycle: THREE.Group, heading: number, moving: boolean, phase: number) => {
         if (!body.char) return;
         body.char.play("drive");
@@ -3992,6 +4138,7 @@ export function World3D({
 
     return () => {
       cancelAnimationFrame(raf);
+      host.current?.removeEventListener("pointerdown", dragDown); window.removeEventListener("pointermove", dragMove); window.removeEventListener("pointerup", dragUp);
       disposed = true;
       for (const body of bodies) body.dispose();
       for (const f of family) f.label.remove();
@@ -4055,6 +4202,8 @@ export function World3D({
       <button type="button" aria-label="Reset zoom to 165 percent" onClick={()=>setZoom(1.65)} className="min-h-11 min-w-14 rounded-full px-2 tabular-nums hover:bg-white/15">{Math.round(zoom*100)}%</button>
       <button type="button" aria-label="Zoom in" disabled={zoom>=2.4} onClick={()=>setZoom(value=>Math.min(2.4,value+.15))} className="grid size-11 place-items-center rounded-full text-xl hover:bg-white/15 disabled:opacity-30">+</button>
     </div>}
+    {!overview && <button type="button" data-hud="camera-view" aria-label={`Camera view: ${CAMERA_LABEL[view]}. Press V to change.`} onClick={(e) => { CAMERA_VIEW.mode = nextMode(CAMERA_VIEW.mode); window.dispatchEvent(new CustomEvent("kairos-camera-view", { detail: CAMERA_VIEW.mode })); e.currentTarget.blur(); }} className="absolute right-3 top-[290px] z-[100001] min-h-11 rounded-full border border-white/20 bg-[#21152e]/95 px-3 text-xs font-black text-white shadow-lg hover:bg-[#33204a]">View · {CAMERA_LABEL[view]} <span className="opacity-60">V</span></button>}
+    {!overview && view === "first" && <p data-hud="camera-hint" className="pointer-events-none absolute bottom-24 left-1/2 z-[100001] -translate-x-1/2 rounded-full bg-black/45 px-3 py-1 text-xs font-bold text-white">W/S walk · A/D or drag to turn · F punch · V change view</p>}
     {!overview && map.art === "london" && <CityBroadcast {...news} />}
   </>;
 }
