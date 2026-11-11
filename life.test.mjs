@@ -222,3 +222,28 @@ test("bodies grow from baby to elder", () => {
   assert.ok(L.bodyForAge(1).head > L.bodyForAge(30).head);
   assert.ok(L.bodyForAge(85).grey > 0.9 && L.bodyForAge(85).stoop > 0);
 });
+
+test("adding a year with the age circle brings a decision and a fresh issue, even for babies", () => {
+  const r = seeded(50);
+  let s = L.newLife({ random: true }, r);
+  s = L.ageUp(s, r, { issue: true });
+  assert.ok(s.pending, "babies face issues too");
+  const titles = [s.pending.title];
+  s = L.choose(s, 0, r);
+  for (let i = 0; i < 12 && s.alive; i++) {
+    s = L.ageUp(s, r, { issue: true });
+    let n = 0;
+    while (s.pending) { titles.push(s.pending.title); s = L.choose(s, 0, r); n++; }
+    if (s.age >= 3) assert.ok(n >= 2, `age ${s.age}: decision plus issue`);
+  }
+  assert.ok(new Set(titles).size > 8, "issues vary");
+  for (const iss of L.ISSUES) { assert.ok(iss.options.length >= 2, iss.id); assert.ok(iss.stages.length, iss.id); }
+});
+
+test("branches are planted only in UK cities Kharis hasn't reached", () => {
+  for (const c of L.KHARIS_BRANCHES) assert.ok(!L.UNREACHED_CITIES.includes(c));
+  const r = seeded(51);
+  let s = { ...L.newLife({ random: true }, r), age: 35, saved: true, money: 9000, faith: { walk: 80, witness: 30, fruit: 40, drift: 0 } };
+  s = L.act(s, "plant-branch", r);
+  assert.ok(s.branch && L.UNREACHED_CITIES.includes(s.branch.city));
+});

@@ -59,6 +59,7 @@ import { curvedVertexShader, immersiveMotion, physicalSurface, visualProfile, ty
 import { STATION_PLATFORM_Y } from "@/game/core/world";
 import { AIRPORT, TILE, blocked, roadEnds, type Portal, type WorldMap } from "@/game/core/world";
 import { CHURCH_SCREEN, wrapLines } from "@/game/core/church-service";
+import { LIFE_WORLD, familySeed, flightAltitude } from "@/game/core/life-world";
 
 /**
  * The live 3D world (three.js), viewed like Animal Crossing: a tilted camera that
@@ -1516,7 +1517,7 @@ function interior(world: THREE.Group, map: WorldMap, jobs: Promise<unknown>[], s
   const g = new THREE.Group();
   world.add(g);
   // Blender-built interiors (Kharis sanctuary, Pizzazz) replace the tile walls and floor.
-  const builtInterior = map.id === "church" ? "/world3d/spurgeons-interior.glb?v=2" : map.id === "workplace-pizzazz" ? "/world3d/pizzazz-interior.glb?v=1" : map.id === "flight" ? "/world3d/plane-cabin.glb?v=2" : null;
+  const builtInterior = map.id === "church" || map.id === "branch" ? "/world3d/spurgeons-interior.glb?v=2" : map.id === "workplace-pizzazz" ? "/world3d/pizzazz-interior.glb?v=1" : map.id === "flight" ? "/world3d/plane-cabin.glb?v=2" : null;
   if (builtInterior) {
     jobs.push(load(builtInterior).then(gltf => {
       const hall = gltf.scene.clone(true);
@@ -2645,10 +2646,10 @@ export function World3D({
     const congregation: Body[] = [];
     let churchScreen: { tex: THREE.CanvasTexture; ctx: CanvasRenderingContext2D; version: number } | null = null;
     let preacher: Body | null = null;
-    if (map.id === "church") {
+    if (map.id === "church" || map.id === "branch") {
       const seats: { x: number; z: number }[] = [];
       for (let z = 7.7; z < 18.6; z += 1.2) for (const x0 of [3.5, 15.5]) for (let x = x0; x < x0 + 6.5; x += 1.05) seats.push({ x, z });
-      const limit = Math.min(seats.length, Math.max(70, budget.residents * 5)); // packed, front to back
+      const limit = map.id === "branch" ? Math.min(seats.length, LIFE_WORLD.branch?.members ?? 12) : Math.min(seats.length, Math.max(70, budget.residents * 5)); // packed, front to back
       seats.filter((_, i) => (i * 7) % 10 < 9).slice(0, limit).forEach((seat, i) => {
         const b = makeBody(npcLook(i + 140), null, true);
         b.root.position.set(seat.x, 0.18, seat.z);
@@ -2719,6 +2720,20 @@ export function World3D({
         bendAll(ferryBoat); world.add(ferryBoat);
       }));
     }
+    // Kairos Life: your family, at home and outside your house on London Square.
+    const family: { b: Body; label: HTMLElement; x: number; z: number; phase: number }[] = [];
+    const familyHome = map.kind === "home" ? { x: map.spawn.x / TILE, z: map.spawn.y / TILE - 2 } : map.id === "city" ? { x: 35, z: 41.5 } : null;
+    if (familyHome) LIFE_WORLD.family.slice(0, 8).forEach((m, i) => {
+      const look = { ...npcLook(familySeed(m.name)), lifeAge: m.age } as Avatar;
+      const b = makeBody(look, null, false);
+      const a = (i / Math.max(1, LIFE_WORLD.family.length)) * Math.PI * 2;
+      const x = familyHome.x + Math.cos(a) * 1.6, z = familyHome.z + Math.sin(a) * 1.2;
+      b.root.position.set(x, 0, z);
+      scene.add(b.root);
+      const label = makeNameplate(`${m.name.split(" ")[0]} · ${m.relation}`, null);
+      el.appendChild(label);
+      family.push({ b, label, x, z, phase: i * 1.7 });
+    });
     const drawChurchScreen = () => {
       if (!churchScreen) return;
       const { ctx, tex } = churchScreen, W = 1280, H = 720;
@@ -2737,7 +2752,7 @@ export function World3D({
         ctx.fillText(`${CHURCH_SCREEN.title} · KJV`, W / 2, H - 35);
       } else {
         ctx.fillStyle = "#f5b83d"; ctx.font = "900 92px system-ui, sans-serif";
-        ctx.fillText("KHARIS CHURCH", W / 2, H / 2 - 70);
+        ctx.fillText(map.id === "branch" ? `KHARIS ${(LIFE_WORLD.branch?.name ?? "").toUpperCase()}` : "KHARIS CHURCH", W / 2, H / 2 - 70);
         ctx.fillStyle = "#ffffff"; ctx.font = "600 44px system-ui, sans-serif";
         ctx.fillText("Sunday Service · 2:00pm", W / 2, H / 2 + 20);
         ctx.fillStyle = "#c7b8ea"; ctx.font = "600 32px system-ui, sans-serif";
@@ -3039,7 +3054,7 @@ export function World3D({
 
     // Local ambient residents are fictional, scripted characters, separate from connected players.
     // Populate London and the Kharis woodland generously while keeping indoor rooms calmer.
-    const residentLimit = map.kind === "home" || map.story ? 0 : Math.min(budget.residents, london || map.id === "woodland" ? budget.residents : highland || map.kind === "station" || map.kind === "campus" ? Math.max(12, budget.residents - 4) : Math.max(8, Math.floor(budget.residents / 2)));
+    const residentLimit = map.kind === "home" || map.story || map.id === "branch" || map.id === "flight" ? 0 : Math.min(budget.residents, london || map.id === "woodland" ? budget.residents : highland || map.kind === "station" || map.kind === "campus" ? Math.max(12, budget.residents - 4) : Math.max(8, Math.floor(budget.residents / 2)));
     const npcs = residentPaths(map, residentLimit).filter(path=>map.kind !== "prison" || path.x0<25&&path.x1<25).map((path, i) => {
       const body = makeBody(map.kind === "prison" ? {...npcLook(i),...PRISON_LOOK} : npcLook(i), null, true);
       const speech = speechMark(); body.root.add(speech);
@@ -3635,6 +3650,19 @@ export function World3D({
       updateCrash(now);
       updateDelivery(now);
       storyScene?.update(secs, { x: me.root.position.x, z: me.root.position.z }, STORY_FOUND.found);
+      for (const f of family) {
+        // Family pottering about: a few steps, a pause, a turn.
+        const t = secs * 0.4 + f.phase, step = Math.sin(t) * 0.6;
+        const nx = f.x + step, nz = f.z + Math.cos(t * 0.7) * 0.3;
+        const moving = Math.abs(Math.cos(t)) > 0.35;
+        if (moving) f.b.root.rotation.y = Math.atan2(nx - f.b.root.position.x, nz - f.b.root.position.z);
+        f.b.root.position.set(nx, 0, nz);
+        setWalking(f.b, moving);
+        const lp = projectedPoint.set(nx, 1.5, nz).project(camera);
+        const lx = (lp.x + 1) * viewportWidth / 2, ly = (1 - lp.y) * viewportHeight / 2;
+        f.label.style.left = `${lx}px`; f.label.style.top = `${ly}px`;
+        f.label.style.visibility = lp.z < 1 && lx > 0 && lx < viewportWidth && ly > 0 && ly < viewportHeight && !overview ? "visible" : "hidden";
+      }
       if (airliner) {
         // Every 70 s: wait at the gate, taxi to the runway, roll and climb away, then a new jet arrives.
         const t = (now / 1000) % 70;
@@ -3643,7 +3671,11 @@ export function World3D({
       }
       if (flyers.length) {
         for (const b of flyers) b.char?.play("sit");
-        for (const c of clouds.children) { c.position.x += dt * 9; if (c.position.x > 44) c.position.x -= 64; }
+        // Climb through the clouds after take-off and drop back through them to land.
+        const alt = flightAltitude(Date.now());
+        clouds.position.y = 5 - alt * 5;
+        for (const c of clouds.children) { c.position.x += dt * (4 + alt * 8); if (c.position.x > 44) c.position.x -= 64; }
+        camera.position.y += Math.sin(now / 90) * 0.01 * (1 - alt);
       }
       if (ferryBoat) { ferryBoat.position.y = -1.0 + Math.sin(now / 900) * 0.06; ferryBoat.rotation.z = Math.sin(now / 1300) * 0.02; }
       if (congregation.length) {
@@ -3798,6 +3830,7 @@ export function World3D({
       cancelAnimationFrame(raf);
       disposed = true;
       for (const body of bodies) body.dispose();
+      for (const f of family) f.label.remove();
       carriage?.dispose();
       if (delivery) { delivery.group.removeFromParent(); delivery.driver.dispose(); }
       storyScene?.dispose();

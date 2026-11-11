@@ -16,7 +16,22 @@ function mount(profile:{id:string;name:string;appearance?:unknown}){
   if(mounted)return;mounted=true;
   // The iframe has its own storage view, scoped to the selected KairosHub player.
   const prefix=`kairos-world:${profile.id}:`;
-  const storage=scopedStorage(originalStorage,prefix);
+  // Online quick play uses the player's own world data. Offline Kairos Life gives every
+  // life its own, separate storage: a new character starts with a new phone, contacts,
+  // money, home and progress, and nothing in a life is linked back to the online profile.
+  const root=scopedStorage(originalStorage,prefix);
+  const asked=new URLSearchParams(location.search).get('mode');
+  if(asked==='offline'||asked==='online')root.setItem('life-mode',asked);
+  const mode=root.getItem('life-mode');
+  let lifeId:string|null=null;try{lifeId=JSON.parse(root.getItem('life-current')||'null')?.id??null;}catch{}
+  const offline=mode==='offline'&&!!lifeId;
+  const storage=offline?scopedStorage(originalStorage,`${prefix}life:${lifeId}:`):root;
+  if(offline&&root.getItem('life-fresh')){
+    // A brand-new life: every needs bar starts full.
+    const now=Date.now();storage.setItem('illuminated:needs',JSON.stringify({energy:100,focus:100,mood:100,hunger:100,social:100,hygiene:100,at:now}));
+    root.removeItem('life-fresh');
+  }
+  (window as any).__kairosRoot=root;(window as any).__kairosOffline=mode==='offline';
   Object.defineProperty(window,'localStorage',{value:storage,configurable:true});
   function Game(){
   const [,update]=useState(0);useEffect(()=>{const refresh=()=>update(n=>n+1);window.addEventListener('kairos-world:refresh',refresh);return()=>window.removeEventListener('kairos-world:refresh',refresh);},[]);

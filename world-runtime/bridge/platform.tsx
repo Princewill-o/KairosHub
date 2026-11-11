@@ -11,6 +11,8 @@ export function useWorld({start,me}:any){
     reportMove:(...args:any[])=>{position.current=args;},stopped:()=>{},say:()=>{},sendChat:async()=> 'Explore alongside the local characters. Visit Together to return to Kairos World.'}),[]);
 }
 export async function recordKairosActivity(activity:string){
+  // Offline Kairos Life is never reported to the online profile.
+  if((window as any).__kairosOffline)return;
   const key='activity-summary';let summary:any={};try{summary=JSON.parse(localStorage.getItem(key)||'{}');}catch{}
   summary[activity]=(Number(summary[activity])||0)+1;try{localStorage.setItem(key,JSON.stringify(summary));}catch{}
   parent.postMessage({type:'kairos-world:activity',activity},location.origin);

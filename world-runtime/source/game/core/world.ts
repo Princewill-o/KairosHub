@@ -1224,3 +1224,9 @@ export function greaterLondonMap(): WorldMap {
   m.portals.push({ id: "to-square", rect: px(2, Math.floor(m.rows / 2), 1, 2), label: "London Square", to: { kind: "map", mapId: "city", label: "London Square" } });
   return { ...m, id: "greater-london", name: "Greater London" };
 }
+
+/** The Kharis branch you planted: the same sanctuary, filled with the members you've gathered. */
+export function branchMap(cityName: string): WorldMap {
+  const m = churchMap();
+  return { ...m, id: "branch", name: `Kharis ${cityName}`, portals: [{ id: "branch-home", rect: px(12, 21, 2, 1), label: "Fly home to London", to: { kind: "map", mapId: "flight", label: "Kairos Air" } }] };
+}

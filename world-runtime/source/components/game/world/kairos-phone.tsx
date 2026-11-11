@@ -16,6 +16,7 @@ import { ANNOUNCEMENTS, KHARIS_CHANNEL, SERMONS, SEASONS, embedUrl, latestEmbedU
 import { readVisualQuality, type VisualQuality } from "@/game/core/visual-quality";
 import { LowPolyIcon, LowPolyWallpaper } from "./lowpoly-icons";
 import { FriendsChatApp } from "./friends-app";
+import { LIFE_WORLD } from "@/game/core/life-world";
 
 type AppId =
   | "phone" | "messages" | "prayer" | "bible" | "tv" | "maps" | "friends" | "grace"
@@ -131,7 +132,7 @@ export function KairosPhone(props: PhoneActions) {
               </button>
             </div>
             <div className="kp-grid">
-              {APPS.map((a) => (
+              {APPS.filter((a) => !((globalThis as { __kairosOffline?: boolean }).__kairosOffline && a.id === "chat")).map((a) => (
                 <button key={a.id} className="kp-app" onClick={() => open(a.id)} aria-label={a.name + (badge[a.id] ? `, ${badge[a.id]} waiting` : "")}>
                   <LowPolyIcon name={a.name} glyph={a.glyph} color={a.color} image={a.image} />
                   {badge[a.id] ? <i className="kp-badge">{badge[a.id]}</i> : null}
@@ -158,6 +159,7 @@ export function KairosPhone(props: PhoneActions) {
             </header>
             <div className="kp-appbody">
               {app === "prayer" && <PrayerApp save={save} update={update} accent={season.accent} />}
+              {app === "phone" && <FamilyCalls />}
               {(app === "followups" || app === "phone" || app === "messages") && <FollowUpsApp save={save} update={update} mode={app} />}
               {app === "tv" && <KharisTV />}
               {app === "friends" && <FellowshipApp save={save} update={update} />}
@@ -441,6 +443,34 @@ function SettingsApp() {
         ))}
         <p className="kp-muted">Resolution also adjusts automatically when frames drop.</p>
       </div>
+    </div>
+  );
+}
+
+/** Kairos Life: your family is in your call list. Calling them strengthens the relationship. */
+const FAMILY_LINES = [
+  { text: "\"Just ringing to see how you are.\"", kind: "care", reply: (n: string) => `${n}: "That's so kind. I'm doing alright, love."` },
+  { text: "\"Can we pray together for a minute?\"", kind: "pray", reply: (n: string) => `${n}: "Yes, please. I needed that."` },
+  { text: "\"I've got some news to share…\"", kind: "news", reply: (n: string) => `${n}: "Tell me everything!"` },
+];
+function FamilyCalls() {
+  const family = LIFE_WORLD.family;
+  const [on, setOn] = useState<string | null>(null);
+  const [reply, setReply] = useState<string | null>(null);
+  if (!family.length) return null;
+  if (on) return (
+    <div className="kp-stack">
+      <div className="kp-thread"><p className="kp-sys">On a call with {on}</p>{reply && <p className="kp-bubble them">{reply}</p>}</div>
+      {!reply ? FAMILY_LINES.map((l) => <button key={l.kind} className="kp-option" onClick={() => {
+        setReply(l.reply(on.split(" ")[0]));
+        window.dispatchEvent(new CustomEvent("kairos-life:family-call", { detail: { name: on, kind: l.kind } }));
+      }}>{l.text}</button>) : <button className="kp-primary" onClick={() => { setOn(null); setReply(null); }}>Hang up</button>}
+    </div>
+  );
+  return (
+    <div className="kp-stack">
+      <p className="kp-sys">Family</p>
+      {family.map((m) => <button key={m.name} className="kp-option" onClick={() => setOn(m.name)}>Call {m.name} · {m.relation}, {m.age}</button>)}
     </div>
   );
 }

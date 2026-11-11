@@ -26,26 +26,27 @@ const put = (k: string, v: string) => { memory.set(k, v); try { localStorage.set
 export const worldDay = (d: Date) => Math.floor(d.getTime() / 86_400_000);
 const ACTIVITY: Record<string, keyof typeof L.CREDITS> = { eat: "eat", meal: "eat", hike: "exercise", medicine: "checkup" };
 
-/** Saved life and play mode for this player. #life asks for offline mode. */
-export function useKairosLife(playerId: string) {
-  const lifeKey = `kairos-world:${playerId}:life`, modeKey = `kairos-world:${playerId}:mode`;
-  const [mode, setModeState] = useState<PlayMode | null>(() => {
-    const asked = new URLSearchParams(location.search).get("mode");
-    if (asked === "offline" || asked === "online") { put(modeKey, asked); return asked; }
-    const m = get(modeKey);
-    return m === "offline" || m === "online" ? m : null;
-  });
-  const [life, setLife] = useState<Life | null>(() => L.restore(get(lifeKey) ?? "") as Life | null);
+/**
+ * Saved life and play mode, kept in the player's root world storage. Each life's own
+ * world data (phone, contacts, wallet, home, needs, progress) lives in a separate
+ * storage scope chosen at start-up, so changing mode or starting a life reloads the world.
+ */
+type Root = { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void };
+const root = (): Root => (globalThis as { __kairosRoot?: Root }).__kairosRoot ?? { getItem: get, setItem: put, removeItem: (k) => { memory.delete(k); try { localStorage.removeItem(k); } catch { /* fine */ } } };
+const reloadWorld = () => setTimeout(() => location.replace(location.pathname + "?map=city"), 60);
+export function useKairosLife(_playerId: string) {
+  const [mode] = useState<PlayMode | null>(() => { const m = root().getItem("life-mode"); return m === "offline" || m === "online" ? m : null; });
+  const [life, setLife] = useState<Life | null>(() => L.restore(root().getItem("life-current") ?? "") as Life | null);
   const ref = useRef(life); ref.current = life;
   const update = useCallback((f: (l: Life) => Life | null) => {
     const cur = ref.current;
     const next = cur ? f(cur) : null;
     ref.current = next;
-    if (next) put(lifeKey, L.serialise(next)); else put(lifeKey, "");
-    setLife(next);
-  }, [lifeKey]);
-  const begin = useCallback((next: Life) => { ref.current = next; put(lifeKey, L.serialise(next)); setLife(next); }, [lifeKey]);
-  const setMode = useCallback((m: PlayMode) => { put(modeKey, m); setModeState(m); }, [modeKey]);
+    if (next) { root().setItem("life-current", L.serialise(next)); setLife(next); }
+    else { root().removeItem("life-current"); reloadWorld(); }
+  }, []);
+  const begin = useCallback((next: Life) => { root().setItem("life-current", L.serialise(next)); root().setItem("life-fresh", "1"); reloadWorld(); }, []);
+  const setMode = useCallback((m: PlayMode) => { root().setItem("life-mode", m); reloadWorld(); }, []);
   const credit = useCallback((kind: string) => {
     if (mode !== "offline") return;
     update((l) => L.credit(l, kind, rng) as Life);
@@ -56,10 +57,18 @@ export function useKairosLife(playerId: string) {
     const onNeed = (e: Event) => { const k = ACTIVITY[String((e as CustomEvent).detail)]; if (k) credit(k); };
     let prayedAt = readMinistry(localStorage).prayer.at;
     const onMinistry = () => { const m = readMinistry(localStorage); if (m.prayer.at !== prayedAt) { prayedAt = m.prayer.at; credit("pray"); } };
+    const onFamily = (e: Event) => {
+      const { name, kind } = (e as CustomEvent<{ name: string; kind: string }>).detail;
+      update((l) => {
+        const next = { ...l, happiness: Math.min(100, l.happiness + 3), family: l.family.map((p) => p.name === name ? { ...p, closeness: Math.min(100, p.closeness + 6) } : p) };
+        return (kind === "pray" ? L.credit(next, "pray", rng) : next) as Life;
+      });
+    };
+    window.addEventListener("kairos-life:family-call", onFamily);
     window.addEventListener("illuminated:needs", onNeed);
     window.addEventListener("kairos-ministry-updated", onMinistry);
-    return () => { window.removeEventListener("illuminated:needs", onNeed); window.removeEventListener("kairos-ministry-updated", onMinistry); };
-  }, [mode, credit]);
+    return () => { window.removeEventListener("illuminated:needs", onNeed); window.removeEventListener("kairos-life:family-call", onFamily); window.removeEventListener("kairos-ministry-updated", onMinistry); };
+  }, [mode, credit, update]);
   return { mode, setMode, life, update, begin, credit };
 }
 
@@ -131,17 +140,22 @@ export function NewLife({ onBorn, onOnline }: { onBorn: (l: Life) => void; onOnl
   );
 }
 
-/** Top-left chip: who you are, how old, the year passing. */
-export function LifeChip({ life, gameDate, onOpen }: { life: Life; gameDate: Date; onOpen: () => void }) {
+/** Top chip: who you are, how old, the year passing, and the age circle to add a year yourself. */
+export function LifeChip({ life, gameDate, onOpen, onAge }: { life: Life; gameDate: Date; onOpen: () => void; onAge: () => void }) {
   const st = L.stageFor(life.age);
   const p = (gameDate.getUTCHours() * 60 + gameDate.getUTCMinutes()) / 1440;
   const r = 15, c = 2 * Math.PI * r;
   return (
-    <button type="button" data-hud="kairos-life" className="kl-chip" onClick={onOpen} aria-label={`Kairos Life: ${life.name.first}, age ${life.age}. Open life`}>
-      <svg viewBox="0 0 40 40" aria-hidden><circle cx="20" cy="20" r={r} className="kl-ring-bg" /><circle cx="20" cy="20" r={r} className="kl-ring" strokeDasharray={`${c * p} ${c}`} transform="rotate(-90 20 20)" /><text x="20" y="25" textAnchor="middle">{life.age}</text></svg>
-      <span><b>{life.name.first}</b><small>{st.label} · Health {life.health} · Walk {life.faith.walk}</small></span>
-      {life.faith.drift >= 3 && <em>Drifting</em>}
-    </button>
+    <div data-hud="kairos-life" className="kl-life-hud">
+      <button type="button" className="kl-chip" onClick={onOpen} aria-label={`Kairos Life: ${life.name.first}, age ${life.age}. Open life`}>
+        <svg viewBox="0 0 40 40" aria-hidden><circle cx="20" cy="20" r={r} className="kl-ring-bg" /><circle cx="20" cy="20" r={r} className="kl-ring" strokeDasharray={`${c * p} ${c}`} transform="rotate(-90 20 20)" /><text x="20" y="25" textAnchor="middle">{life.age}</text></svg>
+        <span><b>{life.name.first}</b><small>{st.label} · Health {life.health} · Walk {life.faith.walk}</small></span>
+        {life.faith.drift >= 3 && <em>Drifting</em>}
+      </button>
+      <button type="button" className="kl-age" onClick={onAge} disabled={!!life.pending} aria-label={`Add a year: become ${life.age + 1}. New challenges will come.`} title="Add a year">
+        <span aria-hidden>+1</span><small aria-hidden>age</small>
+      </button>
+    </div>
   );
 }
 
@@ -207,8 +221,20 @@ export function LifePanel({ life, gameDate, hasCar, onAct, onAgeUp, onPickup, on
   );
 }
 
+/** Live Kharis updates from kharis.org (via /api/kharis), remembered for offline play. */
+export type KharisUpdates = { latestMessage: { video: string; title: string; href: string } | null; notices: { title: string; detail: string; href?: string }[]; fetchedAt?: string };
+export function useKharisUpdates() {
+  const [u, setU] = useState<KharisUpdates | null>(() => { try { return JSON.parse(get("kharis-updates") || "null"); } catch { return null; } });
+  useEffect(() => {
+    const ctl = new AbortController();
+    fetch("/api/kharis", { signal: ctl.signal }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.latestMessage || d?.notices?.length) { setU(d); put("kharis-updates", JSON.stringify(d)); } }).catch(() => {});
+    return () => ctl.abort();
+  }, []);
+  return u;
+}
+
 /** The 2pm service: a one-minute David Antwi excerpt and the KJV passage on the big screen. */
-export function ChurchService({ guests, onDone, onLeave }: { guests: string[]; onDone: () => void; onLeave: () => void }) {
+export function ChurchService({ guests, onDone, onLeave, updates }: { guests: string[]; onDone: () => void; onLeave: () => void; updates?: KharisUpdates | null }) {
   const svc = useMemo(() => {
     const s = series[Math.floor(Math.random() * series.length)], ep = s.episodes[Math.floor(Math.random() * s.episodes.length)];
     return { video: s.video, title: s.message, start: ep.clip.start, end: ep.clip.start + 60, reading: ep.reading as string, attendance: 220 + Math.floor(Math.random() * 200) + guests.length };
@@ -231,6 +257,7 @@ export function ChurchService({ guests, onDone, onLeave }: { guests: string[]; o
     <section role="dialog" aria-labelledby="kl-svc" className="ks-card kl-service">
       <p className="ks-eyebrow">Sunday · 2:00pm · Kharis Church · {svc.attendance} people</p>
       <h2 id="kl-svc">{stage === "welcome" ? (guests.length ? `${guests.join(" and ")} ${guests.length > 1 ? "are" : "is"} sitting with you` : "Welcome home") : stage === "word" ? svc.title : "The service has ended"}</h2>
+      {updates && (updates.latestMessage || updates.notices.length > 0) && <p className="kl-live"><b>From kharis.org</b>{updates.latestMessage && <> · Latest message: <a href={updates.latestMessage.href} target="_blank" rel="noopener noreferrer">{updates.latestMessage.title}</a></>}{updates.notices.map((n) => <span key={n.title}> · {n.detail}</span>)}</p>}
       {stage === "welcome" && <><p>The hall is packed. Worship ends, announcements are read, and the passage goes up on the big screen: <b>{svc.reading}</b>.</p><div className="kl-row"><button type="button" className="kl-go" onClick={() => setStage("word")}>Hear the word (1 minute)</button><button type="button" className="kl-ghost" onClick={onLeave}>Leave</button></div></>}
       {stage === "word" && <><div className="kl-video"><iframe title={`${svc.title}, David Antwi`} src={src} allow="autoplay; encrypted-media" referrerPolicy="strict-origin-when-cross-origin" /></div><p className="ks-muted">David Antwi · {left}s left · <a href={`https://www.youtube.com/watch?v=${svc.video}&t=${svc.start}s`} target="_blank" rel="noopener noreferrer">Full sermon</a></p><button type="button" className="kl-ghost" onClick={() => setStage("done")}>Skip to the end</button></>}
       {stage === "done" && <><p>{guests.length ? "Your guests stay behind to ask questions over refreshments." : "You chat with people over refreshments before heading home."}</p><button type="button" className="kl-go" onClick={onDone}>Finish</button></>}

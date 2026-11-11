@@ -1,11 +1,13 @@
 import {handleFamilyBackend} from './family-backend.mjs';
 import {handleScripture} from './scripture.mjs';
 import {handleWorldScripture} from './world-scripture.mjs';
+import {handleKharisUpdates} from './kharis-updates.mjs';
 const backend='https://kairos-story-games.packzpackz50.chatgpt.site';
 export async function handleVercelApi(request, fetcher=fetch) {
  const url=new URL(request.url),origin=request.headers.get('origin');
  if(origin && origin!==url.origin)return Response.json({error:'Please open the game on its own site.'},{status:403});
  if(url.pathname==='/api/scripture')return handleScripture(request,fetcher);
+ if(url.pathname==='/api/kharis')return handleKharisUpdates(request,fetcher);
  const family=/^\/api\/family(?:\/(?:signup|login|logout|session|children|play|children\/[a-f0-9-]{36}\/progress))?$/.test(url.pathname);
  if(family)return handleFamilyBackend(request,{},fetcher);
  if(url.pathname.startsWith('/api/scripture/'))return handleWorldScripture(request,{},fetcher);

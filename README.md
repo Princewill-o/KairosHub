@@ -150,6 +150,16 @@ In Kairos Life, each year brings one decision in the world (health, spiritual, r
 
 **Church pick-ups and the 2pm service.** Invite people through Phone → Follow-ups; then *Pick up in my car* from the Life panel sets a waypoint where they wait. Drive there and they get in. In Kharis Church the 2pm service runs with a packed seated congregation, a preacher on the stage, a giant EasyWorship-style screen showing the KJV passage, and a one-minute David Antwi excerpt from the PlayMessages catalogue. Offline, the service is on from late morning to evening every game day (a day is a year); online it keeps Sunday 2pm. A 2pm announcement goes out across London.
 
+**The age circle.** Beside the Life chip is a gold **+1 age** circle. Press it to add a year yourself: the year's decision comes first, then a fresh life issue on top (fevers and jabs for babies; falls, bullying, parents separating and online strangers for children; rent, redundancy, a lump, panic, persecution and prodigal children for adults; hospital stays and pension worries for elders). Otherwise a year still passes each game day.
+
+**Cutscenes.** Birth, every yearly decision and issue, arriving at church (your guests in the car, Spurgeon's College), take-off, landing and the ferry play as short letterboxed 3D scenes with your own character at their current age.
+
+**A fresh start for every life.** Each life has its own storage scope (`kairos-world:<player>:life:<life id>:`): a new character starts with a new phone, contacts, wallet, home, needs (all bars full) and progress. Offline play runs solo, hides the online Friends app and never reports activity to the online profile. The HUD and name tag show the life's name. Your family (parents, siblings, partner, children) appear at home and outside your house, and are in your Phone call list. You can't evangelise until 13.
+
+**Branches.** A plant goes to a UK city Kharis hasn't reached (kharis.org lists the existing branches). Fly there from Kairos International's Departures board to see your branch's members in the sanctuary.
+
+**Live from kharis.org.** `/api/kharis` reads kharis.org for the latest message and notices (cached an hour; no feed is published). They appear at the 2pm service and in the 2pm announcement, and are remembered for offline play.
+
 ## Travel
 
 - **Greater London** — the full generated city (176 × 136 tiles, Thames, 12 Underground entrances that join the Grace Line), west of London Square along the A4.

@@ -18,6 +18,9 @@ const pick = (r, list) => list[Math.floor(r() * list.length)];
 const clamp = (v, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, Math.round(v)));
 const between = (r, lo, hi) => lo + Math.floor(r() * (hi - lo + 1));
 
+/** Old enough to share the gospel on your own: from 13. */
+export const PREACH_AGE = 13;
+
 export const STAGES = [
   { id: "baby", label: "Baby", min: 0, max: 2, milestone: "You were born." },
   { id: "child", label: "Child", min: 3, max: 12, milestone: "You're a child now — nursery, then primary school." },
@@ -32,7 +35,14 @@ export const CITIES = [
   ["london", "London"], ["manchester", "Manchester"], ["birmingham", "Birmingham"], ["leeds", "Leeds"],
   ["bristol", "Bristol"], ["glasgow", "Glasgow"], ["cardiff", "Cardiff"], ["brighton", "Brighton"],
   ["luton", "Luton"], ["coventry", "Coventry"], ["nottingham", "Nottingham"], ["liverpool", "Liverpool"],
+  ["chatham", "Chatham"], ["chelmsford", "Chelmsford"], ["croydon", "Croydon"], ["northampton", "Northampton"],
+  ["orpington", "Orpington"], ["reading", "Reading"], ["sheffield", "Sheffield"], ["edinburgh", "Edinburgh"],
+  ["newcastle", "Newcastle"], ["leicester", "Leicester"], ["southampton", "Southampton"], ["cambridge", "Cambridge"],
+  ["oxford", "Oxford"], ["plymouth", "Plymouth"], ["norwich", "Norwich"], ["belfast", "Belfast"],
 ].map(([id, name]) => ({ id, name }));
+/** Kharis branches listed on kharis.org (UK). A new plant goes somewhere not yet reached. */
+export const KHARIS_BRANCHES = ["london", "birmingham", "brighton", "bristol", "chatham", "chelmsford", "coventry", "croydon", "luton", "manchester", "northampton", "nottingham", "orpington", "reading"];
+export const UNREACHED_CITIES = CITIES.map((c) => c.id).filter((id) => !KHARIS_BRANCHES.includes(id));
 export const cityName = (id) => CITIES.find((c) => c.id === id)?.name || id;
 
 const FIRST = {
@@ -68,7 +78,7 @@ export function newLife(opts = {}, r = Math.random) {
     saved: false, savedAge: null, churchYears: 0, servicesThisYear: 0,
     family, partner: null, job: null, education: "none", car: null, contacts: [], branch: null, illness: null,
     log: [{ age: 0, kind: "birth", text: `You were born in ${cityName(d.city)}${home ? " into a Christian home" : ""}.` }],
-    recent: [], pending: null, ending: null, notice: null, cause: null,
+    recent: [], queue: [], pending: null, ending: null, notice: null, cause: null,
     year: { acts: 0, faith: 0, exercise: 0, diet: 0, checkup: 0 },
   };
 }
@@ -158,6 +168,36 @@ export const TEMPTATIONS = [
   ev("t-smoke-adult", "temptation", GROWN, "Stressful week", "You think about smoking again.", [o("Go for a run instead", { health: 3, habit: { exercise: 1 } }), o("Buy a pack", { health: -8, habit: { smoking: 1 } })]),
 ];
 
+/** Life issues: when you add a year yourself, one of these lands on top of the year's decision. */
+const BABY = ["baby"];
+export const ISSUES = [
+  ev("i-fever", "health", BABY, "A fever in the night", "You're burning hot and won't settle. Your parents have to decide what to do.", [o("Ring 111 and get you seen", { health: 6 }), o("Wait until morning", { health: -6, risk: 0.01 })]),
+  ev("i-jabs", "health", BABY, "Baby jabs", "The surgery sends a reminder for your vaccinations.", [o("Your parents book them", { health: 5 }), o("They let it slide", { health: -5, risk: 0.01 })]),
+  ev("i-dedication", "spiritual", BABY, "Baby dedication", "The church offers to pray over you and your parents.", [o("Your parents dedicate you to God", { walk: 6, happiness: 3 }), o("They decide not to", {})]),
+  ev("i-sleepless", "relationships", BABY, "Sleepless parents", "Nobody in the house has slept properly for weeks.", [o("Church families bring meals and help", { happiness: 5 }), o("They struggle on alone", { happiness: -4 })]),
+  ev("i-broken-arm", "health", ["child", "teen"], "A bad fall", "You fall off a climbing frame and your arm looks wrong.", [o("A&E straight away", { health: 4, happiness: -2 }), o("Hide it from your parents", { health: -10, risk: 0.01 })]),
+  ev("i-parents-split", "relationships", ["child", "teen"], "Your parents separate", "Your parents tell you they're separating.", [o("Pray and talk to a youth leader", { walk: 4, happiness: -4 }), o("Blame God and stop praying", { walk: -8, drift: 2, happiness: -8 })]),
+  ev("i-mocked", "spiritual", ["child", "teen"], "Laughed at for Jesus", "Your class laughs when they find out you go to church.", [o("Stay kind and keep your faith", { witness: 4, walk: 4, happiness: -2 }), o("Say you don't really believe", { walk: -8, drift: 1 })]),
+  ev("i-grades", "work", ["child", "teen"], "Falling behind", "Your report says you're falling behind.", [o("Ask for help and make a plan", { smarts: 6 }), o("Pretend it's fine", { smarts: -5 })]),
+  ev("i-new-school", "relationships", KIDS, "A new school", "Your family moves and you start a school where you know nobody.", [o("Say hello to someone sitting alone", { happiness: 4, fruit: 3 }), o("Keep your head down", { happiness: -3 })]),
+  ev("i-asthma", "health", KIDS, "Wheezing", "You get breathless running around the playground.", [o("Doctor's check and an inhaler", { health: 6, habit: { checkups: 1 } }), o("Just stop running", { health: -4, habit: { exercise: -1 } })]),
+  ev("i-screen", "mind", KIDS, "A phone of your own", "Everyone in your class has a phone with no limits.", [o("Agree family screen rules", { smarts: 3, health: 2 }), o("Secretly stay up on it", { health: -4, smarts: -3 })]),
+  ev("i-stranger", "relationships", KIDS, "A stranger online", "Someone you don't know asks you to keep your chat secret.", [o("Tell a parent straight away", { happiness: 2, health: 2 }), o("Keep chatting", { happiness: -6, risk: 0.005 })]),
+  ev("i-sibling", "relationships", KIDS, "Sibling war", "You and your sibling haven't spoken for a week.", [o("Say sorry first", { fruit: 4, happiness: 3 }), o("Make it worse", { fruit: -3, happiness: -3 })], (s) => s.family.some((p) => p.relation === "sibling")),
+  ev("i-lonely-teen", "mind", TEEN, "No one to sit with", "Your friendship group has quietly moved on without you.", [o("Join the church youth group", { happiness: 6, walk: 3 }), o("Spend every night online", { happiness: -6, health: -2 })]),
+  ev("i-rent", "money", GROWN, "Rent goes up", "Your landlord raises the rent by £150 a month.", [o("Budget, pray and move somewhere cheaper", { money: 500, happiness: -2 }), o("Put it on a credit card", { money: -2400, happiness: -3 })]),
+  ev("i-sacked", "work", GROWN, "Called into HR", "You're told your job is at risk.", [o("Work with integrity and trust God", { walk: 4, job: "find" }), o("Lie to cover yourself", { walk: -6, drift: 1 })], (s) => s.job),
+  ev("i-illness-scare", "health", GROWN.concat(OLD), "A lump", "You notice a lump that wasn't there before.", [o("See the GP this week", { health: 6, illness: "treat", habit: { checkups: 1 } }), o("Ignore it", { health: -8, risk: 0.03 })]),
+  ev("i-burnout", "mind", GROWN, "Panic at work", "Your heart races in a meeting and you can't breathe.", [o("Rest, get help and tell your church family", { health: 5, happiness: 6, walk: 2 }), o("Push through alone", { health: -6, happiness: -6 })]),
+  ev("i-persecuted", "spiritual", GROWN, "Your faith costs you", "A manager tells you to stop talking about Jesus at work.", [o("Stay faithful and respectful", { walk: 6, witness: 3, happiness: -2 }), o("Hide your faith completely", { walk: -6, witness: -3, drift: 1 })], (s) => s.saved),
+  ev("i-prodigal", "relationships", ["adult", "elder"], "A child walks away", "One of your children says they don't believe any more.", [o("Love them, pray daily, keep the door open", { walk: 5, fruit: 4 }), o("Shout at them", { happiness: -8, fruit: -3 })], (s) => s.family.some((p) => p.relation === "child")),
+  ev("i-loss", "relationships", ["adult", "elder"], "A funeral", "A close friend dies suddenly.", [o("Grieve with hope in the resurrection", { walk: 4, happiness: -3 }), o("Turn away from God in anger", { walk: -8, drift: 2, happiness: -6 })]),
+  ev("i-retire-money", "money", OLD, "Pension shortfall", "Your pension is smaller than you hoped.", [o("Live simply and keep giving", { fruit: 3, happiness: 1 }), o("Gamble to make it back", { money: -3000, drift: 1 })]),
+  ev("i-hospital", "health", OLD, "A stay in hospital", "A chest infection puts you in hospital.", [o("Follow the doctors and let church visit", { health: 6, happiness: 4 }), o("Discharge yourself early", { health: -10, risk: 0.04 })]),
+  ev("i-dementia-fear", "mind", OLD, "Forgetting names", "You forget your grandchild's name.", [o("Memory clinic and daily Scripture", { smarts: 3, walk: 3 }), o("Hide it from everyone", { smarts: -4, happiness: -4 })]),
+  ev("i-doubt-old", "spiritual", ["adult", "elder"], "The long silence", "Prayer has felt silent for months.", [o("Keep praying through the Psalms", { walk: 8 }), o("Quietly give up", { walk: -10, drift: 3 })], (s) => s.saved),
+];
+
 // ---------- follow-up & ministry ----------
 export const FOLLOW_UP = [
   { id: "met", label: "Met", hint: "You shared Jesus with them." },
@@ -197,7 +237,7 @@ const ACTIONS = [
     s.faith.walk += 15; s.faith.drift = 0; s.year.faith++; return "You confessed, repented and came home. His mercy is new.";
   }, { labelFor: (s) => (s.saved ? "Repent and return" : "Turn to Christ") }),
   A("fast", "Fast and pray", "faith", 13, (s) => { s.faith.walk += 6; s.health -= 1; s.year.faith++; return "You fasted and sought God."; }),
-  A("preach", "Share Jesus with someone", "ministry", 16, (s, r) => {
+  A("preach", "Share Jesus with someone", "ministry", PREACH_AGE, (s, r) => {
     s.year.faith++;
     if (!s.saved) return "You can't give away what you haven't received. Consider Jesus for yourself first.";
     s.faith.witness += 3; s.faith.walk += 1;
@@ -210,10 +250,10 @@ const ACTIONS = [
     const f = s.faith;
     if (!s.saved || f.walk < 60 || f.witness < 20 || f.fruit < 25) return "Not yet: a branch needs a strong walk (60), witness (20) and fruit (25).";
     if (s.money < 5000) return "You need £5,000 to rent a hall and start.";
-    const city = pick(r, CITIES.filter((c) => c.id !== s.city)).id;
+    const city = pick(r, UNREACHED_CITIES);
     s.money -= 5000; s.branch = { city, members: 12, founded: s.age };
     f.fruit += 15; f.witness += 10;
-    return `You and a small team planted a new branch in ${cityName(city)}.`;
+    return `You and a small team planted Kharis ${cityName(city)} — the first Kharis church there. Fly or take the train to visit it.`;
   }, { once: (s) => !!s.branch }),
   A("exercise", "Exercise", "health", 5, (s) => { s.year.exercise = 1; s.health += 2; return "You got your heart rate up."; }),
   A("eat-well", "Eat well", "health", 3, (s) => { s.year.diet = 1; s.health += 1; return "You ate properly this year."; }),
@@ -288,6 +328,7 @@ export function choose(s0, index, r = Math.random) {
   say(s, `${s.pending.title}: ${opt.label}.`, "choice");
   s.pending = null;
   applyEffect(s, opt.effect, r);
+  if (s.alive && s.queue?.length) s.pending = s.queue.shift();
   return fix(s);
 }
 
@@ -355,6 +396,15 @@ export function ageUp(s0, r = Math.random, opts = {}) {
   if (s.health <= 0 && r() < 0.35) die(s, "poor health");
   else if (s.age >= 120 || r() < mortality(s)) die(s, s.illness && !s.illness.treated ? "an illness that was never checked" : s.age >= 80 ? "old age" : "a sudden illness");
   if (!s.alive) return s;
+  // Adding a year yourself (the age circle) brings a fresh issue on top of the year's decision.
+  const toPending = (e) => ({ id: e.id, title: e.title, text: e.text, category: e.category, options: e.options.map((x) => ({ label: x.label, effect: x.effect })) });
+  if (opts.issue) {
+    const st = now.id;
+    const all = ISSUES.filter((e) => e.stages.includes(st) && (!e.when || e.when(s)));
+    const fresh = all.filter((e) => !s.recent.includes(e.id));
+    const fits = fresh.length ? fresh : all;
+    if (fits.length) { const e = pick(r, fits); s.queue = [toPending(e)]; s.recent = [...s.recent, e.id].slice(-10); }
+  }
   if (!opts.skipEvents && s.age >= 3) {
     const st = now.id;
     const ok = (e) => e.stages.includes(st) && (!e.when || e.when(s)) && !s.recent.includes(e.id);
@@ -362,10 +412,11 @@ export function ageUp(s0, r = Math.random, opts = {}) {
     const pool = temptations.length && r() < 0.4 ? temptations : events.length ? events : temptations;
     if (pool.length) {
       const e = pick(r, pool);
-      s.pending = { id: e.id, title: e.title, text: e.text, category: e.category, options: e.options.map((x) => ({ label: x.label, effect: x.effect })) };
-      s.recent = [...s.recent, e.id].slice(-8);
+      s.pending = toPending(e);
+      s.recent = [...s.recent, e.id].slice(-10);
     }
   }
+  if (!s.pending && s.queue?.length) s.pending = s.queue.shift();
   return s;
 }
 

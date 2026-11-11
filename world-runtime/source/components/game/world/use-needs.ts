@@ -26,6 +26,15 @@ function write(n: Needs) {
   }
 }
 
+/** A new life (or offline play) starts with every bar full. */
+export function fillNeeds() {
+  if (typeof window === "undefined") return;
+  const n = fresh(Date.now());
+  for (const k of Object.keys(n) as (keyof Needs)[]) if (k !== "at") (n as Record<string, number>)[k] = 100;
+  write(n);
+  window.dispatchEvent(new CustomEvent(EVENT, { detail: "refill" }));
+}
+
 /** Do something that changes your needs, from anywhere in the app. */
 export function doActivity(a: Activity) {
   if (typeof window === "undefined") return;

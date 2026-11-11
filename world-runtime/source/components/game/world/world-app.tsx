@@ -43,8 +43,10 @@ import { useLife } from "./use-life";
 import { useNeeds, doActivity } from "./use-needs";
 import { type Me, useLobby } from "./use-world";
 import { WorldView } from "./world-view";
-import { ChurchService, LifeChip, LifeDecision, LifeEnding, LifePanel, NewLife, PlayModePicker, isServiceTime, markAttended, useKairosLife, useLifeClock } from "./kairos-life";
+import { LifeCutscene, setFor, type Cutscene } from "./life-cutscene";
+import { useKharisUpdates, ChurchService, LifeChip, LifeDecision, LifeEnding, LifePanel, NewLife, PlayModePicker, isServiceTime, markAttended, useKairosLife, useLifeClock } from "./kairos-life";
 import * as KL from "@/game/core/kairos-life";
+import { FLIGHT, LIFE_WORLD, setWorldBranch, setWorldFamily } from "@/game/core/life-world";
 import { FollowUpDialog } from "./preach-dialog";
 import { KairosPhone } from "./kairos-phone";
 import { MinistryDialog } from "./ministry-dialog";
@@ -68,7 +70,7 @@ import type { RoadViolation } from "@/game/core/traffic-rules";
 import { canBoardTrain } from "@/game/core/train";
 import {
   CITY,
-  churchMap, woodlandMap, kharisHubMap, airportMap, flightMap, ferryMap, greaterLondonMap,
+  churchMap, woodlandMap, kharisHubMap, airportMap, flightMap, ferryMap, greaterLondonMap, branchMap,
   STATION_PLATFORM_Y,
   TILE,
   stationMap,
@@ -110,6 +112,7 @@ function loadMap(id: string): WorldMap | null {
   if (id === "flight") return flightMap();
   if (id === "ferry") return ferryMap();
   if (id === "greater-london") return greaterLondonMap();
+  if (id === "branch") return LIFE_WORLD.branch ? branchMap(LIFE_WORLD.branch.name) : null;
   if (id === "hospital") return hospitalMap();
   if (id === "mall") return mallMap();
   if (id.startsWith("lobby-")) return lobbyMap(id);
@@ -253,21 +256,65 @@ export function WorldApp({
   const [churchService, setChurchService] = useState(false);
   const lifeAlive = offline && !!kl.life?.alive;
   const lifeAvatar = useMemo(() => (offline && kl.life ? ({ ...playerAvatar, lifeAge: kl.life.age } as typeof playerAvatar) : playerAvatar), [offline, kl.life?.age, playerAvatar]);
-  const lifeOverlay = !kl.mode || (offline && (!kl.life || !kl.life.alive || !!kl.life.pending)) || lifeOpen || churchService;
+  const tooYoungToPreachRef = useRef(false);
+  const lifeName = offline && kl.life ? `${kl.life.name.first} ${kl.life.name.last}` : me.username;
+  const tooYoungToPreach = offline && !!kl.life && kl.life.age < KL.PREACH_AGE;
+  tooYoungToPreachRef.current = tooYoungToPreach;
+  const kharis = useKharisUpdates();
+  const [cut, setCut] = useState<(Cutscene & { after?: () => void }) | null>(null);
+  const lifeOverlay = !!cut || !kl.mode || (offline && (!kl.life || !kl.life.alive || !!kl.life.pending)) || lifeOpen || churchService;
   useLifeClock(kl.mode, kl.life, gameDate, kl.update, garage.length > 0);
+  // Cutscenes: your birth, then every year's decision or issue plays out before you choose.
+  const cutFor = useRef<string>("");
+  useEffect(() => {
+    const l = kl.life;
+    if (!offline || !l?.alive || cut) return;
+    if (l.age === 0 && l.log.length === 1 && cutFor.current !== "birth") {
+      cutFor.current = "birth";
+      setCut({ set: "birth", eyebrow: "A new life", caption: `${l.name.first} ${l.name.last} is born in London${l.christianHome ? ", into a Christian home" : ""}. Every choice from here is yours.`, ms: 5200 });
+      return;
+    }
+    const p = l.pending;
+    const key = p ? `${l.age}:${p.id}` : "";
+    if (p && cutFor.current !== key) {
+      cutFor.current = key;
+      setCut({ set: setFor(p.category, l.age), eyebrow: `${p.category === "temptation" ? "Temptation" : p.title} · age ${l.age}`, caption: p.text });
+    }
+  }, [offline, kl.life, cut]);
+  // Your family appears in the world (set before the scene for a map is built).
+  setWorldFamily(offline && kl.life?.alive ? [
+    ...kl.life.family.filter((p) => p.alive).map((p) => ({ name: p.name, relation: p.relation, age: p.age, sex: p.sex })),
+    ...(kl.life.partner ? [{ name: kl.life.partner.name, relation: kl.life.partner.married ? "spouse" : "partner", age: kl.life.age, sex: kl.life.partner.sex }] : []),
+  ] : []);
   // ── Journeys: Kairos Air flights and the Kairos Clipper ferry ──
-  const JOURNEYS = { flight: { ms: 80_000, to: "highlands", label: "The Highlands", title: "Kairos Air KA214 · London → Glen Lorne" }, ferry: { ms: 45_000, to: "fellowship-island", label: "Fellowship Quay", title: "Kairos Clipper · London Square Pier → Fellowship Quay" } } as const;
+  setWorldBranch(offline && kl.life?.branch ? { city: kl.life.branch.city, name: KL.cityName(kl.life.branch.city), members: kl.life.branch.members } : null);
+  // Departures board: where the next Kairos Air flight goes.
+  type Destination = { mapId: string; label: string; title: string };
+  const [departures, setDepartures] = useState(false);
+  const [flightTo, setFlightTo] = useState<Destination>({ mapId: "highlands", label: "The Highlands", title: "Kairos Air KA214 · London → Glen Lorne" });
+  const destinations: Destination[] = [
+    { mapId: "highlands", label: "The Highlands", title: "Kairos Air KA214 · London → Glen Lorne" },
+    ...(LIFE_WORLD.branch ? [{ mapId: "branch", label: `Kharis ${LIFE_WORLD.branch.name}`, title: `Kairos Air KA7 · London → ${LIFE_WORLD.branch.name} · visit your branch` }] : []),
+  ];
+  const JOURNEYS = { flight: { ms: 80_000, to: flightTo.mapId, label: flightTo.label, title: flightTo.title }, ferry: { ms: 45_000, to: "fellowship-island", label: "Fellowship Quay", title: "Kairos Clipper · London Square Pier → Fellowship Quay" } };
   const [journey, setJourney] = useState<{ id: keyof typeof JOURNEYS; start: number } | null>(null);
   const [journeyNow, setJourneyNow] = useState(0);
   useEffect(() => {
     if (mapId !== "flight" && mapId !== "ferry") { setJourney(null); return; }
     const j = { id: mapId as keyof typeof JOURNEYS, start: Date.now() };
     setJourney(j);
-    say(mapId === "flight" ? "Seatbelts on. Kairos Air is taking off." : "All aboard the Kairos Clipper.", true);
+    if (j.id === "flight") { FLIGHT.start = j.start; FLIGHT.ms = JOURNEYS.flight.ms; }
+    if (mapId === "ferry") setCut({ set: "ferry", eyebrow: "Kairos Clipper", caption: "The Clipper pulls away from London Square Pier, down the Thames towards Fellowship Quay.", ms: 4200 });
+    else say("Seatbelts off. Feel free to walk the cabin.", true);
     const t = setInterval(() => {
       const left = JOURNEYS[j.id].ms - (Date.now() - j.start);
       setJourneyNow(Date.now());
-      if (left <= 0) { clearInterval(t); say(j.id === "flight" ? "We've landed at Glen Lorne. Welcome to the Highlands." : "Arriving at Fellowship Quay.", true); goTo(JOURNEYS[j.id].to, JOURNEYS[j.id].label); }
+      if (left <= 0) {
+        clearInterval(t);
+        const J = JOURNEYS[j.id];
+        if (j.id === "flight") setCut({ set: "landing", eyebrow: "Kairos Air · Arrivals", caption: `Touchdown. Welcome to ${J.label}.`, ms: 4600, after: () => goTo(J.to, J.label) });
+        else { say("Arriving at Fellowship Quay.", true); goTo(J.to, J.label); }
+      }
     }, 500);
     return () => clearInterval(t);
   }, [mapId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -278,7 +325,7 @@ export function WorldApp({
     const day = Math.floor(gameDate.getTime() / 86_400_000);
     if (gameDate.getUTCHours() === 14 && announced.current !== day && (offline || gameDate.getUTCDay() === 0)) {
       announced.current = day;
-      say("Kharis Church: the 2pm service is starting now. Everyone is welcome.", true);
+      say(`Kharis Church: the 2pm service is starting now. Everyone is welcome.${kharis?.latestMessage ? ` Latest message: ${kharis.latestMessage.title}.` : ""}`, true);
     }
   }, [gameDate, offline]); // eslint-disable-line react-hooks/exhaustive-deps
   // Sunday pick-ups: drive to where they're waiting; they get in when you arrive.
@@ -561,6 +608,8 @@ export function WorldApp({
   const onPortal = useCallback(
     (portal: Portal) => {
       const to = portal.to;
+      if (portal.id === "departures") { setDepartures(true); return; }
+      if (portal.id === "branch-home") { setFlightTo({ mapId: "airport", label: "Kairos International, London", title: `Kairos Air KA8 · ${LIFE_WORLD.branch?.name ?? "Branch"} → London` }); }
       if(to.kind==='grace'){openGrace(to.route);return;}
       if (to.kind === "mall") { setMallDept(to.dept as Dept); return; }
       if (to.kind === "story-enter") { setMiniGamesOpen(false); adventure.enter(to.story); return; }
@@ -761,6 +810,7 @@ export function WorldApp({
     return () => clearInterval(t);
   }, [outdoors, map.kind]);
   const talk = useCallback(() => {
+    if (tooYoungToPreachRef.current) { say(`You're too young to go out preaching on your own. From ${KL.PREACH_AGE} you can share Jesus with people.`, true); return; }
     const person = personaFor(nearPersonIndex).name;
     try {
       const records = JSON.parse(localStorage.getItem(`kairos-outreach:${me.id}`) ?? "[]") as { name: string; outcome: string; followedUp?: boolean }[];
@@ -870,14 +920,14 @@ export function WorldApp({
         homeAction={homeAction}
         police={pursuit}
         map={map}
-        serverId={atHome ? "solo" : server}
+        serverId={atHome || offline ? "solo" : server}
         arriveAt={arrive}
         onPortal={onPortal}
         onRoom={setRoom}
         onChangeServer={() => { if (jailed || life.stars >= 2) say("Finish your current law activity before changing servers."); else setServer(null); }}
         onDrivingOffence={drivingOffence}
         onCrash={crash}
-        me={{ ...me, avatar: jailed || mapId === "prison" ? { ...lifeAvatar, ...PRISON_LOOK } : lifeAvatar }}
+        me={{ ...me, username: lifeName, avatar: jailed || mapId === "prison" ? { ...lifeAvatar, ...PRISON_LOOK } : lifeAvatar }}
         speed={(life.sick ? 0.7 : 1) * (driving && outdoors ? (carById(driving)?.speed ?? 1) : bike && outdoors ? bike.brand.speed : 1)}
         car={driving && outdoors ? driving : null}
         bike={!driving && bike && outdoors ? bike.brand.colour : null}
@@ -1061,7 +1111,14 @@ export function WorldApp({
         say("The police escort has arrived at HMP Thames. Your sentence has started.", true);
         goTo("prison", "HMP Thames");
       }} />}
-{journey && (() => {
+{departures && <section role="dialog" aria-labelledby="kl-dep" className="ks-card kl-center kl-departures">
+        <p className="ks-eyebrow">Kairos International · Departures</p>
+        <h2 id="kl-dep">Where are you flying?</h2>
+        <ul className="kl-board">{destinations.map((d) => <li key={d.mapId}><span>{d.title}</span><button type="button" className="kl-go" onClick={() => { setFlightTo(d); setDepartures(false); setCut({ set: "takeoff", eyebrow: "Kairos Air · Departures", caption: `Boarding complete. ${d.title}. Cabin crew, prepare for take-off.`, ms: 5200, after: () => goTo("flight", "Kairos Air") }); }}>Board</button></li>)}</ul>
+        {!LIFE_WORLD.branch && <p className="ks-muted">Plant a Kharis branch in Kairos Life and you can fly out to visit it.</p>}
+        <button type="button" className="kl-ghost" onClick={() => setDepartures(false)}>Not now</button>
+      </section>}
+      {journey && (() => {
         const J = JOURNEYS[journey.id], p = Math.min(1, (journeyNow - journey.start) / J.ms);
         return <section role="status" data-hud="journey" className="ks-card kl-journey">
           <p className="ks-eyebrow">{journey.id === "flight" ? (p < 0.12 ? "Taking off" : p > 0.88 ? "Landing" : "Cruising · seatbelt sign off") : "On the Thames"}</p>
@@ -1074,11 +1131,12 @@ export function WorldApp({
       {!kl.mode && <PlayModePicker onPick={kl.setMode} />}
       {offline && !kl.life && <NewLife onBorn={(l) => { kl.begin(l); say(`${l.name.first} ${l.name.last} was born in London.`, true); }} onOnline={() => kl.setMode("online")} />}
       {kl.mode === "online" && <button type="button" data-hud="kairos-life" className="kl-chip kl-chip-online" onClick={() => kl.setMode("offline")}><span><b>Quick play</b><small>Online · no ageing · start Kairos Life</small></span></button>}
-      {lifeAlive && kl.life && <LifeChip life={kl.life} gameDate={gameDate} onOpen={() => setLifeOpen(true)} />}
-      {lifeAlive && kl.life?.pending && !churchService && <LifeDecision life={kl.life} onChoose={(i) => kl.update((l) => KL.choose(l, i) as typeof l)} />}
+      {lifeAlive && kl.life && <LifeChip life={kl.life} gameDate={gameDate} onOpen={() => setLifeOpen(true)} onAge={() => { kl.update((l) => ({ ...(KL.ageUp(l, Math.random, { issue: true }) as typeof l), lastDay: l.lastDay })); }} />}
+      {cut && <LifeCutscene cut={cut} avatar={lifeAvatar} onDone={() => { const after = cut.after; setCut(null); after?.(); }} />}
+      {lifeAlive && kl.life?.pending && !churchService && !cut && <LifeDecision life={kl.life} onChoose={(i) => kl.update((l) => KL.choose(l, i) as typeof l)} />}
       {lifeAlive && kl.life && lifeOpen && <LifePanel life={kl.life} gameDate={gameDate} hasCar={garage.length > 0}
         onAct={(id) => kl.update((l) => KL.act(l, id) as typeof l)}
-        onAgeUp={() => kl.update((l) => ({ ...(KL.ageUp(l) as typeof l), lastDay: l.lastDay }))}
+        onAgeUp={() => { setLifeOpen(false); kl.update((l) => ({ ...(KL.ageUp(l, Math.random, { issue: true }) as typeof l), lastDay: l.lastDay })); }}
         onPickup={(name) => {
           if (mapId !== "city") { say("Pick-ups start in London. Head back to the city first.", true); return; }
           setPickups((ps) => [...ps.filter((p) => p.name !== name), { name, status: "collecting" }]);
@@ -1089,9 +1147,12 @@ export function WorldApp({
         onOnline={() => { setLifeOpen(false); kl.setMode("online"); }}
         onClose={() => setLifeOpen(false)} />}
       {mapId === "church" && !churchService && kl.mode && (offline ? lifeAlive : true) && (isServiceTime(gameDate, offline) ? (
-        <button type="button" data-hud="action" data-tone="violet" className="kl-service-go" onClick={() => setChurchService(true)}>Take a seat · 2pm service is on</button>
+        <button type="button" data-hud="action" data-tone="violet" className="kl-service-go" onClick={() => {
+          const guests = (kl.life?.pickups ?? []).filter((p) => p.status === "aboard").map((p) => p.name.split(" ")[0]);
+          setCut({ set: "church-arrival", eyebrow: "Sunday · 2:00pm", caption: guests.length ? `You pull up outside Kharis Church with ${guests.join(" and ")}. The doors are open and the worship has started.` : "You arrive at Kharis Church. The hall is filling up and the worship team is starting.", withYou: guests, ms: 4600, after: () => setChurchService(true) });
+        }}>Take a seat · 2pm service is on</button>
       ) : <p role="status" className="kl-service-go kl-quiet">The sanctuary is quiet. {offline ? "The 2pm service runs from late morning to evening." : "Services are Sundays at 2pm."}</p>)}
-      {churchService && <ChurchService guests={(kl.life?.pickups ?? []).filter((p) => p.status === "aboard").map((p) => p.name)} onLeave={() => setChurchService(false)} onDone={() => {
+      {churchService && <ChurchService updates={kharis} guests={(kl.life?.pickups ?? []).filter((p) => p.status === "aboard").map((p) => p.name)} onLeave={() => setChurchService(false)} onDone={() => {
         const guests = (kl.life?.pickups ?? []).filter((p) => p.status === "aboard").map((p) => p.name);
         markAttended(guests);
         if (offline) kl.update((l) => ({ ...(KL.attendService(l, null) as typeof l), pickups: (l.pickups ?? []).filter((p) => p.status !== "aboard") }));
@@ -1116,7 +1177,7 @@ export function WorldApp({
         </Link>
       )}
       {bus && <GraceWorldPanel address="bus-travel" onClose={()=>setBus(null)}><BusStop here={bus} stops={BUS_STOPS} onGo={busRide} onClose={() => setBus(null)} /></GraceWorldPanel>}
-      <LifeHud avatar={playerAvatar} name={me.username}
+      <LifeHud avatar={lifeAvatar} name={lifeName}
         quests={quests}
         onLocate={(q) => {
           const kind = placeForTask(q.tag, q.title);
