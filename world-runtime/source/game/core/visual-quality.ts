@@ -19,13 +19,15 @@ export function visualProfile(
   return {
     pixelRatio: performance
       ? 0.75
-      : Math.min(cinematic ? (mobile ? 1.5 : 1.75) : mobile ? 1.25 : 1.25, device),
-    minPixelRatio: performance ? 0.6 : mobile ? 0.7 : 0.8,
+      : Math.min(cinematic ? (mobile ? 1.5 : 2) : mobile ? 1.25 : 1.5, device),
+    minPixelRatio: performance ? 0.6 : mobile ? 0.7 : 0.85,
     shadows: !performance,
-    softShadows: cinematic,
-    shadowSize: cinematic && !mobile ? 2048 : 1024,
+    // Desktop "auto" now gets the soft shadows, larger shadow map and image-based
+    // lighting that used to be Cinematic-only; Cinematic adds bloom and 4K shadows.
+    softShadows: cinematic || !mobile,
+    shadowSize: performance ? 1024 : cinematic && !mobile ? 4096 : mobile ? 1024 : 2048,
     postProcessing: true,
-    environment: cinematic && !mobile,
+    environment: !performance && !mobile,
     samples: 0,
     bloom: cinematic && !mobile,
     bloomStrength: 0.035,

@@ -39,7 +39,7 @@ export type PortalTarget =
   | { kind: "home-use"; key: string }
   | { kind: "awards" }
   | {kind:"university"; university:string; topic:"courses"|"events"|"networking"}
-  | { kind: "prison"; action: "study" | "escape" | "talk"; name?: string }
+  | { kind: "prison"; action: "study" | "escape" | "talk" | "search" | "craft"; name?: string }
   | { kind: "game"; companyId: string }
   | { kind: "map"; mapId: string; label: string }
   | { kind: "desk" }
@@ -826,6 +826,9 @@ export function prisonMap(): WorldMap {
   }
   g.fill(2, 13, 5, 1, "t"); g.fill(11, 13, 5, 1, "t");
   g.fill(2, 22, 5, 1, "b");
+  g.fill(2, 15, 5, 1, "t"); g.fill(11, 15, 5, 1, "t");
+  // Workshop benches and laundry machines along the south wing (work shift).
+  g.fill(3, 27, 6, 1, "t"); g.fill(15, 27, 7, 1, "t");
   // A connected service maze: alternating wall gaps make a genuine escape route.
   g.fill(26, 1, 1, 32, "#"); g.set(26, 18, ".");
   for (const [x, gap] of [[30, 27], [34, 9], [38, 27], [42, 9]]) {
@@ -835,7 +838,11 @@ export function prisonMap(): WorldMap {
     { id: "prison-study", rect: px(8, 23, 3, 2), label: "Study desk: earn your release", to: { kind: "prison", action: "study" } },
     { id: "inmate-sam", rect: px(8, 10, 2, 2), label: "Talk to Sam", to: { kind: "prison", action: "talk", name: "Sam" } },
     { id: "inmate-riley", rect: px(18, 16, 2, 2), label: "Talk to Riley", to: { kind: "prison", action: "talk", name: "Riley" } },
-    { id: "prison-escape", rect: px(44, 30, 2, 2), label: "Service exit: escape", to: { kind: "prison", action: "escape" } },
+    { id: "prison-escape", rect: px(44, 30, 2, 2), label: "Service exit: escape (needs an escape kit)", to: { kind: "prison", action: "escape" } },
+    { id: "prison-spoon", rect: px(2, 14, 5, 1), label: "Canteen tables: search for a spoon", to: { kind: "prison", action: "search", name: "spoon" } },
+    { id: "prison-file", rect: px(3, 28, 6, 1), label: "Workshop bench: search for a file", to: { kind: "prison", action: "search", name: "file" } },
+    { id: "prison-uniform", rect: px(15, 28, 7, 1), label: "Laundry basket: search for a uniform", to: { kind: "prison", action: "search", name: "uniform" } },
+    { id: "prison-craft", rect: px(1, 3, 3, 2), label: "Your bunk: craft with hidden items", to: { kind: "prison", action: "craft" } },
   ];
   return finish({ id: "prison", kind: "prison", name: "HMP Thames", structures: [], portals, rooms: [], spawn: centre(3, 4), accent: "#e98a1f", sign: { x: 15, y: 10, text: "Study, socialise and explore" } }, g);
 }

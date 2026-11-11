@@ -82,6 +82,7 @@ import { carById } from "@/game/core/cars";
 import { nearestDrivingSpot, nearestParkingSpot } from "@/game/core/driving";
 import { GAME_HOUR_MS, gameDateAt } from "@/game/core/game-clock";
 import { type Placed, type HomeAction, furnitureById, homeUse } from "@/game/core/homes";
+import * as PR from "@/game/core/prison-routine";
 import { PRISON_LOOK, SHOP, releaseFromPrison, addStar, clearWanted, wantedCharge, sentenceMs } from "@/game/core/law";
 import { type Pursuit, startPursuit, tickPursuit, caughtByPrisonGuard } from "@/game/core/pursuit";
 import type { RoadViolation } from "@/game/core/traffic-rules";
@@ -282,12 +283,20 @@ export function WorldApp({
     const search = setInterval(() => { if (!document.hidden && Math.random() < FIND_CHANCE) setLuckySpotted((cur) => cur ?? rollTier()); }, 60_000);
     const mine = () => setLuckySpotted((cur) => { if (cur) setLuckyOpen(cur); return null; });
     window.addEventListener("kairos-lucky-mine", mine);
-    return () => { clearInterval(search); window.removeEventListener("kairos-lucky-mine", mine); window.removeEventListener("kairos-open-gameshow", open); window.removeEventListener("kairos-open-lifehub", hub); };
+    const award = (e: Event) => { const { id, amount } = (e as CustomEvent<{ id: string; amount: number }>).detail; awardChallengeRef.current(id, amount); };
+    window.addEventListener("kairos-challenge-award", award);
+    const grace = (e: Event) => { setPhone(false); openGraceRef.current((e as CustomEvent<string>).detail); };
+    window.addEventListener("kairos-open-grace", grace);
+    return () => { window.removeEventListener("kairos-challenge-award", award); window.removeEventListener("kairos-open-grace", grace); clearInterval(search); window.removeEventListener("kairos-lucky-mine", mine); window.removeEventListener("kairos-open-gameshow", open); window.removeEventListener("kairos-open-lifehub", hub); };
   }, []);
+  const awardChallengeRef = useRef<(id: string, amount: number) => void>(() => {});
+  const openGraceRef = useRef<(route: string) => void>(() => {});
   const [miniGamesOpen, setMiniGamesOpen] = useState(false);
   const [nativeChallenge,setNativeChallenge] = useState<string|null>(null);
   const challenge = SCRIPTURE_CHALLENGES.find(item => item.id === nativeChallenge);
   const [inmate, setInmate] = useState<string | null>(null);
+  const [prison, setPrison] = useState<PR.PrisonState>(PR.emptyPrison);
+  const prisonRef = useRef(prison); prisonRef.current = prison;
   const [pursuit, setPursuit] = useState<Pursuit | null>(null);
   const pursuitRef = useRef<Pursuit | null>(null);
   const guardCaughtAt = useRef(0);
@@ -555,6 +564,27 @@ export function WorldApp({
     vanRef.current = true; setVan(dest);
     setTimeout(() => { goTo(dest, dest === "court" ? "Crown Court" : "HMP Thames"); setVan(null); vanRef.current = false; }, 5200);
   }, [goTo]);
+  useEffect(() => {
+    const seat = (e: Event) => {
+      const d = (e as CustomEvent<string>).detail;
+      const text: Record<string, string> = {
+        sit: "You take a seat in the pew. H: fold your hands to pray or raise them in worship. C or W: stand up.",
+        pray: "Hands folded. You pray quietly.", worship: "Hands raised in worship.", stand: "You stand up.",
+        none: "No open seat here. Walk along a pew to an empty place and press C.", nowhere: "There's nowhere to sit here. Pews are in the House of God.",
+      };
+      if (text[d]) say(text[d]);
+    };
+    addEventListener("kairos-seat", seat);
+    return () => removeEventListener("kairos-seat", seat);
+  }, [say]);
+  openGraceRef.current = openGrace;
+  awardChallengeRef.current = (id: string, amount: number) => {
+    const current = readStorySave(), key = `challenge:${id}`;
+    if (current.completed[key]) return;
+    const next = { ...current, grace: current.grace + amount, completed: { ...current.completed, [key]: { choice: 0, grace: amount } } };
+    try { localStorage.setItem(LTBS_SAVE_KEY, JSON.stringify(next)); } catch { /* Device storage optional. */ }
+    setWallet((value) => value + amount); void recordKairosActivity("scripture_game"); say(`+${amount} Grace · Scripture challenge complete`);
+  };
   const adventure = useStoryAdventure(map, goTo, amount => setWallet(value => value + amount));
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -613,7 +643,7 @@ export function WorldApp({
     const receive=(event:MessageEvent)=>{
       if(event.origin!==location.origin||event.source!==parent)return;
       if(event.data?.type==='kairos-world:grace-state')setGraceOpen(event.data.open===true);
-      if(event.data?.type==='kairos-world:appearance')setPlayerAvatar(old=>({...old,...worldAppearance(event.data.appearance)}));
+      if(event.data?.type==='kairos-world:appearance'){setPlayerAvatar(old=>({...old,...worldAppearance(event.data.appearance)}));try{if(localStorage.getItem('kairos-skin-choice'))localStorage.removeItem('kairos-skin-choice');}catch{}setSkinChoice(null);}
       if(event.data?.type==='kairos-world:story'&&['david','ruth','esther','daniel'].includes(event.data.story))adventure.enter(event.data.story);
       if(event.data?.type==='kairos-world:challenge'&&SCRIPTURE_CHALLENGES.some(c=>c.id===event.data.challenge)){if(map.id!=='scripture-island')goTo('scripture-island','LTBS · Scripture games');setNativeChallenge(event.data.challenge);}
       if(event.data?.type==='kairos-world:visit'){
@@ -801,8 +831,19 @@ export function WorldApp({
       if (to.kind === "bank") { setBankOpen(true); return; }
       if (to.kind === "awards") { router.push("/games/arcade"); return; }
       if (to.kind === "prison") {
-        if (to.action === "talk") setInmate(to.name ?? "Sam");
-        else { releaseReason.current = "escaped"; updateLife(l=>releaseFromPrison(l)); }
+        if (to.action === "talk") { setInmate(to.name ?? "Sam"); return; }
+        const now = Date.now();
+        if (to.action === "search") { const r = PR.search(prisonRef.current, to.name as PR.PrisonItem, now); setPrison(r.state); say(r.say, true); return; }
+        if (to.action === "craft") { const r = PR.craft(prisonRef.current); setPrison(r.state); say(r.say, true); return; }
+        if (to.action === "study") {
+          const key = `study:${PR.prisonPhase(now).day}`;
+          if (prisonRef.current.attended.includes(key)) { say("You've already studied today. Come back tomorrow."); return; }
+          setPrison(s => ({ ...s, behaviour: s.behaviour + 1, attended: [...s.attended, key] }));
+          setBibleOpen(true); say("Library study: good behaviour +1.", true); return;
+        }
+        const r = PR.tryEscape(prisonRef.current, now);
+        say(r.say, true);
+        if (r.ok) { releaseReason.current = "escaped"; updateLife(l=>releaseFromPrison(l)); }
         return;
       }
       if (to.kind === "game" || to.kind === "games") setMiniGamesOpen(true);
@@ -968,13 +1009,42 @@ export function WorldApp({
     if (!jailed) jailEscort.current = false;
     if (!jailed && mapId === "prison") {
       if (life.stars || life.heatAt || life.hearing) updateLife(releaseFromPrison);
-      say(releaseReason.current === "escaped" ? "You found the service exit. Escape succeeded — your wanted stars are cleared." : "You have served your sentence. Your wanted stars are cleared.", true);
+      say(releaseReason.current === "escaped" ? "You're out. The escape worked and HMP Thames is behind you." : releaseReason.current === "parole" ? "Released early on good behaviour. Walk in the light." : "You have served your sentence. Your wanted stars are cleared.", true);
       setInmate(null);
       goTo("city", "London", courtSteps);
       releaseReason.current = "released";
     }
   }, [jailed, life, mapId, goTo, say, courtSteps, updateLife]);
 
+  // The daily routine: attendance, heat, parole and lockdown.
+  useEffect(() => {
+    if (!jailed || mapId !== "prison") { if (!jailed) setPrison(PR.emptyPrison()); return; }
+    const timer = setInterval(() => {
+      const r = PR.routineTick(prisonRef.current, Date.now(), PLAYER.x / TILE, PLAYER.y / TILE);
+      if (r.state !== prisonRef.current) { prisonRef.current = r.state; setPrison(r.state); }
+      if (r.say) say(r.say);
+      if (r.state.heat >= PR.LOCKDOWN_HEAT) {
+        const calm = { ...r.state, heat: 40, items: [], kit: false };
+        prisonRef.current = calm; setPrison(calm);
+        updateLife(l => ({ ...l, jailUntil: Math.max(l.jailUntil, Date.now()) + PR.PRISON_DAY_MS / 2 }));
+        say("LOCKDOWN. Guards search your cell, take your stash and add time to your sentence.", true);
+        goTo("prison", "Back to your cell");
+      }
+    }, 500);
+    return () => clearInterval(timer);
+  }, [jailed, mapId, say, updateLife, goTo]);
+  const parole = useCallback(() => {
+    if (!PR.paroleReady(prisonRef.current)) return;
+    releaseReason.current = "parole";
+    if (offline && kl.life) kl.update((l) => ({ ...l, prisonUntil: l.age }) as typeof l);
+    updateLife(l => releaseFromPrison(l));
+  }, [offline, kl, updateLife]);
+  const serveTime = useCallback(() => {
+    // Offline: the years pass inside, one at a time, until the sentence is served.
+    if (offline && kl.life) kl.update((l) => { let x = l; for (let i = 0; i < 40 && KL.inPrison(x); i++) x = { ...(KL.ageUp(x, Math.random, { issue: false }) as typeof l), lastDay: l.lastDay }; return x; });
+    releaseReason.current = "released";
+    updateLife(l => releaseFromPrison(l));
+  }, [offline, kl, updateLife]);
   useEffect(() => {
     if (!jailed || mapId !== "prison" || inmate) return;
     const timer = setInterval(() => {
@@ -1311,10 +1381,7 @@ export function WorldApp({
         <Gamepad2 className="size-4" aria-hidden /> LTBS · Stories & games
       </button>
       {challenge && map.id === "scripture-island" && !fading && <InPersonGame kind={challenge.type} title={challenge.title} reference={challenge.reference} onClose={()=>setNativeChallenge(null)}><section aria-label={challenge.title} className="ip-game">
-        <ScriptureChallenge key={challenge.id} game={challenge} onExit={()=>setNativeChallenge(null)} onAward={(id,amount)=>{
-          const current=readStorySave(),key=`challenge:${id}`;
-          if(!current.completed[key]){const next={...current,grace:current.grace+amount,completed:{...current.completed,[key]:{choice:0,grace:amount}}};try{localStorage.setItem(LTBS_SAVE_KEY,JSON.stringify(next));}catch{/* Device storage optional. */}setWallet(value=>value+amount);void recordKairosActivity("scripture_game");say(`+${amount} Grace · Scripture challenge complete`);}
-        }}/>
+        <ScriptureChallenge key={challenge.id} game={challenge} onExit={()=>setNativeChallenge(null)} onAward={(id,amount)=>awardChallengeRef.current(id,amount)}/>
       </section></InPersonGame>}
       <WantedStars stars={life.stars} />
       {veil && <img src={veil.src} alt="" aria-hidden className={`kw-veil${veil.fading ? " out" : ""}`} />}
@@ -1391,6 +1458,13 @@ export function WorldApp({
       {jailed && mapId === "prison" && (
         <PrisonHud
           leftMs={life.jailUntil - Date.now()}
+          state={prison}
+          offline={offline}
+          until={offline ? kl.life?.prisonUntil : undefined}
+          age={offline ? kl.life?.age : undefined}
+          onParole={parole}
+          onServe={serveTime}
+          onCraft={() => { const r = PR.craft(prisonRef.current); setPrison(r.state); say(r.say, true); }}
         />
       )}
       {shop && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { CAMERA_VIEW, nextMode, steerInput } from "@/game/core/camera-view";
+import { CAMERA_VIEW, SEAT, SEAT_POSES, nearestOpenSeat, nextMode, steerInput } from "@/game/core/camera-view";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import dynamic from "next/dynamic";
@@ -387,7 +387,18 @@ export function WorldView({
   const portalCallback = useRef(onPortal);
   portalCallback.current = onPortal;
 
-  // Keyboard: WASD / arrow keys to walk, E or Enter to go through a door.
+  // Sitting: remember where you stood so getting up puts you back in the aisle.
+  const standFrom = useRef<{ x: number; y: number } | null>(null);
+  const standUp = useCallback(() => {
+    if (!SEAT.seat) return;
+    SEAT.seat = null;
+    if (standFrom.current) { pos.current.x = standFrom.current.x; pos.current.y = standFrom.current.y; }
+    standFrom.current = null;
+    window.dispatchEvent(new CustomEvent("kairos-seat", { detail: "stand" }));
+  }, []);
+  useEffect(() => () => { SEAT.seat = null; }, [map.id]);
+  // Keyboard: WASD / arrow keys to walk (Shift to run), E or Enter to go through a door,
+  // C to sit in a pew (H changes what your hands do while seated).
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement && ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
@@ -398,7 +409,28 @@ export function WorldView({
         if (!e.repeat && pos.current.jumpHeight === 0) pos.current.jumpVelocity = JUMP_IMPULSE;
         return;
       }
+      if (k === "c" && !e.repeat && !carRef.current) {
+        // Sit in the nearest open pew place (church), or stand back up.
+        if (SEAT.seat) { standUp(); return; }
+        const p = pos.current;
+        const seat = map.id === "church" || map.id === "branch" ? nearestOpenSeat(p.x / TILE, p.y / TILE) : null;
+        if (seat) {
+          standFrom.current = { x: p.x, y: p.y };
+          SEAT.seat = { x: seat.x, z: seat.z, yaw: Math.PI, pose: "sit" };
+          p.x = seat.x * TILE; p.y = seat.z * TILE; p.walking = false;
+          CAMERA_VIEW.yaw = -Math.PI / 2; // face the stage
+          window.dispatchEvent(new CustomEvent("kairos-seat", { detail: "sit" }));
+        } else window.dispatchEvent(new CustomEvent("kairos-seat", { detail: map.id === "church" || map.id === "branch" ? "none" : "nowhere" }));
+        return;
+      }
+      if (k === "h" && !e.repeat && SEAT.seat) {
+        SEAT.seat.pose = SEAT_POSES[(SEAT_POSES.indexOf(SEAT.seat.pose) + 1) % SEAT_POSES.length];
+        window.dispatchEvent(new CustomEvent("kairos-seat", { detail: SEAT.seat.pose }));
+        return;
+      }
+      if (k === "shift") { keys.current.add(k); return; }
       if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k) || k === " " && carRef.current) {
+        if (SEAT.seat && ["w", "a", "s", "d", "arrowup", "arrowdown"].includes(k)) standUp();
         e.preventDefault();
         keys.current.add(k);
         target.current = null;
@@ -424,7 +456,7 @@ export function WorldView({
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
     };
-  }, [enter]);
+  }, [enter, standUp, map.id]);
 
   // The game loop: move, collide, follow with the camera, smooth other players.
   useEffect(() => {
@@ -457,15 +489,20 @@ export function WorldView({
         pos.current.speed = 0;
       }
       const k = keys.current;
-      let dx = (k.has("d") || k.has("arrowright") ? 1 : 0) - (k.has("a") || k.has("arrowleft") ? 1 : 0);
+      const walkView = !carRef.current && CAMERA_VIEW.mode !== "classic";
+      // On foot in close / first person: A/D strafe, arrows (or Q/E) turn. Driving and
+      // the classic view keep arrows and A/D as one steering axis.
+      let dx = (k.has("d") || (!walkView && k.has("arrowright")) ? 1 : 0) - (k.has("a") || (!walkView && k.has("arrowleft")) ? 1 : 0);
       let dy = (k.has("s") || k.has("arrowdown") ? 1 : 0) - (k.has("w") || k.has("arrowup") ? 1 : 0);
+      let turn = walkView ? (k.has("arrowright") || k.has("e") && !k.has("shift") ? 1 : 0) - (k.has("arrowleft") || k.has("q") ? 1 : 0) : 0;
       if (!dx && !dy && (stick.current.x || stick.current.y)) {
-        dx = stick.current.x;
+        // Touch stick: push sideways to turn while walking, like a thumbstick in a car game.
         dy = stick.current.y;
+        if (walkView) { turn = stick.current.x; dx = Math.abs(stick.current.y) < 0.25 ? stick.current.x * 0.6 : 0; }
+        else dx = stick.current.x;
       }
-      // Close and first-person views: W/S along the way you face, A/D turn.
       if (!carRef.current) {
-        const steered = steerInput(CAMERA_VIEW.mode, CAMERA_VIEW.yaw, dx, dy, dt);
+        const steered = steerInput(CAMERA_VIEW.mode, CAMERA_VIEW.yaw, dx, dy, dt, turn);
         dx = steered.dx; dy = steered.dy; CAMERA_VIEW.yaw = steered.yaw;
       }
       const p = pos.current;
@@ -496,7 +533,9 @@ export function WorldView({
         const bikeHit = bikeRef.current && !driving && (dx || dy) && TRAFFIC_BOXES.some(t => t && Math.abs(t.x - p.x) < t.hw + 7 && Math.abs(t.y - p.y) < t.hh + 7);
         if (hard || bikeHit) { lastCrash.current = now; crashRef.current?.(hard ? "car" : "bike"); }
       }
-      let next = driven ?? step(map, p, dx, dy, dt, speedRef.current);
+      if (SEAT.seat && !driving) { dx = 0; dy = 0; }
+      const running = k.has("shift") && !driving && !bikeRef.current ? 1.65 : 1;
+      let next = driven ?? (SEAT.seat ? { x: p.x, y: p.y } : step(map, p, dx, dy, dt, speedRef.current * running));
       if (map.kind === "station") {
         const elapsed = now - TRAIN_CALL.at;
         const distance = WALK_SPEED * speedRef.current * dt * Math.min(1, Math.hypot(dx, dy));

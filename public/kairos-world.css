@@ -3,3 +3,36 @@
 .world-locked strong{cursor:default}.world-locked a{color:#ffdb72;text-underline-offset:4px}.world-locked a:focus-visible{outline:3px solid #ffdb72;outline-offset:5px}
 /* The main menu is the whole screen: hide the site's world dock while it's up. */
 .kairos-world-shell.menu-open .world-dock, .kairos-world-shell.menu-open .world-location { display: none !important; }
+
+@font-face { font-family: "Kairos Pixel"; src: url("/fonts/press-start-2p.woff2") format("woff2"); font-display: swap; }
+/* Low-poly dock: faceted ink-outlined slab, chunky buttons, a gem-cut Grace mark. */
+.kairos-world-shell .world-dock {
+  gap: 6px; padding: 6px 10px; border: 3px solid #120c18; border-radius: 0; backdrop-filter: none;
+  background:
+    linear-gradient(135deg, #3a2a52 0 33%, transparent 33.2%),
+    linear-gradient(225deg, #2c2040 0 40%, transparent 40.2%),
+    linear-gradient(160deg, #241a36, #1a1328);
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%);
+  box-shadow: none; filter: drop-shadow(0 4px 0 #120c18);
+}
+.kairos-world-shell .world-dock button {
+  border-radius: 0; min-height: 40px; padding: 8px 14px; font: 400 10px/1 "Kairos Pixel", ui-monospace, monospace; letter-spacing: .02em;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  background: linear-gradient(160deg, #4a3866 0 50%, #3d2d57 50.2%); color: #f9f2e5;
+}
+.kairos-world-shell .world-dock button:hover { background: linear-gradient(160deg, #6d4f96 0 50%, #5d4385 50.2%); }
+.kairos-world-shell .world-dock .open-grace {
+  padding-right: 18px; color: #2b2039;
+  background: linear-gradient(160deg, #ffe09a 0 45%, #f1cc85 45.2% 75%, #d9ab5f 75.2%);
+}
+.kairos-world-shell .grace-mark {
+  width: 30px; height: 30px; border-radius: 0; font: 400 14px/1 "Kairos Pixel", ui-monospace, monospace; color: #fff1c8; text-shadow: 2px 2px 0 #120c18;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background:
+    linear-gradient(30deg, #4c2a7a 0 50%, transparent 50.2%),
+    linear-gradient(150deg, #8a5bd6 0 50%, #6b3fa0 50.2%);
+}
+.kairos-world-shell .world-location {
+  border-radius: 0; border: 2px solid #120c18; font-family: "Kairos Pixel", ui-monospace, monospace; font-size: 9px;
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0 50%);
+}

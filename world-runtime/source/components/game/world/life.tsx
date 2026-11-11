@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { Gavel, Pill, ShoppingBasket, Siren, Star, X } from "lucide-react";
 
 import { CutsceneBrand } from "./cutscene-brand";
 
 import { buyWorldItem } from "@/app/games/world/actions";
+import * as PR from "@/game/core/prison-routine";
 import { SHOP, type ShopItem, acquittalChance, sentenceMs } from "@/game/core/law";
 import { cn } from "@/lib/utils";
 
@@ -149,11 +150,28 @@ export function HearingDialog({
 }
 
 /** Inside HMP Thames: sentence timer for this fictional city-world scenario. */
-export function PrisonHud({ leftMs }: { leftMs: number }) {
+export function PrisonHud({ leftMs, state, offline, until, age, onParole, onServe, onCraft }: { leftMs: number; state?: PR.PrisonState; offline?: boolean; until?: number; age?: number; onParole?: () => void; onServe?: () => void; onCraft?: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
+  const s = state ?? PR.emptyPrison();
+  const p = PR.prisonPhase(now);
   const seconds = Math.max(0, Math.ceil(leftMs / 1000));
-  return <div className="absolute top-24 left-1/2 z-[65] w-[min(360px,calc(100%-24px))] -translate-x-1/2 rounded-3xl bg-[#f2d9a6] p-4 text-[#13203a] shadow-xl">
-    <p className="text-xs font-black tracking-widest uppercase">HMP Thames · fictional game</p>
-    <p className="mt-1 text-lg font-black">Time left {Math.floor(seconds/60)}:{String(seconds%60).padStart(2,"0")}</p>
-    <p className="mt-1 text-xs">Wait for the timer, or explore the open cell area. Guards add 45 seconds if they catch an escape attempt.</p>
+  const dayLeft = Math.max(1, Math.ceil(leftMs / PR.PRISON_DAY_MS));
+  const heat = Math.min(100, s.heat);
+  return <div className="pr-hud" role="status" aria-label="HMP Thames routine">
+    <div className="pr-top"><b>HMP THAMES</b><span>Day {s.days + 1}</span></div>
+    <ol className="pr-clock" aria-label="Today's routine">{PR.ROUTINE.map((r, i) => <li key={r.id} className={i === p.index ? "on" : i < p.index ? "done" : ""} style={{ flex: r.to - r.from }} title={r.label}><span>{r.label}</span>{i === p.index && <i style={{ left: `${((p.t - r.from) / (r.to - r.from)) * 100}%` }} />}</li>)}</ol>
+    <p className="pr-now"><b>{p.phase.label}</b> · {p.phase.where} <em>{Math.ceil(p.leftMs / 1000)}s</em></p>
+    <div className="pr-meters">
+      <label>Behaviour <meter min={0} max={PR.PAROLE_POINTS} value={Math.min(s.behaviour, PR.PAROLE_POINTS)} /> <small>{s.behaviour}/{PR.PAROLE_POINTS}</small></label>
+      <label className={heat >= 60 ? "hot" : ""}>Heat <meter min={0} max={100} low={30} high={60} optimum={0} value={heat} /> <small>{heat}%</small></label>
+    </div>
+    <div className="pr-slots" aria-label="Hidden items">{(Object.keys(PR.ITEMS) as PR.PrisonItem[]).map(i => <span key={i} className={s.items.includes(i) || s.kit ? "got" : ""} title={`${PR.ITEMS[i].name}: ${PR.ITEMS[i].where}`}>{PR.ITEMS[i].name}</span>)}{s.kit && <span className="kit">Escape kit</span>}</div>
+    <p className="pr-time">{offline && until !== undefined && age !== undefined ? `Sentence: inside until age ${until} (now ${age}). ` : ""}Release in {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")} · about {dayLeft} routine day{dayLeft === 1 ? "" : "s"}</p>
+    <div className="pr-actions">
+      {!s.kit && s.items.length === 3 && <button onClick={onCraft}>Craft escape kit</button>}
+      <button disabled={!PR.paroleReady(s)} onClick={onParole} title="Reach full behaviour with heat under 30%">{PR.paroleReady(s) ? "Apply for parole" : "Parole: keep to the routine"}</button>
+      {offline && <button onClick={onServe}>Serve the full sentence (age up)</button>}
+    </div>
   </div>;
 }

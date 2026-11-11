@@ -268,3 +268,17 @@
     min-height: 48px;
   }
 }
+
+/* Clearer steps: hint, wearing summary, next/back and the skin pack. */
+.cs-hint { margin: 0 0 14px; padding: 10px 12px; border-radius: 12px; background: #fff3d6; font-weight: 700; color: #3b2a12; }
+.cs-summary { margin: 10px 0 0; padding: 8px 10px; border-radius: 10px; background: #ffffff1a; color: #f4eadb; font-size: 13px; text-align: center; }
+.cs-stepnav { display: flex; justify-content: space-between; margin-top: 18px; }
+.cs-stepnav button, .cs-stepnav a { min-height: 44px; padding: 0 18px; border-radius: 999px; border: 2px solid #2b1d3a; background: #fff; font-weight: 800; color: #2b1d3a; text-decoration: none; display: inline-grid; place-items: center; cursor: pointer; }
+.cs-stepnav .cs-next { background: #6c3fa8; color: #fff; border-color: #6c3fa8; }
+.cs-own { margin-bottom: 10px; }
+.cs-skincats { margin-bottom: 10px; }
+.cs-skingrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; max-height: 420px; overflow: auto; padding: 2px; }
+.cs-skingrid button { display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border: 2px solid #e2d6ee; border-radius: 12px; background: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
+.cs-skingrid button[aria-pressed="true"] { border-color: #6c3fa8; box-shadow: 0 3px 0 #6c3fa8; background: #f1e8f7; }
+/* The head's front face of a 64×64 skin (8,8 → 16,16), scaled up crisp. */
+.cs-skinface { width: 48px; height: 48px; background-size: 384px 384px; background-position: -48px -48px; image-rendering: pixelated; border: 2px solid #2b1d3a; border-radius: 6px; }

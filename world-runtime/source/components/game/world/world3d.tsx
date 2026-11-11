@@ -49,6 +49,7 @@ import { logoFor } from "@/game/core/logos";
 import { buildLondon } from "@/game/core/london";
 import { weatherAt } from "@/game/core/needs";
 import { type Pursuit, prisonGuardPositions } from "@/game/core/pursuit";
+import { prisonPhase } from "@/game/core/prison-routine";
 import { buildHighlands } from "@/game/core/regions";
 import { commuterPhase, residentPaths, residentPose } from "@/game/core/residents";
 import { trafficAdvance } from "@/game/core/traffic-flow";
@@ -58,7 +59,7 @@ import { BUS_LENGTH, BUS_WIDTH, CAR_LENGTH, CAR_WIDTH, ROAD_LANE_OFFSET } from "
 import { frameMapCamera, followPlayerCamera } from "@/game/core/view-framing";
 import { curvedVertexShader, immersiveMotion, physicalSurface, visualProfile, type VisualQuality } from "@/game/core/visual-quality";
 import { STATION_PLATFORM_Y } from "@/game/core/world";
-import { CAMERA_LABEL, CAMERA_VIEW, nextMode } from "@/game/core/camera-view";
+import { CAMERA_LABEL, CAMERA_VIEW, SEAT, churchSeats, isOpenSeat, nextMode } from "@/game/core/camera-view";
 import { AIRPORT, TILE, blocked, roadEnds, type Portal, type WorldMap } from "@/game/core/world";
 import { CHURCH_SCREEN, wrapLines } from "@/game/core/church-service";
 import { STORY_BIOMES } from "@/game/core/islands";
@@ -2141,7 +2142,7 @@ export function World3D({
     sceneRef.current = scene;
     const sky = highland ? "#bfe3ff" : "#d6e4df";
     scene.background = new THREE.Color(sky);
-    scene.fog = new THREE.Fog(sky, 34, 70);
+    scene.fog = new THREE.Fog(sky, 40, 84);
     // Outdoor fog is fully opaque by 70 units; don't draw hidden city blocks
     // out to 200 units behind it. Interiors have no fog and retain more range.
     const camera = new THREE.PerspectiveCamera(30, 1, 0.5, indoors ? 120 : 360);
@@ -2167,6 +2168,8 @@ export function World3D({
       const chain = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.008, 0.008), cuffMat); chain.position.set(0, 0, 0.06); cuffs.add(chain);
       fists.add(cuffs);
       fists.visible = false;
+      // Drawn on top so they never disappear into a wall or a pew in front of you.
+      fists.traverse((o) => { const m = (o as THREE.Mesh).material as THREE.Material | undefined; if (m) { m.depthTest = false; o.renderOrder = 999; } });
       camera.add(fists);
       scene.add(camera);
     }
@@ -2195,7 +2198,7 @@ export function World3D({
     if (phase !== "day" && !indoors) {
       const atmosphere=phase==="night"?"#17293f":"#d6b1a0";
       scene.background = new THREE.Color(atmosphere);
-      scene.fog = new THREE.Fog(atmosphere, 32, 66);
+      scene.fog = new THREE.Fog(atmosphere, 38, 80);
     }
     if (indoors) {
       scene.background = new THREE.Color(map.kind === "home" ? "#e7dfd0" : "#1d1a2b");
@@ -2891,10 +2894,9 @@ export function World3D({
     let churchScreen: { tex: THREE.CanvasTexture; ctx: CanvasRenderingContext2D; version: number } | null = null;
     let preacher: Body | null = null;
     if (map.id === "church" || map.id === "branch") {
-      const seats: { x: number; z: number }[] = [];
-      for (let z = 7.7; z < 18.6; z += 1.2) for (const x0 of [3.5, 15.5]) for (let x = x0; x < x0 + 6.5; x += 1.05) seats.push({ x, z });
+      const seats = churchSeats();
       const limit = map.id === "branch" ? Math.min(seats.length, LIFE_WORLD.branch?.members ?? 12) : Math.min(seats.length, Math.max(70, budget.residents * 5)); // packed, front to back
-      seats.filter((_, i) => (i * 7) % 10 < 9).slice(0, limit).forEach((seat, i) => {
+      seats.filter((_, i) => !isOpenSeat(i)).slice(0, limit).forEach((seat, i) => {
         const b = makeBody(npcLook(i + 140), null, true);
         b.root.position.set(seat.x, 0.18, seat.z);
         b.root.rotation.y = Math.PI; // facing the stage (0 faces the camera, +Z)
@@ -3352,7 +3354,7 @@ export function World3D({
 
     // Local ambient residents are fictional, scripted characters, separate from connected players.
     // Populate London and the Kharis woodland generously while keeping indoor rooms calmer.
-    const residentLimit = map.kind === "home" || map.story || map.id === "branch" || map.id === "flight" ? 0 : Math.min(budget.residents, london || map.id === "woodland" ? budget.residents : highland || map.kind === "station" || map.kind === "campus" ? Math.max(12, budget.residents - 4) : Math.max(8, Math.floor(budget.residents / 2)));
+    const residentLimit = map.kind === "home" || map.kind === "prison" || map.story || map.id === "branch" || map.id === "flight" ? 0 : Math.min(budget.residents, london || map.id === "woodland" ? budget.residents : highland || map.kind === "station" || map.kind === "campus" ? Math.max(12, budget.residents - 4) : Math.max(8, Math.floor(budget.residents / 2)));
     const riderAt = new THREE.Vector3();
     const npcs = residentPaths(map, residentLimit).filter(path=>map.kind !== "prison" || path.x0<25&&path.x1<25).map((path, i) => {
       const body = makeBody(map.kind === "prison" ? {...npcLook(i),...PRISON_LOOK} : (london || map.id === "city") && i % 9 === 4 ? officerLook(i) : npcLook(i), null, true);
@@ -3492,6 +3494,60 @@ export function World3D({
       const name = sign("HMP THAMES · STATE PENITENTIARY", { bg: "#2a2f36", fg: "#e8e4da", w: 9, h: 0.7 });
       name.position.set(map.cols / 2, 3.4, 0.7); world.add(name);
     }
+    // HMP Thames inmates keep the same timetable you do (roll call, meals, work, yard, lights out).
+    const routineInmates: { b: Body; i: number; via: THREE.Vector2 | null }[] = [];
+    if (map.kind === "prison") {
+      for (let i = 0; i < 14; i++) {
+        const b = makeBody({ ...npcLook(70 + i), ...PRISON_LOOK }, null, true);
+        const cell = i % 5;
+        b.root.position.set(1 + cell * 5 + 1 + (i % 3) * 0.8, 0, 3 + (i % 2));
+        scene.add(b.root);
+        routineInmates.push({ b, i, via: null });
+      }
+      // The yard: weight benches and a pull-up bar; the canteen serving hatch.
+      for (const [x, z] of [[19.5, 14], [22.5, 14], [19.5, 18]] as const) {
+        box(world, "#3b3f46", x - 0.6, 0, z - 0.25, x + 0.6, 0.45, z + 0.25);
+        box(world, "#9aa0a8", x - 0.9, 0.85, z - 0.03, x + 0.9, 0.9, z + 0.03);
+        box(world, "#22252b", x - 0.95, 0.7, z - 0.2, x - 0.85, 1.05, z + 0.2); box(world, "#22252b", x + 0.85, 0.7, z - 0.2, x + 0.95, 1.05, z + 0.2);
+      }
+      box(world, "#5d6070", 23.2, 0, 18.6, 23.3, 2.4, 18.7); box(world, "#5d6070", 24.7, 0, 18.6, 24.8, 2.4, 18.7); box(world, "#9aa0a8", 23.2, 2.3, 18.62, 24.8, 2.36, 18.68);
+      const hatch = sign("CANTEEN", { bg: "#e98a1f", fg: "#1b1226", w: 2.4, h: 0.4 }); hatch.position.set(9, 2.3, 12.1); world.add(hatch);
+      const yard = sign("EXERCISE YARD", { bg: "#2a2f36", fg: "#e8e4da", w: 3, h: 0.4 }); yard.position.set(21.5, 2.3, 12.1); world.add(yard);
+      const work = sign("LAUNDRY · WORKSHOP", { bg: "#2a2f36", fg: "#e8e4da", w: 3.6, h: 0.4 }); work.position.set(13, 2.3, 24.1); world.add(work);
+    }
+    const inmateSlot = (id: string, i: number) => {
+      const cell = i % 5;
+      switch (id) {
+        case "rollcall": return new THREE.Vector2(2.5 + i * 1.6, 9.2);
+        case "meal": return new THREE.Vector2([3, 4.5, 6, 12, 13.5, 15][i % 6], i % 2 ? 14 : 12.4);
+        case "work": return new THREE.Vector2(i % 2 ? 4 + (i % 6) : 15.5 + (i % 7), i % 3 ? 26.2 : 28.6);
+        case "exercise": return new THREE.Vector2(19 + (i % 4) * 1.5, 13 + Math.floor(i / 4) * 1.8);
+        case "lights": return new THREE.Vector2(1 + cell * 5 + 1.2 + (i % 3) * 0.7, 3.5 + (i % 2));
+        default: return new THREE.Vector2(3 + ((i * 37) % 21), 9 + ((i * 13) % 12));
+      }
+    };
+    const tickInmates = (dt: number) => {
+      if (!routineInmates.length) return;
+      const p = prisonPhase(Date.now());
+      for (const r of routineInmates) {
+        const pos = r.b.root.position;
+        const goal = inmateSlot(p.phase.id, r.i);
+        // Cells open through a single door gap in the bars (row 7).
+        const inCell = pos.z < 7.4, goalInCell = goal.y < 7.4;
+        const door = new THREE.Vector2(1 + Math.floor(Math.max(0, Math.min(24, inCell ? pos.x : goal.x) - 1) / 5) * 5 + 2.5, inCell ? 6.3 : 8.4);
+        const target = inCell !== goalInCell && Math.abs(pos.x - door.x) > 0.25 ? door : inCell !== goalInCell ? new THREE.Vector2(door.x, inCell ? 8.6 : 6.2) : goal;
+        const dx = target.x - pos.x, dz = target.y - pos.z, d = Math.hypot(dx, dz);
+        if (d > 0.15) {
+          const step = Math.min(d, dt * 2.6);
+          pos.x += (dx / d) * step; pos.z += (dz / d) * step;
+          r.b.root.rotation.y = Math.atan2(dx, dz);
+          r.b.char?.play("walk");
+        } else {
+          r.b.root.rotation.y = p.phase.id === "rollcall" ? Math.PI : p.phase.id === "meal" ? (r.i % 2 ? Math.PI : 0) : r.b.root.rotation.y;
+          r.b.char?.play(p.phase.id === "exercise" ? (r.i % 2 ? "punch" : "jump") : p.phase.id === "meal" ? "talk" : p.phase.id === "work" ? "read" : p.phase.id === "free" ? (r.i % 3 ? "talk" : "idle") : "idle");
+        }
+      }
+    };
     if(map.kind === "prison") for(const portal of map.portals.filter(p=>p.to.kind === "prison"&&p.to.action === "talk")) {
       const person=makeBody({...npcLook(portal.id === "inmate-sam"?57:58),...PRISON_LOOK});
       person.root.position.set(portal.rect.x/TILE+0.5,0,portal.rect.y/TILE+0.5);
@@ -3767,13 +3823,14 @@ export function World3D({
       // Close and first-person views (V to switch; drag or A/D to turn).
       const view = overview || carRef.current ? "classic" : CAMERA_VIEW.mode;
       const fx = Math.cos(CAMERA_VIEW.yaw), fz = Math.sin(CAMERA_VIEW.yaw), jumpY = p.jumpHeight ?? 0;
+      const sitDrop = SEAT.seat ? 0.32 : 0;
       if (view === "behind") {
-        camera.position.set(mx - fx * 3.1, 2.05 + jumpY, mz - fz * 3.1);
+        camera.position.set(mx - fx * 3.1, 2.05 + jumpY - sitDrop, mz - fz * 3.1);
         camera.lookAt(mx + fx * 2.2, 0.95 + jumpY, mz + fz * 2.2);
       } else if (view === "first") {
         const bob = p.walking && !reduce ? Math.sin(secs * 9) * 0.025 : 0;
-        camera.position.set(mx + fx * 0.12, 1.02 + jumpY + bob, mz + fz * 0.12);
-        camera.lookAt(mx + fx * 4, 0.95 + jumpY + bob, mz + fz * 4);
+        camera.position.set(mx + fx * 0.12, 1.02 + jumpY + bob - sitDrop, mz + fz * 0.12);
+        camera.lookAt(mx + fx * 4, 0.95 + jumpY + bob - sitDrop * 0.6, mz + fz * 4);
       }
       if (view === "first" && !getHomeAction?.()) me.root.visible = false;
       fists.visible = view === "first" && !getHomeAction?.();
@@ -3783,14 +3840,40 @@ export function World3D({
         const cuffed = ARREST_SCENE.active && arrestStart && (performance.now() - arrestStart) / 1000 > 1.6;
         const cuffs = fists.getObjectByName("cuffs");
         if (cuffs) cuffs.visible = !!cuffed;
+        const [lh, rh] = [fists.children[0], fists.children[1]];
+        const pushSince = (performance.now() - (CAMERA_VIEW.pushAt ?? -1e9)) / 1000, push = pushSince < 0.4 ? Math.sin((pushSince / 0.4) * Math.PI) : 0;
+        // Guard is up for a moment after a punch or shove; otherwise your hands hang relaxed.
+        const guard = Math.min(since, pushSince) < 2.2;
+        const pose = SEAT.seat?.pose;
+        const ease = 1 - Math.exp(-dt * 14);
+        const to = (h: THREE.Object3D, x: number, y: number, z: number, rx: number, ry: number, rz: number) => {
+          h.position.lerp(new THREE.Vector3(x, y, z), ease);
+          h.rotation.set(h.rotation.x + (rx - h.rotation.x) * ease, h.rotation.y + (ry - h.rotation.y) * ease, h.rotation.z + (rz - h.rotation.z) * ease);
+        };
         if (cuffed) {
           // Wrists pulled together in front of you, cuffed.
-          fists.children[0].position.set(-0.035, -0.17, -0.24);
-          fists.children[1].position.set(0.035, -0.17, -0.24);
+          lh.position.set(-0.035, -0.17, -0.24);
+          rh.position.set(0.035, -0.17, -0.24);
           cuffs!.position.set(0, -0.17, -0.3);
+        } else if (pose === "pray") {
+          to(lh, -0.022, -0.12, -0.25, 1.35, 0.4, 0); to(rh, 0.022, -0.12, -0.25, 1.35, -0.4, 0);
+        } else if (pose === "worship") {
+          const lift = reduce ? 0 : Math.sin(secs * 1.6) * 0.01;
+          to(lh, -0.2, 0.08 + lift, -0.3, 1.5, 0, 0.3); to(rh, 0.2, 0.08 - lift, -0.3, 1.5, 0, -0.3);
+        } else if (pose === "sit") {
+          to(lh, -0.09, -0.24, -0.24, -0.3, 0.2, 0.2); to(rh, 0.09, -0.24, -0.24, -0.3, -0.2, -0.2);
+        } else if (push > 0) {
+          // Shove: both open hands thrust forward.
+          to(lh, -0.08, -0.08, -0.26 - push * 0.16, 1.2, 0, 0); to(rh, 0.08, -0.08, -0.26 - push * 0.16, 1.2, 0, 0);
+        } else if (guard) {
+          to(lh, -0.11, -0.1 + sway * 0.008, -0.26, 0.15, -0.12, 0.25);
+          to(rh, 0.11, -0.1 - sway * 0.008, -0.26, 0.15, 0.12, -0.25);
+          rh.position.y += punch * 0.04; rh.position.z -= punch * 0.14;
         } else {
-          fists.children[0].position.set(-0.11, -0.1 + sway * 0.008, -0.26);
-          fists.children[1].position.set(0.11, -0.1 - sway * 0.008 + punch * 0.04, -0.26 - punch * 0.14);
+          // Relaxed: hands low at your sides, swinging gently as you walk.
+          to(lh, -0.17, -0.27 + Math.abs(sway) * 0.01, -0.22 - sway * 0.03, -0.25, 0, 0.15);
+          to(rh, 0.17, -0.27 + Math.abs(sway) * 0.01, -0.22 + sway * 0.03, -0.25, 0, -0.15);
+          if (punch > 0) { rh.position.set(0.11, -0.1 + punch * 0.04, -0.26 - punch * 0.14); }
         }
       }
       const fov = view === "first" ? 72 : view === "behind" ? 60 : camera.userData.baseFov ?? camera.fov;
@@ -4252,8 +4335,10 @@ export function World3D({
         camera.position.y += Math.sin(now / 90) * 0.01 * (1 - alt);
       }
       if (ferryBoat) { ferryBoat.position.y = -1.0 + Math.sin(now / 900) * 0.06; ferryBoat.rotation.z = Math.sin(now / 1300) * 0.02; }
+      tickInmates(dt);
       if (congregation.length) {
-        for (const b of congregation) b.char?.play("sit");
+        // Seated, with some praying and, during the service, hands raised in worship.
+        congregation.forEach((b, i) => b.char?.play(CHURCH_SCREEN.active && i % 5 === 0 ? "worship" : i % 9 === 4 ? "pray" : "sit"));
         if (churchScreen && churchScreen.version !== CHURCH_SCREEN.version) drawChurchScreen();
         if (preacher?.char) preacher.char.play(CHURCH_SCREEN.active ? "wave" : "idle");
       }
@@ -4316,6 +4401,12 @@ export function World3D({
         cycle.traverse(o => { if (o.userData.bikeWheel) o.rotation.z = moving ? -phase : o.rotation.z; });
       };
       if (rideBike && riding) seatRider(me, rideBike, me.root.rotation.y, p.walking, secs * 8);
+      else if (me.char && SEAT.seat && !getHomeAction?.()) {
+        // Seated in a pew: on the bench, facing the stage, hands as chosen (H).
+        me.char.play(SEAT.seat.pose);
+        me.root.position.set(SEAT.seat.x, 0.18, SEAT.seat.z);
+        me.root.rotation.set(0, SEAT.seat.yaw, 0);
+      }
       else if (me.char && !getHomeAction?.()) me.char.play((p.jumpHeight ?? 0) > 0 ? "jump" : p.walking ? "walk" : "idle");
       const homeAction = getHomeAction?.();
       playerRing.visible = !overview && !homeAction;

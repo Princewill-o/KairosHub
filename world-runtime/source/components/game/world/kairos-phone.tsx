@@ -20,6 +20,7 @@ import { LIFE_WORLD } from "@/game/core/life-world";
 import { MusicApp } from "./music-app";
 import { WebApp } from "./web-app";
 import { SkinsApp } from "./skins-app";
+import { GamesApp } from "./games-app";
 import { STORE, appById, install, readApps, remove, spiritualReading, writeApps, type PhoneApps, type StoreApp } from "@/game/core/app-store";
 
 type AppId =
@@ -40,14 +41,13 @@ const APPS: { id: AppId; name: string; glyph: string; color: string; image?: str
   { id: "stories", name: "Stories", glyph: "scroll", color: "#c26a2f" },
   { id: "messagesPlay", name: "PlayMessages", glyph: "chatworld", color: "#5a4fd0" },
   { id: "season", name: "Season", glyph: "calendar", color: "#f2c84b", image: ICON("star") },
-  { id: "wardrobe", name: "Wardrobe", glyph: "shirt", color: "#d26aa8", image: ICON("gift_box") },
+  { id: "wardrobe", name: "Character", glyph: "shirt", color: "#d26aa8", image: ICON("gift_box") },
   { id: "camera", name: "Camera", glyph: "camera", color: "#5d6673" },
   { id: "store", name: "App Store", glyph: "store", color: "#2b5fd9" },
   { id: "gameshow", name: "Game Show", glyph: "star", color: "#1d2340" },
   { id: "lifehub", name: "Life", glyph: "home", color: "#3d8a5b" },
   { id: "music", name: "Music", glyph: "music", color: "#1db954" },
   { id: "web", name: "Browser", glyph: "compass", color: "#2b5fd9" },
-  { id: "skins", name: "Skins", glyph: "shirt", color: "#e2556b" },
   { id: "settings", name: "Settings", glyph: "gear", color: "#8a929c", image: ICON("gear") },
 ];
 /** Built-in apps that can be deleted (and reinstalled from the App Store). */
@@ -127,15 +127,15 @@ export function KairosPhone(props: PhoneActions) {
     return () => window.removeEventListener("keydown", key, true);
   }, [app, props, editing]);
 
+  const [wide, setWide] = useState(false);
   const open = (id: AppId) => {
     if (editing) return;
     if (id === "bible") return props.onBible();
     if (id === "maps") return props.onMap();
     if (id === "grace") return props.onGrace("home");
-    if (id === "games") return props.onGrace("bible");
     if (id === "stories") return props.onGrace("adventures");
     if (id === "messagesPlay") return props.onGrace("messages");
-    if (id === "wardrobe") return props.onWardrobe();
+    if (id === "wardrobe" || id === "skins") return props.onWardrobe();
     if (id === "camera") return props.onPhoto();
     if (id === "lifehub") { window.dispatchEvent(new CustomEvent("kairos-open-lifehub")); return; }
     if (id === "gameshow") { window.dispatchEvent(new CustomEvent("kairos-open-gameshow")); return; }
@@ -144,7 +144,7 @@ export function KairosPhone(props: PhoneActions) {
 
   return (
     <div className="kp-backdrop" onClick={props.onClose}>
-      <section className="kp-phone" role="dialog" aria-modal="true" aria-label="Kairos phone" onClick={(e) => e.stopPropagation()} style={{ ["--kp-accent" as string]: season.accent }}>
+      <section className={wide && app === "games" ? "kp-phone kp-wide" : "kp-phone"} role="dialog" aria-modal="true" aria-label="Kairos phone" onClick={(e) => e.stopPropagation()} style={{ ["--kp-accent" as string]: season.accent }}>
         <LowPolyWallpaper accent={app ? "#1d1830" : "#5b3f99"} />
         <div className="kp-island" aria-hidden="true" />
         <header className="kp-status">
@@ -216,6 +216,7 @@ export function KairosPhone(props: PhoneActions) {
               {app === "chat" && <FriendsChatApp />}
               {app === "season" && <SeasonApp />}
               {app === "settings" && <SettingsApp />}
+              {app === "games" && <GamesApp onWide={setWide} />}
               {app === "music" && <MusicApp />}
               {app === "web" && <WebApp />}
               {app === "skins" && <SkinsApp avatar={props.avatar ?? ({} as never)} />}
