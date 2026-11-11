@@ -101,6 +101,27 @@ function bend(m: THREE.Material) {
   m.needsUpdate = true;
 }
 const CURVED_DEPTH = new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking});
+/** Black ink outline (inverted hull): pushed out along normals, back faces only, curved like the world. */
+const INK_HULL = new THREE.MeshBasicMaterial({ color: "#120c18", side: THREE.BackSide });
+INK_HULL.userData.bent = true;
+INK_HULL.onBeforeCompile = (sh) => {
+  sh.uniforms.uFocus = FOCUS; sh.uniforms.uBend = BEND;
+  sh.vertexShader = curvedVertexShader(sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n  transformed += normalize(objectNormal) * 0.045;"));
+};
+/** Give solid, upright meshes under `root` a black outline (the low-poly ink look). */
+function inkOutline(root: THREE.Object3D) {
+  const targets: THREE.Mesh[] = [];
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh || m.userData.ink || m.userData.glass || (m as unknown as THREE.SkinnedMesh).isSkinnedMesh) return;
+    const mat = m.material as THREE.Material;
+    if (!mat || (mat as THREE.Material & { transparent?: boolean }).transparent || mat === INK_HULL || /ink/i.test(mat.name ?? "")) return;
+    const g = m.geometry; if (!g.attributes.normal || g.attributes.position.count > 30000) return;
+    g.computeBoundingBox(); const b = g.boundingBox!; if (b.max.y - b.min.y < 0.08) return; // flat ground and road paint stay clean
+    targets.push(m);
+  });
+  for (const m of targets) { const hull = new THREE.Mesh(m.geometry, INK_HULL); hull.userData.ink = true; hull.renderOrder = -1; m.add(hull); }
+}
 bend(CURVED_DEPTH);
 const bendAll = (o: THREE.Object3D) =>
   o.traverse((c) => {
@@ -2934,6 +2955,17 @@ export function World3D({
       }
       scene.add(clouds);
     }
+    if (map.id === "greater-london") {
+      // Blender set pieces for Greater London: Kairos Coach Station and a terrace row.
+      const piece = (url: string, x: number, z: number, rot = 0) => jobs.push(loader.loadAsync(url).then((gltf) => {
+        if (disposed) return;
+        const o = gltf.scene; o.position.set(x, 0, z); o.rotation.y = rot;
+        o.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+        bendAll(o); world.add(o);
+      }));
+      piece("/world3d/gl-coach-station.glb?v=1", 121, 38.2);
+      piece("/world3d/gl-terrace-row.glb?v=1", 151, 10.5);
+    }
     // The Kairos Clipper: riding the Thames to Fellowship Quay.
     let ferryBoat: THREE.Object3D | null = null;
     if (map.id === "ferry") {
@@ -3165,7 +3197,7 @@ export function World3D({
         traffic.push({ obj: g, route, at: (i * 0.173) % 1, distance: 0, speed: map.id === "m25" ? [7, 8.5, 10][route] : [2.6, 2.8, 2.5][route] });
       });
       for (const coach of COACHES.slice(0, map.island ? 0 : 1)) {
-        const obj=coachModel(coach.id);bendAll(obj);scene.add(obj);
+        const obj=coachModel(coach.id);inkOutline(obj);bendAll(obj);scene.add(obj);
         traffic.push({obj,route:coach.route,at:coach.at,distance:0,speed:2.4});
       }
     }
@@ -4333,6 +4365,8 @@ export function World3D({
       // Two frames after everything has loaded, the new scene is ready to show.
       requestAnimationFrame(() => requestAnimationFrame(() => { if (!disposed) window.dispatchEvent(new Event(SCENE_READY)); }));
       if(london) disposeArchitecture=finishArchitecture(world,phase);
+      // Greater London gets the low-poly black outline look on its buildings and vehicles.
+      if (map.id === "greater-london") inkOutline(world);
       world.updateMatrixWorld(true);
       const groups = new Map<string, THREE.Mesh[]>();
       world.traverse((o) => {

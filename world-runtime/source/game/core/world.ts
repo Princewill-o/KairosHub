@@ -1222,6 +1222,15 @@ export function greaterLondonMap(): WorldMap {
   // Every Underground entrance joins the Grace Line at London Square.
   m.portals = m.portals.map((p) => p.to.kind === "map" && p.to.mapId.startsWith("station-") ? { ...p, label: `${p.label} · Grace Line`, to: { kind: "map", mapId: "station-london-square", label: "Grace Line" } } : p);
   m.portals.push({ id: "to-square", rect: px(2, Math.floor(m.rows / 2), 1, 2), label: "London Square", to: { kind: "map", mapId: "city", label: "London Square" } });
+  // Blender set pieces (gl-coach-station.glb, gl-terrace-row.glb) are solid: hall, clock
+  // tower, the three parked coaches, and the terrace row.
+  const rows = m.tiles.map((r) => r.split(""));
+  const solid = (x0: number, y0: number, x1: number, y1: number) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (rows[y]?.[x] !== undefined) rows[y][x] = "X"; };
+  solid(113, 31, 129, 36); solid(127, 33, 130, 35);
+  for (const cx of [113, 119, 125]) solid(cx, 39, cx + 1, 44);
+  solid(142, 6, 160, 10);
+  m.tiles = rows.map((r) => r.join(""));
+  m.structures = [...m.structures, { x: 113, y: 31, w: 17, h: 6, label: "Kairos Coach Station", accent: "#4a2a7a", door: "bottom" }];
   return { ...m, id: "greater-london", name: "Greater London" };
 }
 
