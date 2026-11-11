@@ -40,7 +40,7 @@ import { isStairway, STREET_STAIRS } from "@/game/core/doors";
 import { AMBULANCE_LEAVES, CRASH, DELIVERY_RUN, SCENE_READY, VEIL } from "./world-events";
 import { lobbyMap, mallMap } from "@/game/core/lobbies";
 import { MallDialog } from "./mall-dialog";
-import { collectDeliveries, etaSeconds, mallItem, nextDelivery, orderStatus, readMall, writeMall, type Dept, type MallState } from "@/game/core/mall";
+import { collectDeliveries, etaSeconds, mallItem, nextDelivery, orderCost, orderStatus, placeOrder, readMall, writeMall, type Dept, type MallState, type Speed } from "@/game/core/mall";
 import { receiveFurniture } from "@/app/games/world/actions";
 import { worldAppearance } from "../../../../../public/grace-avatar.mjs";
 import { BikeDock, Dealership } from "./transport";
@@ -60,8 +60,10 @@ import { KairosPhone } from "./kairos-phone";
 import { LuckyBlock } from "./lucky-block";
 import { GameShow } from "./game-show";
 import { LifeHub } from "./life-hub";
+import { DARK, buyDark } from "@/game/core/web";
 import { NowPlaying } from "./music-app";
 import { NextStationBoard } from "./next-station";
+import { PoliceVan } from "./police-van";
 import { FIND_CHANCE, TIERS, rollTier, type Tier } from "@/game/core/lucky-blocks";
 import { MinistryDialog } from "./ministry-dialog";
 import { personaFor } from "@/game/core/ministry";
@@ -493,6 +495,14 @@ export function WorldApp({
       fadeTimer.current = setTimeout(() => setFading(false), 550);
     }, 430);
   }, []);
+  // Police transport: cuffed in the back of a Met van, to court or to prison.
+  const [van, setVan] = useState<"court" | "prison" | null>(null);
+  const vanRef = useRef(false);
+  const escort = useCallback((dest: "court" | "prison") => {
+    if (vanRef.current) return;
+    vanRef.current = true; setVan(dest);
+    setTimeout(() => { goTo(dest, dest === "court" ? "Crown Court" : "HMP Thames"); setVan(null); vanRef.current = false; }, 5200);
+  }, [goTo]);
   const adventure = useStoryAdventure(map, goTo, amount => setWallet(value => value + amount));
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -522,7 +532,7 @@ export function WorldApp({
   }, []);
 
   useEffect(() => {
-    if (life.hearing && mapId !== "court" && !fading) goTo("court", "Crown Court");
+    if (life.hearing && mapId !== "court" && !fading) escort("court");
   }, [life.hearing, mapId, fading, goTo]);
 
   useEffect(() => {
@@ -882,7 +892,7 @@ export function WorldApp({
       // Officers cuff you and drive you to prison.
       setArrest(true);
       say("Officers cuff you and put you in the back of the van to HMP Thames.", true);
-      const t = setTimeout(() => { setArrest(false); goTo("prison", "HMP Thames"); }, 2600);
+      const t = setTimeout(() => { setArrest(false); escort("prison"); }, 2600);
       return () => clearTimeout(t);
     }
     if (!jailed && mapId === "prison") {
@@ -965,6 +975,46 @@ export function WorldApp({
     setChat(familyEncounter(m, { saved: kl.life?.saved, age: kl.life?.age }, Math.floor(Math.random() * 1000)));
     window.dispatchEvent(new CustomEvent("kairos-life:family-call", { detail: { name: m.name, kind: "talk" } }));
   };
+  // Hitting or shoving people has consequences: witnesses, wanted stars, people fighting back.
+  useEffect(() => {
+    const onAssault = (e: Event) => {
+      const d = (e as CustomEvent<{ index: number; officer: boolean; kind: "punch" | "push"; down: boolean }>).detail;
+      if (map.kind === "home") return;
+      const reported = d.officer || d.kind === "punch" || Math.random() < 0.3;
+      if (reported) updateLife((l) => { let n = addStar(l, Date.now(), d.officer ? "Assaulting a police officer" : d.kind === "punch" ? "Assault" : "Public disorder"); if (d.officer) n = addStar(n, Date.now(), "Assaulting a police officer"); return n; });
+      const fightBack = !d.down && !d.officer && Math.random() < 0.35;
+      say(d.officer ? "You hit a police officer. Backup is on the way!" : d.down ? "They go down hard. Someone screams and reaches for their phone." : fightBack ? "They swing back and catch you on the jaw!" : d.kind === "push" ? "You shove them. “Oi! What's your problem?”" : "You punch them. People are staring.", true);
+      if (offline && kl.life) kl.update((l) => KL.encountered(l, { who: "A stranger", choice: d.kind === "punch" ? "You punched someone" : "You shoved someone", effect: { walk: d.kind === "punch" ? -4 : -2, happiness: -1, ...(fightBack ? { health: -6 } : {}) } }) as typeof l);
+    };
+    window.addEventListener("kairos-assault", onAssault);
+    return () => window.removeEventListener("kairos-assault", onAssault);
+  });
+  // The phone's web: shop orders get delivered; the dark web has consequences.
+  useEffect(() => {
+    const onOrder = (e: Event) => {
+      const d = (e as CustomEvent<{ item: string; speed: Speed; reply: (t: string) => void }>).detail;
+      const cost = orderCost(d.item, d.speed);
+      if (wallet < cost) { d.reply(`Payment declined: you need £${cost}.`); return; }
+      writeMall(localStorage, placeOrder(readMall(localStorage, me.id), d.item, d.speed), me.id);
+      setWallet((w) => w - cost);
+      d.reply(`Order placed: ${mallItem(d.item)?.name}. A driver will bring it to your house.`);
+    };
+    const onDark = (e: Event) => {
+      const d = (e as CustomEvent<{ item: string; reply: (t: string) => void }>).detail;
+      const listing = DARK.find((x) => x.id === d.item);
+      if (!listing) return;
+      if (wallet < listing.price) { d.reply("Insufficient funds. Maybe that's a mercy."); return; }
+      const o = buyDark(d.item)!;
+      setWallet((w) => Math.max(0, w - o.paid + (o.life.money ?? 0)));
+      if (o.stars) updateLife((l) => { let n = l; for (let i = 0; i < o.stars; i++) n = addStar(n, Date.now(), o.charge); return n; });
+      if (offline && kl.life) { const { money: _m, ...life } = o.life; void _m; kl.update((l) => KL.encountered(l, { who: "The dark web", choice: listing.name, effect: life }) as typeof l); }
+      d.reply(o.text);
+      if (o.stars) say(o.text, true);
+    };
+    window.addEventListener("kairos-web-order", onOrder);
+    window.addEventListener("kairos-web-dark", onDark);
+    return () => { window.removeEventListener("kairos-web-order", onOrder); window.removeEventListener("kairos-web-dark", onDark); };
+  });
   const taughtRef = useRef<string[]>([]);
   const teach = useCallback((category: string, delay = 0) => {
     const seen = [...taughtRef.current, ...(((kl.life as { seenLessons?: string[] } | null)?.seenLessons) ?? [])];
@@ -1232,7 +1282,7 @@ export function WorldApp({
       {pursuit?.stage === "challenge" && <PoliceChallenge onResult={correct=>{
         pursuitRef.current = null; setPursuit(null);
         if(correct) { updateLife(clearWanted); say("Correct. The officers let you go with a warning.",true); }
-        else { setArrest(true); arrestTimer.current=setTimeout(()=>{updateLife(l=>({...clearWanted(l),hearing:{stars:l.stars,charge:wantedCharge(l)}}));setArrest(false);goTo("court","Crown Court");},2600); }
+        else { setArrest(true); arrestTimer.current=setTimeout(()=>{updateLife(l=>({...clearWanted(l),hearing:{stars:l.stars,charge:wantedCharge(l)}}));setArrest(false);escort("court");},2600); }
       }}/ >}
       {arrest && <ArrestOverlay />}
       <button type="button" onClick={() => setPhone(true)} aria-label="Open phone (P)" data-hud="phone" className="kp-launch"><Smartphone className="size-5"/><span>Phone</span></button>
@@ -1382,6 +1432,7 @@ export function WorldApp({
         say(`${o.title}: ${o.text}`, true);
       }} />}
       <NowPlaying />
+      {van && <PoliceVan dest={van} />}
       {nearFamily && !chat && (
         <button type="button" className="kw-family-talk" data-hud="family-talk" onClick={() => talkFamily(nearFamily)}>
           Talk to {nearFamily.name.split(" ")[0]} <small>({nearFamily.relation})</small>

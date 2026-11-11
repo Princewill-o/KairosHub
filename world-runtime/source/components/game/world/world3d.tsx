@@ -3324,8 +3324,12 @@ export function World3D({
         talkingAnimation: false,
         shove: new THREE.Vector3(),
         bumpedAt: 0,
+        index: i,
+        officer: london && i % 9 === 4,
+        downUntil: 0,
       };
     });
+    let lastPunch = CAMERA_VIEW.punchAt, lastPush = CAMERA_VIEW.pushAt ?? 0;
     const crossingNpcs = london ? crossingPedestrianPoses(Date.now()).map((pose, i) => {
       const body = makeBody(npcLook(90 + i)); scene.add(body.root);
       return { id: pose.id, body };
@@ -3387,7 +3391,18 @@ export function World3D({
       const blue = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.1, 0.22), new THREE.MeshBasicMaterial({ color: "#2b5fd9" }));
       const red = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.1, 0.22), new THREE.MeshBasicMaterial({ color: "#e04a3f" }));
       blue.position.set(0, y, -0.12); red.position.set(0, y, 0.12); car.add(blue, red); lightBars.push([blue, red]);
+      // Metropolitan Police livery: a roof sign readable from both sides.
+      const roof = sign("POLICE", { bg: "#16307a", fg: "#ffffff", w: 0.9, h: 0.2 });
+      roof.position.set(0, y + 0.18, 0); car.add(roof);
+      const back = roof.clone(); back.rotation.y = Math.PI; car.add(back);
     };
+    // The Met: a station sign on London Square where the response car waits.
+    if (london && map.id === "city") {
+      const met = sign("METROPOLITAN POLICE · KAIROS SQUARE STATION", { bg: "#16307a", fg: "#ffffff", w: 7.5, h: 0.6 });
+      met.position.set(map.cols / 2 + 8, 3.1, 4.6); world.add(met);
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshBasicMaterial({ color: "#2b5fd9" }));
+      lamp.position.set(map.cols / 2 + 8, 4.0, 4.6); world.add(lamp);
+    }
     if (london || highland) {
       void placeCar(responseCar, "police").then((fitted) => { const b = new THREE.Box3().setFromObject(fitted); lightBar(responseCar, b.max.y + 0.05); });
       scene.add(responseCar,...responders.map(b=>b.root));
@@ -3877,6 +3892,7 @@ export function World3D({
         const pose = residentPose(n.path, reduce ? 0 : secs, n.offset);
         n.body.root.visible = i < Math.max(4, residentLimit - onlineCount);
         if (!n.body.root.visible) { n.speech.visible = false; return; }
+        if (n.downUntil > now) return; // knocked down: they stay where they fell
 
         // Local crowd AI: greet a nearby player at a natural pause, face them,
         // and then return to the resident's route. It is deterministic and runs
@@ -3953,6 +3969,33 @@ export function World3D({
           }
         }
       });
+      // Fighting: a punch (F) or a shove (G) lands on whoever is right in front of you.
+      // They stagger or go down, and the world reacts (see world-app's assault handler).
+      {
+        const punched = CAMERA_VIEW.punchAt !== lastPunch, pushed = (CAMERA_VIEW.pushAt ?? 0) !== lastPush;
+        if (punched || pushed) {
+          lastPunch = CAMERA_VIEW.punchAt; lastPush = CAMERA_VIEW.pushAt ?? 0;
+          const fx = Math.sin(me.root.rotation.y), fz = Math.cos(me.root.rotation.y);
+          let target: typeof npcs[number] | null = null, best = 1.9;
+          for (const n of npcs) {
+            if (!n.body.root.visible) continue;
+            const dx = n.body.root.position.x - me.root.position.x, dz = n.body.root.position.z - me.root.position.z, d = Math.hypot(dx, dz);
+            if (d < best && (dx * fx + dz * fz) / Math.max(d, 1e-3) > 0.2) { best = d; target = n; }
+          }
+          if (target) {
+            const power = punched ? 1.1 : 0.7;
+            const at = target.body.root.position;
+            const kx = fx * power, kz = fz * power;
+            if (!blocked(map, (at.x + kx) * TILE, (at.z + kz) * TILE)) target.shove.set(kx * 0.35, 0, kz * 0.35);
+            target.bumpedAt = now;
+            target.body.root.rotation.y = Math.atan2(-fx, -fz);
+            if (punched && Math.random() < 0.45) { target.downUntil = now + 2600; target.body.char?.play("die"); }
+            else target.body.char?.react?.("bump");
+            window.dispatchEvent(new CustomEvent("kairos-assault", { detail: { index: target.index, officer: target.officer, kind: punched ? "punch" : "push", down: target.downUntil > now } }));
+          }
+        }
+        for (const n of npcs) if (n.downUntil && now > n.downUntil) { n.downUntil = 0; n.body.char?.play("idle"); }
+      }
       // Body collisions: people don't pass through each other. A shoulder bump
       // pushes the resident aside (never into a wall), both bodies react, and the
       // push fades over a second or two as they settle back onto their route.

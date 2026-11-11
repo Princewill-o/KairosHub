@@ -409,6 +409,9 @@ export function WorldView({
         window.dispatchEvent(new CustomEvent("kairos-camera-view", { detail: CAMERA_VIEW.mode }));
       } else if (k === "f" && !e.repeat) {
         CAMERA_VIEW.punchAt = performance.now();
+      } else if (k === "g" && !e.repeat) {
+        CAMERA_VIEW.pushAt = performance.now();
+        CAMERA_VIEW.punchAt = CAMERA_VIEW.punchAt;
       }
     };
     const up = (e: KeyboardEvent) => keys.current.delete(e.key.toLowerCase());

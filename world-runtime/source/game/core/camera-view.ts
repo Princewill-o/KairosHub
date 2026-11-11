@@ -9,7 +9,7 @@ export const CAMERA_MODES: CameraMode[] = ["classic", "behind", "first"];
 export const CAMERA_LABEL: Record<CameraMode, string> = { classic: "Classic", behind: "Close", first: "First person" };
 /** yaw: the facing direction in map space, (cos yaw, sin yaw), y pointing down/south. */
 // One shared object even when the 3D renderer is bundled separately from movement.
-type View = { mode: CameraMode; yaw: number; punchAt: number };
+type View = { mode: CameraMode; yaw: number; punchAt: number; pushAt?: number };
 const g = globalThis as unknown as { __kairosCamera?: View };
 export const CAMERA_VIEW: View = (g.__kairosCamera ??= { mode: "classic", yaw: -Math.PI / 2, punchAt: -10 });
 export const TURN_SPEED = 2.6; // radians per second while A/D are held
