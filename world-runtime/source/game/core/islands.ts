@@ -105,6 +105,9 @@ export function islandMap(id: string): WorldMap | null {
     fill(30,33,1,9,'-');fill(30,41,6,1,'-');portals.push({id:'my-house',rect:rect(34,39,2),label:'Your house · go inside',to:{kind:'map',mapId:'home',label:'Home'}});
     // Slip road onto the M25: drive (or walk) east off the square.
     fill(48,19,2,4,'=');portals.push({id:'slip-m25',rect:rect(48,19,2,4),label:'M25 London Orbital · drive out of London',to:{kind:'map',mapId:'m25',label:'M25 London Orbital'}});
+    // West: the A4 into Greater London. South: the Thames pier for the ferry.
+    fill(2,25,2,8,'=');portals.push({id:'greater-london',rect:rect(2,27,1,4),label:'A4 · into Greater London',to:{kind:'map',mapId:'greater-london',label:'Greater London'}});
+    fill(40,42,6,2,'-');portals.push({id:'pier',rect:rect(41,43,4),label:'Kairos Clipper pier · ferry to Fellowship Quay',to:{kind:'map',mapId:'ferry',label:'Kairos Clipper'}});
   }
   if(id === 'fellowship-island')portals.push({id:'grace-social',rect:rect(23,17,3),label:'Social Lodge · walk in',to:{kind:'map',mapId:`lobby-social@${id}`,label:'Social Lodge'}});
   for (const portal of portals) fill(portal.rect.x / 32, portal.rect.y / 32, portal.rect.w / 32, portal.rect.h / 32, "-");

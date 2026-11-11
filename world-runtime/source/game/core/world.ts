@@ -96,7 +96,7 @@ export interface WorldMap {
   story?: { id: "david" | "ruth" | "esther" | "daniel"; chapter: number };
   island?: boolean;
   id: string;
-  kind: "city" | "campus" | "woodland" | "office" | "home" | "station" | "hospital" | "court" | "prison" | "church" | "train";
+  kind: "city" | "campus" | "woodland" | "office" | "home" | "station" | "hospital" | "court" | "prison" | "church" | "train" | "flight" | "ferry";
   /** Pre-rendered 3D art (Blender) drawn instead of the tile set. */
   art?: "london" | "highlands" | `home-${number}`;
   /** Furniture placement (homes only). */
@@ -925,6 +925,7 @@ export function motorwayMap(): WorldMap {
   // Junction slip roads: south-west to London, north-east to the M40 and the Highlands.
   g.fill(10, 16, 3, rows - 16, "=");
   g.fill(70, 0, 3, 7, "=");
+  g.fill(70, 16, 3, rows - 16, "=");   // south-east: the airport slip road
   // Footpath along the verges so you can walk to the services safely.
   g.fill(0, 16, 10, 1, "-");
   g.fill(13, 16, M25.tunnel[0] - 13, 1, "-");
@@ -939,6 +940,7 @@ export function motorwayMap(): WorldMap {
         { id: "slip-london", rect: px(10, rows - 1, 3, 1), label: "Junction 10 · A3 to London Square", to: { kind: "map", mapId: "city", label: "London Square" } },
         { id: "slip-highlands", rect: px(70, 0, 3, 1), label: "Junction 16 · M40 north to the Highlands", to: { kind: "map", mapId: "highlands", label: "The Highlands" } },
         { id: "services-food", rect: px(sv.x + 8, 21, 2, 1), label: "Kairos Services · grab a bite", to: { kind: "act", activity: "eat" } },
+        { id: "slip-airport", rect: px(70, rows - 1, 3, 1), label: "Junction 14 · Kairos International Airport", to: { kind: "map", mapId: "airport", label: "Kairos International" } },
       ],
       rooms: [],
       spawn: centre(sv.x + 9, 19),
@@ -1144,4 +1146,81 @@ export function supermarketMap():WorldMap {
  const g=new Grid(30,25,".");g.border("#");
  for(const x of [8,15,22])g.fill(x,6,2,10,"#");
  return finish({id:"supermarket",kind:"office",name:"Tesco · practice store",structures:[],portals:[{id:"exit",rect:px(14,23,2,1),label:"Back to London",to:{kind:"map",mapId:"city",label:"London"}}],rooms:[],spawn:centre(14,21),accent:"#2b5fd9",sign:{x:15,y:2,text:"Stock shelves · serve customers · learn"}},g);
+}
+
+
+/* ── Travel: Kairos International, the Kairos Air flight, the Thames ferry, Greater London ── */
+
+/** Where roads meet the edge of a map: the only places a tunnel portal belongs. */
+export function roadEnds(map: Pick<WorldMap, "tiles" | "cols" | "rows">, reach = 6) {
+  const road = (x: number, y: number) => "=:".includes(map.tiles[y]?.[x] ?? "");
+  const ends: { side: "w" | "e" | "n" | "s"; at: number }[] = [];
+  const runs = (side: "w" | "e" | "n" | "s", hits: boolean[]) => {
+    let start = -1;
+    hits.forEach((hit, i) => {
+      if (hit && start < 0) start = i;
+      if ((!hit || i === hits.length - 1) && start >= 0) { const end = hit ? i : i - 1; ends.push({ side, at: (start + end + 1) / 2 }); start = -1; }
+    });
+  };
+  const near = (n: number, f: (k: number) => boolean) => Array.from({ length: Math.min(reach, n) }, (_, k) => k).some(f);
+  runs("w", Array.from({ length: map.rows }, (_, y) => near(map.cols, (k) => road(k, y))));
+  runs("e", Array.from({ length: map.rows }, (_, y) => near(map.cols, (k) => road(map.cols - 1 - k, y))));
+  runs("n", Array.from({ length: map.cols }, (_, x) => near(map.rows, (k) => road(x, k))));
+  runs("s", Array.from({ length: map.cols }, (_, x) => near(map.rows, (k) => road(x, map.rows - 1 - k))));
+  return ends;
+}
+
+/**
+ * Kairos International. Like every building it faces south, towards the camera: the
+ * access road and forecourt are in front, the runway and the Kairos Air jet behind.
+ * Blender terminal: airport-terminal.glb (its apron and runway run north of the building).
+ */
+export const AIRPORT = { cols: 80, rows: 60, terminal: { x: 25, y: 40, w: 30, h: 12 }, centre: { x: 40, z: 46 }, plane: { x: 40, z: 24 } };
+export function airportMap(): WorldMap {
+  const { cols, rows, terminal: t } = AIRPORT;
+  const g = new Grid(cols, rows, "g");
+  g.fill(0, 0, cols, 40, "=");                  // apron, taxiway and runway (airside)
+  g.fill(25, 22, 30, 5, "X");                   // the parked jet's fuselage
+  g.fill(t.x, t.y, t.w, t.h, "X");              // terminal
+  g.fill(20, 52, 40, 3, "-");                   // forecourt
+  g.fill(0, 55, cols, 3, "=");                  // access road from the M25 (west)
+  g.fill(0, 58, cols, 2, "g");
+  return finish({
+    id: "airport", kind: "woodland", name: "Kairos International",
+    structures: [],  // the Blender terminal is the building; the grid only gives it collision
+    portals: [
+      { id: "departures", rect: px(38, 52, 4, 1), label: "Departures · check in and board Kairos Air", to: { kind: "map", mapId: "flight", label: "Kairos Air" } },
+      { id: "airport-m25", rect: px(0, 55, 1, 3), label: "Back to the M25", to: { kind: "map", mapId: "m25", label: "M25 London Orbital" } },
+    ],
+    rooms: [], spawn: centre(40, 54), accent: "#6b3fa0",
+  }, g);
+}
+
+/** Inside the Kairos Air jet (plane-cabin.glb): an aisle between rows of seated passengers. */
+export const CABIN = { cols: 24, rows: 7, aisle: 3 };
+export function flightMap(): WorldMap {
+  const { cols, rows, aisle } = CABIN;
+  const g = new Grid(cols, rows, "s");
+  g.border("#");
+  g.fill(1, aisle - 0, cols - 2, 1, ".");       // the aisle
+  g.fill(cols - 3, 1, 2, rows - 2, ".");        // galley
+  return finish({ id: "flight", kind: "flight", name: "Kairos Air · in flight", structures: [], portals: [], rooms: [], spawn: centre(cols - 3, aisle), accent: "#6b3fa0" }, g);
+}
+
+/** The Kairos Clipper ferry deck (ferry.glb) on the Thames. */
+export function ferryMap(): WorldMap {
+  const g = new Grid(30, 14, "w");
+  g.fill(6, 5, 18, 5, ".");                     // walkable deck
+  g.fill(10, 5, 8, 5, "X");                     // cabin
+  g.fill(10, 7, 8, 1, ".");                     // walk through the cabin
+  return finish({ id: "ferry", kind: "woodland", name: "Kairos Clipper", structures: [], portals: [], rooms: [], spawn: centre(8, 7), accent: "#2b5fd9" }, g);
+}
+
+/** Greater London: the full city, ten times the square, with the Thames, stations and districts. */
+export function greaterLondonMap(): WorldMap {
+  const m = legacyLondonMap();
+  // Every Underground entrance joins the Grace Line at London Square.
+  m.portals = m.portals.map((p) => p.to.kind === "map" && p.to.mapId.startsWith("station-") ? { ...p, label: `${p.label} · Grace Line`, to: { kind: "map", mapId: "station-london-square", label: "Grace Line" } } : p);
+  m.portals.push({ id: "to-square", rect: px(2, Math.floor(m.rows / 2), 1, 2), label: "London Square", to: { kind: "map", mapId: "city", label: "London Square" } });
+  return { ...m, id: "greater-london", name: "Greater London" };
 }

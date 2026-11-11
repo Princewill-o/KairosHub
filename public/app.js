@@ -6,7 +6,6 @@ document.documentElement.classList.toggle('grace-embedded',GRACE_EMBED);
 const PUBLIC_PLAY = true;
 import {worldLockedCard} from './world-availability.mjs';
 import {mountPlayMessages} from './playmessages.mjs';
-import {mountLife} from './life.mjs';
 import {mountFamily} from './family.mjs';
 import {restoreFamily, familyApi, loadCloudProgress, syncStatus} from './family-client.mjs';
 import {mountKairosWorld,worldJourney} from './kairos-world.mjs';
@@ -386,10 +385,10 @@ function route() {
     document.documentElement.dataset.audience='landing';
     activeModule=mountLanding(document.querySelector('#app'));window.scrollTo(0,0);return;
   }
-  if(hash==='life'){
-    stop();document.documentElement.classList.remove('world-playing');
-    document.querySelector('#app').innerHTML='<main id="life-root"></main>';
-    activeModule=mountLife(document.querySelector('#life-root'));window.scrollTo(0,0);return;
+  if(hash==='life'||hash==='quickplay'){
+    // Kairos Life is the offline mode of Kairos World; quick play is the online mode.
+    try{localStorage.setItem('kairos-world-mode-request',hash==='life'?'offline':'online');}catch{}
+    location.replace('#world');return;
   }
   if(!GRACE_EMBED && accounts.active()){
     applyAudience();stop();document.documentElement.classList.add('world-playing');

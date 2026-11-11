@@ -1,4 +1,5 @@
 "use client";
+import { bodyForAge } from "@/game/core/kairos-life";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -41,6 +42,10 @@ export async function buildCharacter(
     bottom: custom?.legs ?? c.bottom,
     shoes: custom?.shoe ?? c.shoes,
   };
+  // Kairos Life: the same rig at every age, from baby to elder.
+  const lifeAge = (input as Avatar & { lifeAge?: number }).lifeAge;
+  const ageBody = bodyForAge(typeof lifeAge === "number" ? lifeAge : null);
+  if (ageBody.grey > 0) colours.hair = "#" + new THREE.Color(colours.hair).lerp(new THREE.Color("#d8d6d0"), ageBody.grey).getHexString();
   const model = source.scene.clone(true),
     holder = new THREE.Group();
   holder.name = "Kairos explorer";
@@ -136,8 +141,11 @@ export async function buildCharacter(
   });
   if (custom?.build === "slim") model.scale.x = 0.88;
   if (custom?.build === "broad") model.scale.x = 1.12;
+  const headNode = model.getObjectByName("Head");
+  if (headNode && ageBody.head !== 1) headNode.scale.multiplyScalar(ageBody.head);
+  if (ageBody.stoop) model.rotation.x = ageBody.stoop;
   const bounds = new THREE.Box3().setFromObject(model),
-    scale = height / Math.max(0.01, bounds.max.y - bounds.min.y);
+    scale = (height * ageBody.height) / Math.max(0.01, bounds.max.y - bounds.min.y);
   holder.scale.setScalar(scale);
   model.position.y -= bounds.min.y;
   const body = model.getObjectByName("Body")!,
@@ -331,5 +339,7 @@ export function npcLook(i: number): Avatar {
       backpack: n % 4 === 0,
       build: n % 4 === 0 ? "broad" : "standard",
     }),
+    // A city of every age: children, teenagers, adults and grey-haired elders.
+    lifeAge: n % 9 === 4 ? 6 + (n % 5) : n % 9 === 7 ? 14 + (n % 3) : n % 7 === 0 ? 68 + (n % 15) : 22 + (n % 35),
   } as Avatar;
 }

@@ -1,3 +1,5 @@
+// #life asks for offline Kairos Life, #quickplay for online; the world reads ?mode once.
+function worldModeParam(){try{const m=localStorage.getItem('kairos-world-mode-request');localStorage.removeItem('kairos-world-mode-request');return m==='offline'||m==='online'?`&mode=${m}`:'';}catch{return '';}}
 import {WORLD_ENABLED,worldLockedCard} from './world-availability.mjs';
 import {mountGraceBrowser} from './grace-browser.mjs';
 import {createAvatarStore} from './avatar.mjs';
@@ -17,7 +19,7 @@ export function worldInstructions(){return `<dialog class="world-guide" aria-lab
 export function mountKairosWorld(root,profile,{initialRoute=null}={}){
  if(!WORLD_ENABLED){root.innerHTML=worldLockedCard();return {dispose(){}};}
 
- root.innerHTML=`<section class="kairos-world-shell" aria-label="Kairos World"><div class="world-stage"><iframe title="Kairos World — explore and enter Bible stories" allow="autoplay; fullscreen; gamepad; microphone" src="/world/index.html?map=city"></iframe><div class="world-loading" role="status"><h1>Entering Kairos World</h1><p>Preparing your adventure…</p><button class="secondary world-retry" hidden>Try again</button></div></div><nav class="world-dock" aria-label="World apps"><button class="open-grace" data-grace="home"><b class="grace-mark" aria-hidden="true">g</b> Grace</button><button data-grace="atlas">World map</button><button data-grace="social">Social</button><button class="world-help" data-optional>How to play</button><button class="world-fullscreen" aria-label="Toggle browser fullscreen">⛶</button></nav><span class="world-location">Kairos World · KP2 London</span><dialog class="grace-window" aria-label="Grace in-game browser"></dialog>${worldInstructions()}</section>`;
+ root.innerHTML=`<section class="kairos-world-shell" aria-label="Kairos World"><div class="world-stage"><iframe title="Kairos World — explore and enter Bible stories" allow="autoplay; fullscreen; gamepad; microphone" src="/world/index.html?map=city${worldModeParam()}"></iframe><div class="world-loading" role="status"><h1>Entering Kairos World</h1><p>Preparing your adventure…</p><button class="secondary world-retry" hidden>Try again</button></div></div><nav class="world-dock" aria-label="World apps"><button class="open-grace" data-grace="home"><b class="grace-mark" aria-hidden="true">g</b> Grace</button><button data-grace="atlas">World map</button><button data-grace="social">Social</button><button class="world-help" data-optional>How to play</button><button class="world-fullscreen" aria-label="Toggle browser fullscreen">⛶</button></nav><span class="world-location">Kairos World · KP2 London</span><dialog class="grace-window" aria-label="Grace in-game browser"></dialog>${worldInstructions()}</section>`;
  const frame=root.querySelector('iframe'),loading=root.querySelector('.world-loading'),retry=root.querySelector('.world-retry');
  const guide=root.querySelector('.world-guide');
  root.querySelector('.world-help').onclick=()=>grace.open('help');
@@ -37,7 +39,7 @@ export function mountKairosWorld(root,profile,{initialRoute=null}={}){
  };
  const timer=setTimeout(()=>{if(!loading.hidden){loading.querySelector('p').textContent='The world is taking longer to load. Try again if it does not appear.';retry.hidden=false;}},45000);
  window.addEventListener('message',listener);frame.addEventListener('load',send);
- retry.onclick=()=>{retry.hidden=true;frame.src='/world/index.html?map=city';};
+ retry.onclick=()=>{retry.hidden=true;frame.src='/world/index.html?map=city'+worldModeParam();};
  root.querySelector('.world-fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await root.querySelector('.kairos-world-shell').requestFullscreen();}catch{}};
  return {dispose(){grace.dispose();clearTimeout(timer);window.removeEventListener('message',listener);frame.removeEventListener('load',send);frame.remove();document.documentElement.classList.remove('world-playing');}};
 }

@@ -139,20 +139,25 @@ Run `node --test content-expansion.test.mjs supabase.test.mjs` and `node tests/c
 
 Kairos World is live (`WORLD_ENABLED = true` in `public/world-availability.mjs`). Setting the flag to `false` and rebuilding shows the retained Coming soon notice instead.
 
-## Kairos Life — offline play mode
+## Kairos Life — offline play mode inside Kairos World
 
-Open `#life` (also linked from the landing page and Grace home). Kairos Life is the single-player, offline mode: you live a whole life one year at a time, from birth to judgement. Kairos World (`#world`) is the online quick-play mode, with friends and no ageing.
+Kairos World has two modes, chosen on first entry (or with `#life` / `#quickplay`):
 
-- **Start:** custom details (name, sex, UK city, Christian home or not), a *Random details* button, or continue a saved life (`kairos-life-v1` in local storage; blocked storage falls back to memory with a notice).
-- **Stages:** baby, child, teen, young adult, adult, elder, each marked as a milestone, plus primary and secondary school.
-- **Every year:** after *Age up +1 year*, one decision arrives from health, spiritual, relationships, money, work or mind, or a stage-appropriate temptation (40%). You get four actions a year: prayer, Bible, church, fasting, repentance, sharing Jesus, serving, exercise, diet, GP checks, study, work, a car, dating and family time.
-- **Health is earned:** health settles towards a level set by your exercise, diet, smoking, drinking and age. Missed checkups let illness go undetected. In 500-life simulations, the median lifespan is about 91 for careful players, 66 for players who take no precautions and 60 for reckless players. Few reach 85 without precautions.
-- **Drift:** a year with no prayer, Bible or church cools your walk and raises drift. *Repent and return* restores it at any age.
-- **Follow-up:** met → messaged → called → invited → pick-up (needs a car) → came to church → trusted Christ → discipled. Contacts you neglect go cold.
-- **Sunday service, 2pm:** an attendance of 180–420, guests you collected, an announcement, a big scripture screen (live KJV via `/api/scripture/:book/:chapter`) and a **one-minute** David Antwi excerpt from the PlayMessages sermon catalogue via the privacy-enhanced YouTube embed.
-- **Plant a branch** in another UK city once your walk, witness, fruit and savings are high enough.
-- **Judgement:** heaven rests on having trusted Christ. A life that professed faith but stayed fallen away, or a life that never trusted Him, ends in the hell screen with Scripture and a real-life invitation (Romans 10:13). Late repentance still saves. Church attendance without faith does not.
+- **Offline · Kairos Life** — you are born in London and live a whole life in the 3D world. One in-game day is one year (or *Age up now* in the Life panel). Your citizen model grows from baby to child, teen, adult and grey-haired elder; city residents span every age too.
+- **Online · Quick play** — the same world, friends, chat and calls, with no ageing.
 
-All events, jobs and text are original. No code or content from BitLife (a commercial Candywriter game) is used; only the general genre idea of a yearly life sim.
+In Kairos Life, each year brings one decision in the world (health, spiritual, relationships, money, work, mind, or a temptation). Real world actions count: praying in the phone's Prayer app, opening the Bible, preaching to people, following up, eating, hiking, taking medicine and going to church. Health habits decide how far you get (median lifespan in simulation ≈ 91 careful, 66 with no precautions, 60 reckless). Drift, repentance, follow-up, branch planting and the heaven/hell ending (a 3D scene) are described in `world-runtime/source/game/core/kairos-life.ts`.
 
-Rules: `public/life-engine.mjs` (pure, seeded). UI: `public/life.mjs`, `public/life.css`. Tests: `node --test life.test.mjs` and `BASE=http://127.0.0.1:4173 node tests/life-browser.mjs`.
+**Church pick-ups and the 2pm service.** Invite people through Phone → Follow-ups; then *Pick up in my car* from the Life panel sets a waypoint where they wait. Drive there and they get in. In Kharis Church the 2pm service runs with a packed seated congregation, a preacher on the stage, a giant EasyWorship-style screen showing the KJV passage, and a one-minute David Antwi excerpt from the PlayMessages catalogue. Offline, the service is on from late morning to evening every game day (a day is a year); online it keeps Sunday 2pm. A 2pm announcement goes out across London.
+
+## Travel
+
+- **Greater London** — the full generated city (176 × 136 tiles, Thames, 12 Underground entrances that join the Grace Line), west of London Square along the A4.
+- **Kairos International** — M25 Junction 14. A Blender glass terminal faces the forecourt; behind it a Kairos Air jet waits at the gate, taxis and takes off every 70 seconds.
+- **Kairos Air flight** — board at Departures. Walk the aisle of a full cabin, with clouds streaming past. Use *Talk to the passenger beside you* to share the gospel mid-flight. Lands at Glen Lorne in the Highlands.
+- **Kairos Clipper** — the Thames ferry from London Square Pier to Fellowship Quay.
+- **Tunnels** — mountain tunnel portals now appear only where a road runs off the edge of a map (`roadEnds()` in `world.ts`).
+
+Blender sources: `world-runtime/art-sources/scripts/create_travel.py` (airliner, open-topped cabin with a camera-side cut-away, terminal, ferry). Tests: `node --test life.test.mjs travel.test.mjs`.
+
+All Kairos Life events, jobs and text are original. No code or content from BitLife (a commercial Candywriter game) is used.

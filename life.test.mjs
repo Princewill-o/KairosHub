@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import * as L from "./public/life-engine.mjs";
+import { build } from "esbuild";
+import { pathToFileURL } from "node:url";
+import fs from "node:fs/promises";
+const out = await build({ entryPoints: ["./world-runtime/source/game/core/kairos-life.ts"], bundle: true, write: false, format: "esm", platform: "node", logLevel: "silent" });
+const file = `/tmp/kairos-life-${process.pid}.mjs`;
+await fs.writeFile(file, out.outputFiles[0].text);
+const L = await import(pathToFileURL(file).href);
 
 const seeded = (seed) => L.makeRng(seed);
 
@@ -191,4 +197,28 @@ test("sunday service is at 2pm with a one-minute Kharis sermon and guests you br
   const after = L.attendService(s, svc, r);
   assert.equal(after.contacts[0].stage, "attended");
   assert.ok(after.churchYears >= 1 || after.servicesThisYear === 1);
+});
+
+test("real world actions credit the life without using yearly choices", () => {
+  const r = seeded(40);
+  let s = { ...L.newLife({ random: true }, r), age: 20, saved: true };
+  s = L.credit(s, "pray", r); s = L.credit(s, "preach", r); s = L.credit(s, "eat", r); s = L.credit(s, "exercise", r);
+  assert.equal(s.year.acts, 0);
+  assert.equal(s.year.diet, 1); assert.equal(s.year.exercise, 1);
+  assert.ok(s.faith.witness >= 3);
+  s = L.credit(s, "church", r);
+  assert.equal(s.servicesThisYear, 1);
+});
+
+test("one world day is one year, capped so a long absence doesn't skip a life", () => {
+  assert.equal(L.yearsDue(null, 50), 0);
+  assert.equal(L.yearsDue(50, 51), 1);
+  assert.equal(L.yearsDue(50, 90), 3);
+});
+
+test("bodies grow from baby to elder", () => {
+  const h = [0, 5, 15, 30, 85].map((a) => L.bodyForAge(a).height);
+  assert.ok(h[0] < h[1] && h[1] < h[2] && h[2] <= h[3] && h[4] < h[3]);
+  assert.ok(L.bodyForAge(1).head > L.bodyForAge(30).head);
+  assert.ok(L.bodyForAge(85).grey > 0.9 && L.bodyForAge(85).stoop > 0);
 });

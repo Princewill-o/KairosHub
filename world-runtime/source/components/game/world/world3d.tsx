@@ -57,7 +57,8 @@ import { BUS_LENGTH, BUS_WIDTH, CAR_LENGTH, CAR_WIDTH, ROAD_LANE_OFFSET } from "
 import { frameMapCamera, followPlayerCamera } from "@/game/core/view-framing";
 import { curvedVertexShader, immersiveMotion, physicalSurface, visualProfile, type VisualQuality } from "@/game/core/visual-quality";
 import { STATION_PLATFORM_Y } from "@/game/core/world";
-import { TILE, blocked, type Portal, type WorldMap } from "@/game/core/world";
+import { AIRPORT, TILE, blocked, roadEnds, type Portal, type WorldMap } from "@/game/core/world";
+import { CHURCH_SCREEN, wrapLines } from "@/game/core/church-service";
 
 /**
  * The live 3D world (three.js), viewed like Animal Crossing: a tilted camera that
@@ -1515,10 +1516,12 @@ function interior(world: THREE.Group, map: WorldMap, jobs: Promise<unknown>[], s
   const g = new THREE.Group();
   world.add(g);
   // Blender-built interiors (Kharis sanctuary, Pizzazz) replace the tile walls and floor.
-  const builtInterior = map.id === "church" ? "/world3d/spurgeons-interior.glb?v=2" : map.id === "workplace-pizzazz" ? "/world3d/pizzazz-interior.glb?v=1" : null;
+  const builtInterior = map.id === "church" ? "/world3d/spurgeons-interior.glb?v=2" : map.id === "workplace-pizzazz" ? "/world3d/pizzazz-interior.glb?v=1" : map.id === "flight" ? "/world3d/plane-cabin.glb?v=2" : null;
   if (builtInterior) {
     jobs.push(load(builtInterior).then(gltf => {
       const hall = gltf.scene.clone(true);
+      // The Kairos Air cabin is modelled nose-forward along Blender Y; lay it along the map's X.
+      if (map.id === "flight") { hall.rotation.y = Math.PI / 2; hall.position.set(map.cols / 2, 0, 3.5); }
       hall.traverse(node => { const mesh = node as THREE.Mesh; if (mesh.isMesh) { mesh.castShadow = true; mesh.receiveShadow = true; } });
       bendAll(hall);
       g.add(hall);
@@ -2638,6 +2641,111 @@ export function World3D({
       });
     }
 
+    // Kharis Church: a packed congregation, a preacher at the lectern and the giant scripture screen.
+    const congregation: Body[] = [];
+    let churchScreen: { tex: THREE.CanvasTexture; ctx: CanvasRenderingContext2D; version: number } | null = null;
+    let preacher: Body | null = null;
+    if (map.id === "church") {
+      const seats: { x: number; z: number }[] = [];
+      for (let z = 7.7; z < 18.6; z += 1.2) for (const x0 of [3.5, 15.5]) for (let x = x0; x < x0 + 6.5; x += 1.05) seats.push({ x, z });
+      const limit = Math.min(seats.length, Math.max(30, budget.residents * 3));
+      seats.filter((_, i) => (i * 7) % 10 < 9).slice(0, limit).forEach((seat, i) => {
+        const b = makeBody(npcLook(i + 140), null, true);
+        b.root.position.set(seat.x, 0.18, seat.z);
+        b.root.rotation.y = Math.PI; // facing the stage (0 faces the camera, +Z)
+        scene.add(b.root);
+        congregation.push(b);
+      });
+      preacher = makeBody(npcLook(3), null, true);
+      preacher.root.position.set(13, 0.62, 3.1);
+      preacher.root.rotation.y = 0; // facing the congregation
+      scene.add(preacher.root);
+      const canvas = document.createElement("canvas");
+      canvas.width = 1280; canvas.height = 720;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(10.4, 6.1, 0.25), new THREE.MeshStandardMaterial({ color: "#14101e", roughness: 0.6 }));
+        frame.position.set(13, 5.6, 0.75);
+        const screen = new THREE.Mesh(new THREE.PlaneGeometry(10, 5.625), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+        screen.position.set(13, 5.6, 0.89);
+        world.add(frame, screen);
+        churchScreen = { tex, ctx, version: -1 };
+      }
+    }
+    // Kairos International: the Blender terminal and a Kairos Air jet that taxis out and takes off.
+    let airliner: THREE.Object3D | null = null;
+    const airlinerHome = new THREE.Vector3(AIRPORT.plane.x, 0, AIRPORT.plane.z);
+    if (map.id === "airport") {
+      jobs.push(loader.loadAsync("/world3d/airport-terminal.glb?v=1").then(gltf => {
+        if (disposed) return;
+        const t = gltf.scene; t.position.set(AIRPORT.centre.x, 0, AIRPORT.centre.z);
+        bendAll(t); world.add(t);
+      }));
+      jobs.push(loader.loadAsync("/world3d/airliner.glb?v=1").then(gltf => {
+        if (disposed) return;
+        airliner = gltf.scene; airliner.rotation.y = -Math.PI / 2; airliner.position.copy(airlinerHome);
+        airliner.traverse(n => { const m = n as THREE.Mesh; if (m.isMesh) m.castShadow = true; });
+        bendAll(airliner); world.add(airliner);
+      }));
+    }
+    // Aboard: passengers fill the seats and clouds stream past below the open cabin.
+    const flyers: Body[] = [];
+    const clouds = new THREE.Group();
+    if (map.id === "flight") {
+      scene.background = new THREE.Color("#8fc7ef");
+      const seats: { x: number; z: number }[] = [];
+      for (let row = 0; row < 14; row++) for (const xb of [-1.75, -1.2, -0.65, 0.65, 1.2, 1.75]) seats.push({ x: map.cols / 2 - (-8.6 + row * 1.15), z: 3.5 - xb });
+      seats.filter((_, i) => (i * 5) % 7 < 5).slice(0, Math.max(24, budget.residents * 2)).forEach((seat, i) => {
+        const b = makeBody(npcLook(i + 210), null, true);
+        b.root.position.set(seat.x + 0.1, 0.18, seat.z); b.root.rotation.y = -Math.PI / 2; b.root.scale.setScalar(0.85); // facing the nose
+        scene.add(b.root); flyers.push(b);
+      });
+      const puff = new THREE.MeshStandardMaterial({ color: "#ffffff", flatShading: true, roughness: 1 });
+      for (let i = 0; i < 26; i++) {
+        const c = new THREE.Mesh(new THREE.IcosahedronGeometry(1.4 + (i % 4) * 0.6, 0), puff);
+        c.position.set((i * 7.3) % 60 - 18, -6 - (i % 3) * 2, (i * 11.7) % 30 - 12); c.scale.y = 0.55;
+        clouds.add(c);
+      }
+      scene.add(clouds);
+    }
+    // The Kairos Clipper: riding the Thames to Fellowship Quay.
+    let ferryBoat: THREE.Object3D | null = null;
+    if (map.id === "ferry") {
+      jobs.push(loader.loadAsync("/world3d/ferry.glb?v=1").then(gltf => {
+        if (disposed) return;
+        ferryBoat = gltf.scene; ferryBoat.rotation.y = -Math.PI / 2; ferryBoat.position.set(15, -1.0, 7.5);
+        bendAll(ferryBoat); world.add(ferryBoat);
+      }));
+    }
+    const drawChurchScreen = () => {
+      if (!churchScreen) return;
+      const { ctx, tex } = churchScreen, W = 1280, H = 720;
+      churchScreen.version = CHURCH_SCREEN.version;
+      ctx.fillStyle = "#0c0918"; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#1d1533"; ctx.fillRect(0, H - 70, W, 70);
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      if (CHURCH_SCREEN.active && CHURCH_SCREEN.reference) {
+        ctx.fillStyle = "#f5b83d"; ctx.font = "800 52px system-ui, sans-serif";
+        ctx.fillText(CHURCH_SCREEN.reference, W / 2, 90);
+        ctx.fillStyle = "#ffffff"; ctx.font = "600 46px Georgia, serif";
+        const body = CHURCH_SCREEN.lines.length ? CHURCH_SCREEN.lines.join(" ") : "Turn with me in your Bibles…";
+        const lines = wrapLines(body, W - 160, (t) => ctx.measureText(t).width).slice(0, 8);
+        lines.forEach((l, i) => ctx.fillText(l, W / 2, 190 + i * 62));
+        ctx.fillStyle = "#c7b8ea"; ctx.font = "700 28px system-ui, sans-serif";
+        ctx.fillText(`${CHURCH_SCREEN.title} · KJV`, W / 2, H - 35);
+      } else {
+        ctx.fillStyle = "#f5b83d"; ctx.font = "900 92px system-ui, sans-serif";
+        ctx.fillText("KHARIS CHURCH", W / 2, H / 2 - 70);
+        ctx.fillStyle = "#ffffff"; ctx.font = "600 44px system-ui, sans-serif";
+        ctx.fillText("Sunday Service · 2:00pm", W / 2, H / 2 + 20);
+        ctx.fillStyle = "#c7b8ea"; ctx.font = "600 32px system-ui, sans-serif";
+        ctx.fillText("Establishing believers · Strengthening churches", W / 2, H / 2 + 90);
+      }
+      tex.needsUpdate = true;
+    };
+
     let disposed = false;
     const mountainMaterials: THREE.Material[] = [];
     if (!indoors && !map.story) jobs.push(loader.loadAsync("/world3d/mountain-surround.glb?v=lowpoly-tunnels-1").then(asset => {
@@ -2651,6 +2759,18 @@ export function World3D({
       }
       const mountains = asset.scene;
       mountains.scale.set(map.cols / 52, 1, map.rows / 46);
+      // Tunnel portals only where a road runs off the edge of the map, never at random.
+      const ends = roadEnds(map);
+      for (const portal of mountains.children.filter(n => n.name.startsWith("Tunnel portal"))) {
+        const p = portal.position, side = p.x < 0 ? "w" : p.x > 52 ? "e" : p.z < 0 ? "n" : "s";
+        const here = ends.filter(e => e.side === side);
+        portal.visible = here.length > 0;
+        here.forEach((e, i) => {
+          const node = i === 0 ? portal : portal.clone(true);
+          if (side === "w" || side === "e") node.position.z = e.at * 46 / map.rows; else node.position.x = e.at * 52 / map.cols;
+          if (i > 0) mountains.add(node);
+        });
+      }
       mountains.traverse(node => {
         if (!(node instanceof THREE.Mesh)) return;
         node.castShadow = false;
@@ -3515,6 +3635,22 @@ export function World3D({
       updateCrash(now);
       updateDelivery(now);
       storyScene?.update(secs, { x: me.root.position.x, z: me.root.position.z }, STORY_FOUND.found);
+      if (airliner) {
+        // Every 70 s: wait at the gate, taxi to the runway, roll and climb away, then a new jet arrives.
+        const t = (now / 1000) % 70;
+        if (t < 40) { airliner.position.copy(airlinerHome); airliner.rotation.z = 0; }
+        else { const r = t - 40, roll = r * r * 0.32; airliner.position.set(airlinerHome.x + roll, Math.max(0, (r - 14) * 1.6), airlinerHome.z); airliner.rotation.z = r > 14 ? Math.min(0.18, (r - 14) * 0.03) : 0; }
+      }
+      if (flyers.length) {
+        for (const b of flyers) b.char?.play("sit");
+        for (const c of clouds.children) { c.position.x += dt * 9; if (c.position.x > 44) c.position.x -= 64; }
+      }
+      if (ferryBoat) { ferryBoat.position.y = -1.0 + Math.sin(now / 900) * 0.06; ferryBoat.rotation.z = Math.sin(now / 1300) * 0.02; }
+      if (congregation.length) {
+        for (const b of congregation) b.char?.play("sit");
+        if (churchScreen && churchScreen.version !== CHURCH_SCREEN.version) drawChurchScreen();
+        if (preacher?.char) preacher.char.play(CHURCH_SCREEN.active ? "wave" : "idle");
+      }
       if (trainRiders.length) {
         const tx = stationTrain!.position.x;
         for (const b of trainRiders) {

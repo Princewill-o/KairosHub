@@ -20,7 +20,7 @@ import { play, soundOn } from "../sound";
 import { NPC_SPOTS, PLAYER, TRAFFIC_BOXES } from "./art";
 import { BankDialog, type BankLoan } from "./bank";
 import type { BusTrip } from "./bus-stop";
-import { MiniMap, type Place, nearest, placeForTask } from "./city-map";
+import { MiniMap, PLACES, type Place, nearest, placeForTask } from "./city-map";
 import { DeveloperTeleport, type TeleportDestination } from "./developer-teleport";
 import { PoliceChallenge } from "./law-dialogs";
 import { ArrestOverlay, HearingDialog, PrisonHud, ShopDialog, WantedStars } from "./life";
@@ -43,6 +43,8 @@ import { useLife } from "./use-life";
 import { useNeeds, doActivity } from "./use-needs";
 import { type Me, useLobby } from "./use-world";
 import { WorldView } from "./world-view";
+import { ChurchService, LifeChip, LifeDecision, LifeEnding, LifePanel, NewLife, PlayModePicker, isServiceTime, markAttended, useKairosLife, useLifeClock } from "./kairos-life";
+import * as KL from "@/game/core/kairos-life";
 import { FollowUpDialog } from "./preach-dialog";
 import { KairosPhone } from "./kairos-phone";
 import { MinistryDialog } from "./ministry-dialog";
@@ -66,7 +68,7 @@ import type { RoadViolation } from "@/game/core/traffic-rules";
 import { canBoardTrain } from "@/game/core/train";
 import {
   CITY,
-  churchMap, woodlandMap, kharisHubMap,
+  churchMap, woodlandMap, kharisHubMap, airportMap, flightMap, ferryMap, greaterLondonMap,
   STATION_PLATFORM_Y,
   TILE,
   stationMap,
@@ -104,6 +106,10 @@ function loadMap(id: string): WorldMap | null {
   if (id.startsWith("station-")) return stationMap(id.slice("station-".length));
   if (id === "train-carriage") return trainCarriageMap();
   if (id === "m25") return motorwayMap();
+  if (id === "airport") return airportMap();
+  if (id === "flight") return flightMap();
+  if (id === "ferry") return ferryMap();
+  if (id === "greater-london") return greaterLondonMap();
   if (id === "hospital") return hospitalMap();
   if (id === "mall") return mallMap();
   if (id.startsWith("lobby-")) return lobbyMap(id);
@@ -161,7 +167,8 @@ export function WorldApp({
   const [tutorial, setTutorial] = useState(false);
   const [waypoint, setWaypoint] = useState<Place | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
-  const arrived = useCallback(() => setWaypoint(null), []);
+  const arrivedRef = useRef<(() => void) | null>(null);
+  const arrived = useCallback(() => { arrivedRef.current?.(); setWaypoint(null); }, []);
   useEffect(() => setWaypoint(null), [mapId]);
   useEffect(() => {
     const key = "kairos-how-to-play-seen";
@@ -239,6 +246,51 @@ export function WorldApp({
     toastTimer.current = setTimeout(() => setToast(null), big ? 3200 : 2200);
   }, []);
   const jailed = life.jailUntil > 0;
+  // ── Kairos Life: offline ageing, or online quick play ──
+  const kl = useKairosLife(me.id);
+  const offline = kl.mode === "offline";
+  const [lifeOpen, setLifeOpen] = useState(false);
+  const [churchService, setChurchService] = useState(false);
+  const lifeAlive = offline && !!kl.life?.alive;
+  const lifeAvatar = useMemo(() => (offline && kl.life ? ({ ...playerAvatar, lifeAge: kl.life.age } as typeof playerAvatar) : playerAvatar), [offline, kl.life?.age, playerAvatar]);
+  const lifeOverlay = !kl.mode || (offline && (!kl.life || !kl.life.alive || !!kl.life.pending)) || lifeOpen || churchService;
+  useLifeClock(kl.mode, kl.life, gameDate, kl.update, garage.length > 0);
+  // ── Journeys: Kairos Air flights and the Kairos Clipper ferry ──
+  const JOURNEYS = { flight: { ms: 80_000, to: "highlands", label: "The Highlands", title: "Kairos Air KA214 · London → Glen Lorne" }, ferry: { ms: 45_000, to: "fellowship-island", label: "Fellowship Quay", title: "Kairos Clipper · London Square Pier → Fellowship Quay" } } as const;
+  const [journey, setJourney] = useState<{ id: keyof typeof JOURNEYS; start: number } | null>(null);
+  const [journeyNow, setJourneyNow] = useState(0);
+  useEffect(() => {
+    if (mapId !== "flight" && mapId !== "ferry") { setJourney(null); return; }
+    const j = { id: mapId as keyof typeof JOURNEYS, start: Date.now() };
+    setJourney(j);
+    say(mapId === "flight" ? "Seatbelts on. Kairos Air is taking off." : "All aboard the Kairos Clipper.", true);
+    const t = setInterval(() => {
+      const left = JOURNEYS[j.id].ms - (Date.now() - j.start);
+      setJourneyNow(Date.now());
+      if (left <= 0) { clearInterval(t); say(j.id === "flight" ? "We've landed at Glen Lorne. Welcome to the Highlands." : "Arriving at Fellowship Quay.", true); goTo(JOURNEYS[j.id].to, JOURNEYS[j.id].label); }
+    }, 500);
+    return () => clearInterval(t);
+  }, [mapId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (bibleOpen) kl.credit("bible"); }, [bibleOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 2pm: the service announcement goes out across London.
+  const announced = useRef(-1);
+  useEffect(() => {
+    const day = Math.floor(gameDate.getTime() / 86_400_000);
+    if (gameDate.getUTCHours() === 14 && announced.current !== day && (offline || gameDate.getUTCDay() === 0)) {
+      announced.current = day;
+      say("Kharis Church: the 2pm service is starting now. Everyone is welcome.", true);
+    }
+  }, [gameDate, offline]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Sunday pick-ups: drive to where they're waiting; they get in when you arrive.
+  const pickupFor = (name: string) => { let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0; const homes = PLACES.filter((p) => p.kind === "home" || p.kind === "bus"); return homes[h % homes.length] ?? PLACES[0]; };
+  const setPickups = (f: (p: { name: string; status: "invited" | "collecting" | "aboard" }[]) => { name: string; status: "invited" | "collecting" | "aboard" }[]) => kl.update((l) => ({ ...l, pickups: f(l.pickups ?? []) }));
+  arrivedRef.current = () => {
+    const waiting = (kl.life?.pickups ?? []).find((p) => p.status === "collecting");
+    if (!waiting) return;
+    if (!driving) { say(`Drive here to collect ${waiting.name}. Get your car, then come back.`, true); return; }
+    setPickups((ps) => ps.map((p) => p.name === waiting.name ? { ...p, status: "aboard" } : p));
+    say(`${waiting.name} got in the car. Head to Kharis Church for 2pm.`, true);
+  };
 
   useEffect(() => setXpNow(xp), [xp]);
   // Hired bikes go back to the dock by themselves when the time runs out.
@@ -814,7 +866,7 @@ export function WorldApp({
       } />
       {!(building && mapId === "home") && <WorldView
         key={`${mapId}:${server}:${trip}`}
-        paused={Boolean(crashed) || Boolean(mallDept) || graceOpen || Boolean(challenge) || wardrobe || preaching || Boolean(followUp) || bibleOpen || miniGamesOpen || Boolean(bus || tube || tutorial || mapOpen || dock || dealer || fading || phone || inmate || shop || homeAction || bankOpen || life.hearing) || arrest || policeTransport || pursuit?.stage === "challenge" || pursuit?.stage === "tased"}
+ paused={lifeOverlay || Boolean(crashed) || Boolean(mallDept) || graceOpen || Boolean(challenge) || wardrobe || preaching || Boolean(followUp) || bibleOpen || miniGamesOpen || Boolean(bus || tube || tutorial || mapOpen || dock || dealer || fading || phone || inmate || shop || homeAction || bankOpen || life.hearing) || arrest || policeTransport || pursuit?.stage === "challenge" || pursuit?.stage === "tased"}
         homeAction={homeAction}
         police={pursuit}
         map={map}
@@ -825,7 +877,7 @@ export function WorldApp({
         onChangeServer={() => { if (jailed || life.stars >= 2) say("Finish your current law activity before changing servers."); else setServer(null); }}
         onDrivingOffence={drivingOffence}
         onCrash={crash}
-        me={{ ...me, avatar: jailed || mapId === "prison" ? { ...playerAvatar, ...PRISON_LOOK } : playerAvatar }}
+        me={{ ...me, avatar: jailed || mapId === "prison" ? { ...lifeAvatar, ...PRISON_LOOK } : lifeAvatar }}
         speed={(life.sick ? 0.7 : 1) * (driving && outdoors ? (carById(driving)?.speed ?? 1) : bike && outdoors ? bike.brand.speed : 1)}
         car={driving && outdoors ? driving : null}
         bike={!driving && bike && outdoors ? bike.brand.colour : null}
@@ -921,10 +973,12 @@ export function WorldApp({
       <button type="button" data-hud="bible" data-tone="ink" onClick={() => setBibleOpen(true)} className="absolute left-3 bottom-24 z-[100001] flex min-h-11 items-center gap-2 rounded-full border border-[#f2d15b]/50 bg-[#171221] px-4 py-2 text-sm font-black text-[#f2d15b] shadow-lg"><BookOpen className="size-4"/> Bible</button>
       {preaching && <MinistryDialog persona={personaFor(nearPersonIndex)} onClose={() => setPreaching(false)} onDone={message => {
         void recordKairosActivity("outreach_conversation");
+        kl.credit("preach");
         say(message, true);
       }} />}
       {followUp && <GraceWorldPanel address="outreach/follow-up" onClose={()=>setFollowUp(null)}><FollowUpDialog person={followUp} onClose={() => setFollowUp(null)} onComplete={() => {
         void recordKairosActivity("outreach_followup");
+        kl.credit("followup");
         try {
           const key = `kairos-outreach:${me.id}`;
           const records = JSON.parse(localStorage.getItem(key) ?? "[]") as { name: string; outcome: string; followedUp?: boolean }[];
@@ -1007,7 +1061,46 @@ export function WorldApp({
         say("The police escort has arrived at HMP Thames. Your sentence has started.", true);
         goTo("prison", "HMP Thames");
       }} />}
-<SceneWipe show={fading} label={sceneName} />
+{journey && (() => {
+        const J = JOURNEYS[journey.id], p = Math.min(1, (journeyNow - journey.start) / J.ms);
+        return <section role="status" data-hud="journey" className="ks-card kl-journey">
+          <p className="ks-eyebrow">{journey.id === "flight" ? (p < 0.12 ? "Taking off" : p > 0.88 ? "Landing" : "Cruising · seatbelt sign off") : "On the Thames"}</p>
+          <h2>{J.title}</h2>
+          <div className="kl-progress"><i style={{ width: `${p * 100}%` }} /></div>
+          {journey.id === "flight" && <button type="button" className="kl-go" onClick={() => { setNearPersonIndex(Math.floor(Math.random() * 40)); setPreaching(true); }}>Talk to the passenger beside you</button>}
+        </section>;
+      })()}
+      {/* ── Kairos Life ── */}
+      {!kl.mode && <PlayModePicker onPick={kl.setMode} />}
+      {offline && !kl.life && <NewLife onBorn={(l) => { kl.begin(l); say(`${l.name.first} ${l.name.last} was born in London.`, true); }} onOnline={() => kl.setMode("online")} />}
+      {kl.mode === "online" && <button type="button" data-hud="kairos-life" className="kl-chip kl-chip-online" onClick={() => kl.setMode("offline")}><span><b>Quick play</b><small>Online · no ageing · start Kairos Life</small></span></button>}
+      {lifeAlive && kl.life && <LifeChip life={kl.life} gameDate={gameDate} onOpen={() => setLifeOpen(true)} />}
+      {lifeAlive && kl.life?.pending && !churchService && <LifeDecision life={kl.life} onChoose={(i) => kl.update((l) => KL.choose(l, i) as typeof l)} />}
+      {lifeAlive && kl.life && lifeOpen && <LifePanel life={kl.life} gameDate={gameDate} hasCar={garage.length > 0}
+        onAct={(id) => kl.update((l) => KL.act(l, id) as typeof l)}
+        onAgeUp={() => kl.update((l) => ({ ...(KL.ageUp(l) as typeof l), lastDay: l.lastDay }))}
+        onPickup={(name) => {
+          if (mapId !== "city") { say("Pick-ups start in London. Head back to the city first.", true); return; }
+          setPickups((ps) => [...ps.filter((p) => p.name !== name), { name, status: "collecting" }]);
+          const place = pickupFor(name);
+          setWaypoint(place); setLifeOpen(false);
+          say(`${name} is waiting near ${place.name}. Drive there to collect them.`, true);
+        }}
+        onOnline={() => { setLifeOpen(false); kl.setMode("online"); }}
+        onClose={() => setLifeOpen(false)} />}
+      {mapId === "church" && !churchService && kl.mode && (offline ? lifeAlive : true) && (isServiceTime(gameDate, offline) ? (
+        <button type="button" data-hud="action" data-tone="violet" className="kl-service-go" onClick={() => setChurchService(true)}>Take a seat · 2pm service is on</button>
+      ) : <p role="status" className="kl-service-go kl-quiet">The sanctuary is quiet. {offline ? "The 2pm service runs from late morning to evening." : "Services are Sundays at 2pm."}</p>)}
+      {churchService && <ChurchService guests={(kl.life?.pickups ?? []).filter((p) => p.status === "aboard").map((p) => p.name)} onLeave={() => setChurchService(false)} onDone={() => {
+        const guests = (kl.life?.pickups ?? []).filter((p) => p.status === "aboard").map((p) => p.name);
+        markAttended(guests);
+        if (offline) kl.update((l) => ({ ...(KL.attendService(l, null) as typeof l), pickups: (l.pickups ?? []).filter((p) => p.status !== "aboard") }));
+        for (let i = 0; i < guests.length; i++) kl.credit("followup");
+        setChurchService(false);
+        say(guests.length ? `${guests.join(" and ")} came to church with you.` : "You worshipped at Kharis Church.", true);
+      }} />}
+      {offline && kl.life && !kl.life.alive && kl.life.ending && <LifeEnding life={kl.life} avatar={playerAvatar} onAgain={() => kl.update(() => null)} />}
+      <SceneWipe show={fading} label={sceneName} />
       {tutorial && <Tutorial onClose={() => {
         try { localStorage.setItem("kairos-how-to-play-seen", "seen"); } catch { /* Show again when storage is unavailable. */ }
         setTutorial(false);
