@@ -17,11 +17,12 @@ import { readVisualQuality, type VisualQuality } from "@/game/core/visual-qualit
 import { LowPolyIcon, LowPolyWallpaper } from "./lowpoly-icons";
 import { FriendsChatApp } from "./friends-app";
 import { LIFE_WORLD } from "@/game/core/life-world";
+import { MusicApp } from "./music-app";
 import { STORE, appById, install, readApps, remove, spiritualReading, writeApps, type PhoneApps, type StoreApp } from "@/game/core/app-store";
 
 type AppId =
   | "phone" | "messages" | "prayer" | "bible" | "tv" | "maps" | "friends" | "grace"
-  | "games" | "stories" | "wardrobe" | "season" | "camera" | "settings" | "followups" | "messagesPlay" | "chat" | "store" | "storeApp" | "gameshow" | "lifehub";
+  | "games" | "stories" | "wardrobe" | "season" | "camera" | "settings" | "followups" | "messagesPlay" | "chat" | "store" | "storeApp" | "gameshow" | "lifehub" | "music";
 
 /** Low Poly Icon Sampler art where a matching icon exists; drawn glyphs elsewhere. */
 const ICON = (n: string) => `/world-ui/icons/${n}.png`;
@@ -42,6 +43,7 @@ const APPS: { id: AppId; name: string; glyph: string; color: string; image?: str
   { id: "store", name: "App Store", glyph: "store", color: "#2b5fd9" },
   { id: "gameshow", name: "Game Show", glyph: "star", color: "#1d2340" },
   { id: "lifehub", name: "Life", glyph: "home", color: "#3d8a5b" },
+  { id: "music", name: "Music", glyph: "music", color: "#1db954" },
   { id: "settings", name: "Settings", glyph: "gear", color: "#8a929c", image: ICON("gear") },
 ];
 /** Built-in apps that can be deleted (and reinstalled from the App Store). */
@@ -209,6 +211,7 @@ export function KairosPhone(props: PhoneActions) {
               {app === "chat" && <FriendsChatApp />}
               {app === "season" && <SeasonApp />}
               {app === "settings" && <SettingsApp />}
+              {app === "music" && <MusicApp />}
               {app === "store" && <AppStore apps={apps} change={changeApp} onOpen={(a) => { setStoreApp(a); setApp("storeApp"); }} />}
               {app === "storeApp" && storeApp && <StoreAppScreen app={storeApp} onDelete={() => { changeApp(storeApp.id, "delete"); setApp(null); }} />}
             </div>

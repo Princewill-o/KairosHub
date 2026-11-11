@@ -26,7 +26,7 @@ export function SceneMusic({ scene }: { scene: MusicScene }) {
       }
     } catch { /* Use quiet defaults if storage is unavailable. */ }
     const start = () => {
-      if (!settings.current.enabled || document.hidden) return;
+      if (!settings.current.enabled || document.hidden || (globalThis as { __kairosPlayer?: { s: { playing: boolean } } }).__kairosPlayer?.s.playing) return;
       try {
         if (!engine.current) {
           engine.current = createMusic();
@@ -36,11 +36,19 @@ export function SceneMusic({ scene }: { scene: MusicScene }) {
         void engine.current.active(true).catch(() => {});
       } catch { /* Audio may be unavailable in this browser. */ }
     };
+    // Your playlist takes over: the scene music fades out while it plays.
+    const playlist = (e: Event) => {
+      const on = (e as CustomEvent<{ playing: boolean }>).detail.playing;
+      if (on) void engine.current?.active(false).catch(() => {});
+      else if (settings.current.enabled) start();
+    };
+    window.addEventListener("kairos-playlist", playlist);
     const visibility = () => { if (document.hidden) engine.current?.suspend(); else start(); };
     window.addEventListener("pointerdown", start);
     window.addEventListener("keydown", start);
     document.addEventListener("visibilitychange", visibility);
     return () => {
+      window.removeEventListener("kairos-playlist", playlist);
       window.removeEventListener("pointerdown", start);
       window.removeEventListener("keydown", start);
       document.removeEventListener("visibilitychange", visibility);

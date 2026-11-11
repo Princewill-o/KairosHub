@@ -6077,4 +6077,64 @@ html.dark body:has(.app-theme) {
 .lh-tower i { background: repeating-linear-gradient(90deg, #ffe9a6 0 5px, transparent 5px 9px); opacity: .85; }
 @keyframes lh-rise { from { transform: scaleY(0); } }
 
+/* ── Music: playlist app and now-playing pill ─────────────────────────── */
+.mu-app { display: grid; gap: 12px; }
+.mu-now { display: grid; justify-items: center; gap: 4px; padding: 16px; border-radius: 18px; background: linear-gradient(160deg, var(--mu), #121212 75%); color: #fff; }
+.mu-cover { width: 120px; height: 120px; border-radius: 50%; background: repeating-radial-gradient(#111 0 3px, #222 3px 5px); border: 4px solid #000; display: grid; place-items: center; box-shadow: 0 8px 20px #0008; }
+.mu-cover span { width: 42px; height: 42px; border-radius: 50%; background: var(--mu); border: 3px solid #000; }
+.mu-spin { animation: mu-spin 3s linear infinite; }
+@keyframes mu-spin { to { transform: rotate(360deg); } }
+.mu-now b { font-size: 18px; margin-top: 6px; } .mu-now small { opacity: .8; font-size: 12px; }
+.mu-bar { width: 100%; height: 6px; border-radius: 3px; background: #ffffff33; overflow: hidden; } .mu-bar i { display: block; height: 100%; background: #1db954; }
+.mu-times { width: 100%; display: flex; justify-content: space-between; }
+.mu-controls { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.mu-controls button { min-height: 36px; padding: 0 10px; border-radius: 999px; border: 0; background: #ffffff1f; color: #fff; font-weight: 800; font-size: 12px; }
+.mu-controls button[aria-pressed="true"] { color: #1db954; }
+.mu-controls .mu-play { background: #fff; color: #121212; padding: 0 18px; }
+.mu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.mu-list button { width: 100%; display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center; text-align: left; padding: 8px 10px; border-radius: 10px; border: 0; background: #ffffffe6; color: #121212; }
+.mu-list button[aria-current="true"] { background: #121212; color: #1db954; }
+.mu-list b { display: block; font-size: 13px; } .mu-list small { font-size: 11px; opacity: .7; }
+.mu-dot { width: 12px; height: 12px; border-radius: 3px; background: var(--mu); }
+.mu-pill { position: absolute; left: 50%; bottom: 58px; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-radius: 999px; background: #121212e6; color: #fff; border: 2px solid var(--mu); font-size: 12px; font-weight: 800; }
+.mu-pill button { min-height: 28px; padding: 0 10px; border-radius: 999px; border: 0; background: #ffffff26; color: #fff; font-weight: 800; font-size: 11px; }
+.mu-pill-title { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mu-eq { display: flex; align-items: flex-end; gap: 2px; height: 14px; } .mu-eq i { width: 3px; background: #1db954; animation: mu-eq .6s ease-in-out infinite alternate; } .mu-eq i:nth-child(2) { animation-delay: -.2s; } .mu-eq i:nth-child(3) { animation-delay: -.4s; }
+@keyframes mu-eq { from { height: 3px; } to { height: 14px; } }
+@media (prefers-reduced-motion: reduce) { .mu-spin, .mu-eq i { animation: none; } .mu-eq i { height: 10px; } }
+
+/* ── Retro pixel lettering for in-game titles (Press Start 2P, OFL) ───── */
+@font-face { font-family: "Kairos Pixel"; src: url("/fonts/press-start-2p.woff2") format("woff2"); font-display: swap; }
+:root { --pixel: "Kairos Pixel", ui-monospace, "Courier New", monospace; }
+.lb-tier, .lb-card h2, .lh-head h2, .gs-end h2, .gs-ladder, .kp-reading b, .mu-now b, .kn-dialog header b,
+.km-title, [data-hud="lucky"], .lh-tabs button, .gs-q small, .lb-hint, .lb-card small, [data-hud="portal-phase"],
+.kj-dialog h2, .kj-dialog h3, .ml-title, .kp-apphead h2 { font-family: var(--pixel) !important; letter-spacing: .02em; line-height: 1.35; }
+.lb-tier { font-size: 20px; } .lb-card h2, .gs-end h2 { font-size: 22px; } .lh-head h2 { font-size: 18px; }
+.lh-tabs button { font-size: 10px; } .gs-ladder { font-size: 10px; } .kp-reading b, .mu-now b { font-size: 14px; }
+.kn-dialog header b, .kp-apphead h2 { font-size: 12px; } .lb-hint, .lb-card small, .gs-q small { font-size: 10px; }
+
+/* ── Everything opens with its own animation ─────────────────────────── */
+@keyframes open-phone { from { transform: translateY(60px) scale(.92); opacity: 0; } }
+@keyframes open-book { from { transform: perspective(900px) rotateY(-70deg); transform-origin: left; opacity: 0; } }
+@keyframes open-drop { 0% { transform: translateY(-80px); opacity: 0; } 70% { transform: translateY(6px); } }
+@keyframes open-unfold { from { transform: scaleY(.05); opacity: .4; } 60% { transform: scaleY(1.03); } }
+@keyframes open-zoom { from { transform: scale(.6); opacity: 0; filter: blur(6px); } }
+@keyframes open-slide { from { transform: translateX(-40px); opacity: 0; } }
+@keyframes open-pixel { 0% { clip-path: inset(48% 48% 48% 48%); } 40% { clip-path: inset(30% 10% 30% 10%); } 100% { clip-path: inset(0 0 0 0); } }
+.kp-phone { animation: open-phone .35s cubic-bezier(.2, 1.3, .4, 1); }
+.lh-panel { animation: open-unfold .45s cubic-bezier(.2, 1.2, .4, 1); transform-origin: center top; }
+.gs-studio { animation: open-pixel .7s steps(8); }
+.kj-dialog, [class*="kj-panel"] { animation: open-drop .5s cubic-bezier(.3, 1.4, .5, 1); }
+[aria-label*="Bible" i][role="dialog"] > * { animation: open-book .5s ease-out; }
+[role="dialog"]:not(.kp-phone):not(.lh-back):not(.gs-studio):not(.lb-back):not(.kn-dialog) > *:first-child { animation: open-zoom .32s ease-out; }
+[data-hud="settings-panel"], .settings-panel { animation: open-slide .3s ease-out; }
+@media (prefers-reduced-motion: reduce) { .kp-phone, .lh-panel, .gs-studio, .kj-dialog, [role="dialog"] > * { animation: none !important; } }
+
+/* ── Train: next-station board ───────────────────────────────────────── */
+.ns-board { position: absolute; top: 84px; left: 50%; transform: translateX(-50%); z-index: 95; width: min(520px, calc(100% - 24px)); padding: 10px 16px 12px; border-radius: 10px; border: 4px solid #2a2a2a; background: #0b0b0b; color: #ffb000; box-shadow: 0 6px 0 #000a; text-align: center; font-family: var(--pixel); }
+.ns-board small { display: block; font-size: 10px; color: #ff7a00; letter-spacing: .1em; text-transform: uppercase; }
+.ns-board b { display: block; margin: 6px 0 8px; font-size: clamp(16px, 3vw, 24px); text-shadow: 0 0 8px #ffb00088; }
+.ns-line { display: block; height: 6px; background: #3a2a00; border-radius: 3px; overflow: hidden; } .ns-line i { display: block; height: 100%; background: #ffb000; }
+.ns-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; } .ns-foot em { font-style: normal; font-size: 9px; color: #ffd27a; }
+
 html,body,#world-root{height:100%;margin:0;overflow:hidden}#world-root>div{height:100dvh!important}@media(max-width:700px){.world-lobby-bar{display:none}}

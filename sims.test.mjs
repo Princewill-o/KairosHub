@@ -37,3 +37,17 @@ test('businesses and property earn over game time; skyscrapers cost a fortune', 
   assert.equal(S.collect(c.sims, 10 * 30000, 30000).ok, false);
   assert.ok(S.PROPERTIES.at(-1).cost >= 100000000 && S.PROPERTIES.at(-1).floors >= 30);
 });
+
+test('politics: join a party, campaign, win elections up to Prime Minister', () => {
+  let s = S.joinParty(S.freshSims(), S.PARTIES[0]).sims;
+  assert.equal(S.standForElection(s, () => 0).ok, false, 'not enough support');
+  const hi = () => 0.999, lo = () => 0;
+  for (let office = 1; office <= 5; office++) {
+    while (s.politics.support < S.NEEDED[office] + 10) s = S.campaign(s, 'spin', 0, hi).sims;
+    s = S.standForElection(s, lo).sims;
+    assert.equal(s.politics.office, office);
+  }
+  assert.equal(S.OFFICES[s.politics.office], 'Prime Minister');
+  assert.ok(S.decide(s, 1, 0).ok);
+  assert.ok(S.sitting(s).money > 0);
+});

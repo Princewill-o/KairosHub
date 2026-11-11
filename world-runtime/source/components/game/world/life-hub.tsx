@@ -4,7 +4,7 @@ import { GAME_HOUR_MS } from "@/game/core/game-clock";
 import * as S from "@/game/core/sims";
 
 const gbp = (n: number) => `£${Math.round(n).toLocaleString("en-GB")}`;
-type Tab = "hobbies" | "work" | "business" | "property" | "clubs";
+type Tab = "hobbies" | "work" | "business" | "property" | "clubs" | "politics";
 
 /**
  * Everyday life: hobbies and skills, careers and freelancing, businesses,
@@ -34,7 +34,7 @@ export function LifeHub({ wallet, setWallet, onClose }: { wallet: number; setWal
           <button className="lh-close" onClick={onClose} aria-label="Close">×</button>
         </header>
         <nav className="lh-tabs">
-          {(["hobbies", "work", "business", "property", "clubs"] as Tab[]).map((t) => <button key={t} aria-pressed={tab === t} onClick={() => { setTab(t); setMsg(null); }}>{t[0].toUpperCase() + t.slice(1)}</button>)}
+          {(["hobbies", "work", "business", "property", "clubs", "politics"] as Tab[]).map((t) => <button key={t} aria-pressed={tab === t} onClick={() => { setTab(t); setMsg(null); }}>{t[0].toUpperCase() + t.slice(1)}</button>)}
         </nav>
         {msg && <p className={`lh-msg${msg.ok ? "" : " lh-no"}`} aria-live="polite">{msg.text}</p>}
         <div className="lh-body">
@@ -103,6 +103,27 @@ export function LifeHub({ wallet, setWallet, onClose }: { wallet: number; setWal
               <div className="lh-grid">{S.PROPERTIES.map((p) => <button key={p.id} className="lh-card" disabled={wallet < p.cost} onClick={() => run(S.buildProperty(sims, p.id, wallet, Date.now()))}><b>{p.name}</b><small>{gbp(p.cost)} · rent {gbp(p.perHour)}/hr · {p.floors} floors</small></button>)}</div>
             </>
           )}
+          {tab === "politics" && (!sims.politics ? (
+            <div className="lh-grid">{S.PARTIES.map((p) => <button key={p} className="lh-card" onClick={() => run(S.joinParty(sims, p))}><b>{p}</b><small>Join for £25 and start your political career</small></button>)}</div>
+          ) : (
+            <>
+              <section className="lh-job-card" data-office={sims.politics.office}>
+                <h3>{S.OFFICES[sims.politics.office]} <small>({sims.politics.party})</small></h3>
+                <p>Support: {sims.politics.support}%{sims.politics.office < 5 ? ` · next: ${S.OFFICES[sims.politics.office + 1]} (needs ~${S.NEEDED[sims.politics.office + 1]}%)` : ""}</p>
+                <span className="lh-xp lh-perf"><i style={{ width: `${sims.politics.support}%` }} /></span>
+                <div className="lh-row">
+                  {sims.politics.office < 5 && <button onClick={() => run(S.standForElection(sims))}>Stand for {S.OFFICES[sims.politics.office + 1]}</button>}
+                  {sims.politics.office >= 1 && <button onClick={() => run(S.sitting(sims))}>{sims.politics.office >= 2 ? "Sit in Parliament" : "Council meeting"}</button>}
+                </div>
+              </section>
+              <div className="lh-grid">{S.CAMPAIGN.map((c) => <button key={c.id} className="lh-card" onClick={() => run(S.campaign(sims, c.id, wallet))}><b>{c.name}</b><small>{c.cost ? gbp(c.cost) + " · " : ""}{c.id === "spin" ? "More support, at a cost to your soul" : c.id === "debate" ? "Risky, but honest" : "Builds support"}</small></button>)}</div>
+              {sims.politics.office >= 5 && (
+                <section className="lh-pm"><h3>Number 10: your decisions</h3>
+                  {S.PM_DECISIONS.map((d, qi) => <div key={qi} className="lh-pm-q"><p>{d.q}</p><div className="lh-row">{d.a.map((a, ai) => <button key={ai} onClick={() => run(S.decide(sims, qi, ai))}>{a.label}</button>)}</div></div>)}
+                </section>
+              )}
+            </>
+          ))}
           {tab === "clubs" && <div className="lh-grid">{S.CLUBS.map((c) => <button key={c.id} className="lh-card" aria-pressed={sims.clubs.includes(c.id)} onClick={() => run(S.toggleClub(sims, c.id))}><b>{c.name}</b><small>{sims.clubs.includes(c.id) ? "Member · tap to leave" : c.perk}</small></button>)}</div>}
         </div>
       </div>

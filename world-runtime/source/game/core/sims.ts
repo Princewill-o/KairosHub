@@ -13,6 +13,7 @@ export interface Sims {
   clubs: string[];
   items: Record<string, number>; // harvest, fish, paintings, books…
   log: string[];
+  politics?: { office: number; support: number; party: string; terms: number } | null;
 }
 export const freshSims = (): Sims => ({ skills: {}, career: null, businesses: [], properties: [], clubs: [], items: {}, log: [] });
 
@@ -223,3 +224,61 @@ export function readSims(store: Pick<Storage, "getItem"> | null): Sims {
   return freshSims();
 }
 export function writeSims(store: Pick<Storage, "setItem"> | null, s: Sims) { try { store?.setItem("kairos-sims", JSON.stringify(s)); } catch { /* storage blocked */ } }
+
+// ── Politics: from councillor to Prime Minister ──────────────────────────
+export const OFFICES = ["Party member", "Local councillor", "Member of Parliament", "Junior minister", "Secretary of State", "Prime Minister"];
+export const PARTIES = ["The Common Good Party", "The Forward Party", "The Hope Alliance"]; // fictional
+export const OFFICE_PAY = [0, 220, 1100, 1500, 2100, 2600]; // per sitting
+export function joinParty(s: Sims, party: string): Result {
+  return { sims: note({ ...s, politics: { office: 0, support: 10, party, terms: 0 } }, `Joined ${party}.`), money: -25, text: `You joined ${party}. Membership is £25.`, life: {}, ok: true };
+}
+/** Campaign actions. Honesty costs support now and wins trust later; lies do the reverse and cost your walk. */
+export const CAMPAIGN = [
+  { id: "canvass", name: "Knock on doors", cost: 0, support: [4, 9], life: { health: -1 } as Record<string, number>, says: "You knocked on 120 doors. Most were polite." },
+  { id: "leaflets", name: "Print leaflets", cost: 300, support: [5, 10], life: {}, says: "Leaflets through every letterbox in the ward." },
+  { id: "debate", name: "Debate honestly", cost: 0, support: [-2, 14], life: { walk: 1 }, says: "You told the truth, even the awkward parts." },
+  { id: "spin", name: "Spin the truth", cost: 0, support: [6, 16], life: { walk: -4 }, says: "It worked. You don't feel great about it." },
+  { id: "serve", name: "Serve the community", cost: 50, support: [3, 8], life: { fruit: 2 }, says: "You ran a food drive with the local churches." },
+];
+export function campaign(s: Sims, id: string, wallet: number, r = Math.random): Result {
+  const c = CAMPAIGN.find((x) => x.id === id);
+  if (!s.politics || !c) return fail(s, "Join a party first.");
+  if (wallet < c.cost) return fail(s, "You can't afford that.");
+  const gain = Math.round(c.support[0] + r() * (c.support[1] - c.support[0]) + level(s.skills.writing) * 0.5);
+  const politics = { ...s.politics, support: Math.max(0, Math.min(100, s.politics.support + gain)) };
+  return { sims: note({ ...s, politics }, c.says), money: -c.cost, text: `${c.says} Support ${gain >= 0 ? "+" : ""}${gain}% (now ${politics.support}%).`, life: c.life, ok: true };
+}
+/** Stand for the next office: the higher it is, the more support you need. */
+export const NEEDED = [0, 35, 50, 60, 70, 80];
+export function standForElection(s: Sims, r = Math.random): Result {
+  if (!s.politics) return fail(s, "Join a party first.");
+  const next = s.politics.office + 1;
+  if (next >= OFFICES.length) return fail(s, "You're already Prime Minister.");
+  const need = NEEDED[next];
+  if (s.politics.support < need - 15) return fail(s, `You need around ${need}% support to stand for ${OFFICES[next]}.`);
+  const chance = Math.max(0.05, Math.min(0.95, 0.5 + (s.politics.support - need) / 30));
+  const won = r() < chance;
+  const politics = won ? { ...s.politics, office: next, support: Math.round(s.politics.support * 0.6), terms: s.politics.terms + (next === 5 ? 1 : 0) } : { ...s.politics, support: Math.round(s.politics.support * 0.75) };
+  const text = won ? (next === 5 ? "You've won the general election. You are the Prime Minister! Pray for wisdom (James 1:5)." : `You won! You're now ${OFFICES[next]}.`) : `You lost the vote for ${OFFICES[next]}. Regroup and try again.`;
+  return { sims: note({ ...s, politics }, text), money: 0, text, life: won ? { happiness: 10 } : { happiness: -6 }, ok: true };
+}
+export function sitting(s: Sims): Result {
+  if (!s.politics || s.politics.office < 1) return fail(s, "You don't hold an office yet.");
+  const pay = OFFICE_PAY[s.politics.office];
+  return { sims: s, money: pay, text: `A day in ${s.politics.office >= 2 ? "Parliament" : "the council chamber"}. Paid £${pay.toLocaleString("en-GB")}.`, life: { health: -1 }, ok: true };
+}
+/** As Prime Minister you face decisions that shape the country (and your conscience). */
+export const PM_DECISIONS = [
+  { q: "A budget crisis. Where do you cut?", a: [{ label: "Protect the poorest; cut ministers' perks", support: -3, life: { fruit: 3, walk: 2 } }, { label: "Cut benefits quietly", support: 4, life: { walk: -4 } }] },
+  { q: "A scandal in your cabinet.", a: [{ label: "Sack them and tell the truth", support: 2, life: { walk: 3 } }, { label: "Cover it up", support: 6, life: { walk: -6 } }] },
+  { q: "Faith groups ask for help running food banks.", a: [{ label: "Fund churches and mosques to feed people", support: 3, life: { fruit: 3 } }, { label: "Not the government's job", support: -2, life: {} }] },
+  { q: "A foreign leader offers a lucrative but shady arms deal.", a: [{ label: "Refuse it", support: -4, life: { walk: 4 } }, { label: "Sign it", support: 5, life: { walk: -5 } }] },
+];
+export function decide(s: Sims, qi: number, ai: number): Result {
+  if (!s.politics || s.politics.office < 5) return fail(s, "Only the Prime Minister decides this.");
+  const d = PM_DECISIONS[qi]?.a[ai];
+  if (!d) return fail(s, "No such decision.");
+  const politics = { ...s.politics, support: Math.max(0, Math.min(100, s.politics.support + d.support)) };
+  const text = `${d.label}. Approval ${d.support >= 0 ? "+" : ""}${d.support}%.`;
+  return { sims: note({ ...s, politics }, text), money: 0, text, life: d.life, ok: true };
+}

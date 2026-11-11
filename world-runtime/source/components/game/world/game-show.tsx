@@ -4,7 +4,8 @@ import { LADDER, SAFE, askAudience, buildGame, fiftyFifty, money, prizeFor } fro
 import { SkinBust } from "../skin-bust";
 import type { Avatar } from "@/game/core/cosmetics";
 
-const PRESENTER = { graceAppearance: { skin: "#8d5634", hair: "crop", hairColor: "#121212", outfit: "suit", top: "#1d2340", legs: "#1d2340", shoe: "#111111", hat: "none" } } as unknown as Avatar;
+// A silver-haired presenter in a navy suit: nobody you'll mistake for yourself.
+const PRESENTER = { graceAppearance: { skin: "#c08b62", hair: "swoop", hairColor: "#d8d5cb", eyes: "smile", face: "beard", frame: "masc", outfit: "suit", top: "#334963", legs: "#222730", shoe: "#33313a", hat: "none", glasses: true } } as unknown as Avatar;
 const LINES = {
   start: "Welcome to Who Wants to Be a Kairos Millionaire! Fifteen questions from the Word of God stand between you and a million pounds.",
   right: ["That's the right answer!", "Correct! The audience loves it.", "Absolutely right.", "Well done. You know your Bible."],

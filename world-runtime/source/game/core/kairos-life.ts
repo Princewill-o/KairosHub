@@ -268,6 +268,19 @@ export const temptPressure = (s) => Math.min(0.75, 0.2 + Math.max(0, s.faith?.wa
 
 
 
+/** Rare, life-shaping moments (0.5–1% a year each). */
+export const RARE_EVENTS = [
+  { id: "r-healing", chance: 0.006, category: "spiritual", title: "A miracle", text: "After the elders pray for you, the doctors can't find the illness any more.", when: (s) => s.health < 45 && s.saved, options: [{ label: "Testify on Sunday", effect: { health: 40, walk: 12, witness: 3, contact: true } }, { label: "Keep it quiet", effect: { health: 40, walk: 4 } }] },
+  { id: "r-twins", chance: 0.008, category: "family", title: "Twins!", text: "The scan shows two heartbeats.", when: (s) => s.partner?.married && s.age < 45, options: [{ label: "Double the joy", effect: { child: true, happiness: 12, money: -3000 } }] },
+  { id: "r-lightning", chance: 0.005, category: "health", title: "Struck by lightning", text: "A storm on the common, and a flash. You wake up in hospital.", options: [{ label: "Thank God you're alive", effect: { health: -25, walk: 6 } }] },
+  { id: "r-tv", chance: 0.007, category: "work", title: "On television", text: "A TV crew wants to film you for a documentary about London life.", when: (s) => s.age >= 16, options: [{ label: "Share your faith on camera", effect: { happiness: 6, witness: 4, contact: true, walk: 3 } }, { label: "Keep it about the job", effect: { happiness: 4, money: 1500 } }] },
+  { id: "r-royal", chance: 0.005, category: "relationships", title: "An honour", text: "You're invited to the palace to receive an award for community service.", when: (s) => s.age >= 25 && s.faith.fruit >= 20, options: [{ label: "Go, and give God the glory", effect: { happiness: 12, walk: 4 } }] },
+  { id: "r-lost-sibling", chance: 0.006, category: "family", title: "A long-lost sibling", text: "A DNA test reveals a half-sibling you never knew about, living in Manchester.", when: (s) => s.age >= 18, options: [{ label: "Meet them", effect: { happiness: 8, contact: true } }, { label: "Leave the past alone", effect: { happiness: -2 } }] },
+  { id: "r-fire", chance: 0.006, category: "money", title: "House fire", text: "An electrical fire guts your home. Everyone got out.", when: (s) => s.age >= 18, options: [{ label: "Lean on your church family", effect: { money: -8000, happiness: -6, walk: 5 } }, { label: "Try to cope alone", effect: { money: -8000, happiness: -14 } }] },
+  { id: "r-prodigy", chance: 0.008, category: "school", title: "A hidden gift", text: "A teacher hears you play piano and says you're a prodigy.", when: (s) => s.age >= 6 && s.age <= 16, options: [{ label: "Practise every day", effect: { smarts: 8, happiness: 6 } }, { label: "Play for the church", effect: { walk: 5, fruit: 2, happiness: 4 } }] },
+  { id: "r-revival", chance: 0.005, category: "spiritual", title: "Revival", text: "A prayer meeting you lead goes on all night. Dozens give their lives to Jesus.", when: (s) => s.saved && s.faith.walk >= 70, options: [{ label: "Disciple them", effect: { walk: 10, witness: 8, fruit: 10, contact: true } }] },
+];
+
 export const FOLLOW_UP = [
   { id: "met", label: "Met", hint: "You shared Jesus with them." },
   { id: "message", label: "Messaged", hint: "Send a kind follow-up message." },
@@ -414,6 +427,8 @@ function applyEffect(s, e, r) {
   if (e.child) { const sex = r() < 0.5 ? "male" : "female"; s.family.push(person(r, "child", 0, sex, s.saved ? "christian" : "none", s.name.last)); say(s, `Your child ${s.family.at(-1).name.split(" ")[0]} was born.`, "milestone"); }
   if (e.job === "find") { s.job = findJob(s, r); say(s, `You started work as a ${s.job.title.toLowerCase()}.`); }
   if (e.job === "lose") s.job = null;
+  // Someone real you reached out to: they become a person to follow up.
+  if (e.contact && s.saved) { const sex = r() < 0.5 ? "male" : "female"; s.contacts.push({ id: id(r), name: `${pick(r, FIRST[sex])} ${pick(r, LAST)}`, stage: "met", warmth: between(r, 40, 70), metAge: s.age }); }
   if (e.illness === "treat" && s.illness) { s.illness.found = true; s.illness.treated = true; }
   if (e.illness === "screen" && s.illness) { s.illness.found = true; s.illness.treated = true; say(s, "Screening caught an illness early. You're being treated."); }
   if (e.contact && s.saved) { const sex = r() < 0.5 ? "male" : "female"; s.contacts.push({ id: id(r), name: `${pick(r, FIRST[sex])} ${pick(r, LAST)}`, stage: "met", warmth: 55, metAge: s.age }); }
@@ -655,14 +670,19 @@ export function ageUp(s0, r = Math.random, opts = {}) {
   }
   // The apps you keep come back to meet you.
   const troubleIds = (s.apps || []).map((a) => TROUBLE_EVENTS[a]).filter(Boolean);
-  if (troubleIds.length && r() < 0.35) {
+  if (troubleIds.length && !inPrison(s) && r() < 0.35) {
     const all = [...EVENTS, ...TEMPTATIONS, ...ISSUES];
     const e = all.find((x) => x.id === pick(r, troubleIds) && x.stages.includes(stageFor(s.age).id));
     if (e) { s.pending = toPendingApp(e, s); s.recent = [...s.recent, e.id].slice(-10); return withContext(s); }
   }
+  // Once-in-a-lifetime moments: each has a 0.5–1% chance a year.
+  for (const rare of RARE_EVENTS) {
+    if (inPrison(s) || s.recent.includes(rare.id) || (rare.when && !rare.when(s))) continue;
+    if (r() < rare.chance) { s.pending = { id: rare.id, title: rare.title, text: rare.text, category: rare.category, rare: true, options: rare.options }; s.recent = [...s.recent, rare.id].slice(-10); return withContext(s); }
+  }
   // Someone you invited makes an excuse about Sunday.
   const invited = s.contacts.filter((c) => c.stage === "invite");
-  if (invited.length && r() < 0.45) {
+  if (invited.length && !inPrison(s) && r() < 0.45) {
     const c = pick(r, invited), x = pick(r, SUNDAY_EXCUSES);
     s.pending = { id: "excuse", title: `${c.name.split(" ")[0]} and Sunday`, text: `You invited ${c.name} to church. ${x.line}`, category: "evangelism", options: [
       { label: x.answer, effect: { excuse: c.id, warmthGain: 12, advance: true, walk: 1 } },

@@ -60,6 +60,8 @@ import { KairosPhone } from "./kairos-phone";
 import { LuckyBlock } from "./lucky-block";
 import { GameShow } from "./game-show";
 import { LifeHub } from "./life-hub";
+import { NowPlaying } from "./music-app";
+import { NextStationBoard } from "./next-station";
 import { FIND_CHANCE, TIERS, rollTier, type Tier } from "@/game/core/lucky-blocks";
 import { MinistryDialog } from "./ministry-dialog";
 import { personaFor } from "@/game/core/ministry";
@@ -631,6 +633,26 @@ export function WorldApp({
       say(vehicle === "bike" ? "The paramedics checked you over after the bike crash: bruises, nothing broken. Wear a helmet and ride carefully!" : "The paramedics brought you in after the crash. You're shaken but OK. Slow down and keep your distance.", true);
     }, AMBULANCE_LEAVES * 1000);
   }, [mapId, driving, goTo, say, offline, kl]);
+  // Growing a year older takes you to where this year's moment happens.
+  const agedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!offline || !kl.life?.alive) return;
+    const age = kl.life.age;
+    if (agedRef.current === null) { agedRef.current = age; return; }
+    if (age === agedRef.current) return;
+    agedRef.current = age;
+    const p = kl.life.pending as { id: string; category: string } | null;
+    if (!p || jailed) return;
+    const PLACES: Record<string, [string, string]> = {
+      spiritual: ["church", "Kharis Church"], evangelism: ["city", "London Square"], family: ["home", "Home"], relationships: ["home", "Home"],
+      health: ["hospital", "St Thomas' Hospital"], money: ["mall", "the shopping centre"], work: ["city", "the City"], school: ["kharis-hub", "school"],
+      temptation: ["city", "the streets of London"], mind: ["woodland", "a quiet walk in the woods"], crime: ["court", "the court"],
+    };
+    const place = p.id === "persecution" ? ["airport", "the airport, on your way to the mission field"] : PLACES[p.category];
+    if (!place) return;
+    if (mapId !== place[0]) goTo(place[0], place[1]);
+    say(`Age ${age}: this year finds you at ${place[1]}.`, true);
+  }, [kl.life?.age]); // eslint-disable-line react-hooks/exhaustive-deps
   /** Where the next train you board will take you, if you asked staff for somewhere. */
   const plannedStop = useRef<RideStop | null>(null);
   /** Walk straight from the platform into a real carriage. No cutscene: the ride happens around you. */
@@ -1343,6 +1365,8 @@ export function WorldApp({
         else setWallet((w) => Math.max(0, w + o.coins));
         say(`${o.title}: ${o.text}`, true);
       }} />}
+      <NowPlaying />
+      {mapId === "train-carriage" && <NextStationBoard ride={RIDE} />}
       {lifeHub && <LifeHub
         // Offline it's your life's pounds; online, Grace coins convert at £20 each so the online economy doesn't inflate.
         wallet={offline ? wallet : wallet * 20}
