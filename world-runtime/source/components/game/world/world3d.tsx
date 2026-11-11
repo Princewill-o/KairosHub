@@ -2093,6 +2093,8 @@ export function World3D({
     if (!el) return;
     const highland = map.art === "highlands";
     const london = map.art === "london";
+    // Police work wherever there are streets: London (now the island-built city) and the Highlands.
+    const policeHere = london || highland || map.id === "city";
     const portalGates: { swirl: THREE.Mesh; motes: THREE.Points; pos: Float32Array; seed: Float32Array; pool: THREE.Mesh }[] = [];
     const biomeMovers: ((t: number) => void)[] = [];
     const outdoors = map.kind === "campus" || map.kind === "woodland";
@@ -2137,6 +2139,12 @@ export function World3D({
         fist.rotation.set(0.15, side * 0.12, side * -0.25);
         fists.add(fist);
       }
+      // Handcuffs, shown on your wrists in first person while you're arrested.
+      const cuffMat = new THREE.MeshStandardMaterial({ color: "#c9ccd2", metalness: 0.6, roughness: 0.35, flatShading: true });
+      const cuffs = new THREE.Group(); cuffs.name = "cuffs"; cuffs.visible = false;
+      for (const side of [-1, 1]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.034, 0.008, 6, 12), cuffMat); ring.position.set(side * 0.035, 0, 0.06); ring.rotation.y = Math.PI / 2; cuffs.add(ring); }
+      const chain = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.008, 0.008), cuffMat); chain.position.set(0, 0, 0.06); cuffs.add(chain);
+      fists.add(cuffs);
       fists.visible = false;
       camera.add(fists);
       scene.add(camera);
@@ -2207,6 +2215,12 @@ export function World3D({
     if (!indoors && !map.story) {
       // A landscaped apron keeps the following camera above scenery at the edge.
       box(world, "#63765b", -160, -0.7, -160, map.cols + 160, -0.35, map.rows + 160);
+      // Around the map the land carries on at ground level, so nothing looks like it's floating on a ledge.
+      const C = map.cols, R = map.rows, land = map.island ? "#8fae6e" : "#7f9a66";
+      box(world, land, -160, -0.3, -160, C + 160, -0.02, 0);
+      box(world, land, -160, -0.3, R, C + 160, -0.02, R + 160);
+      box(world, land, -160, -0.3, 0, 0, -0.02, R);
+      box(world, land, C, -0.3, 0, C + 160, -0.02, R);
       // Align the low perimeter wall with the existing impassable world bounds.
       const edges = [[-0.18, -0.18, map.cols + 0.18, 0], [-0.18, map.rows, map.cols + 0.18, map.rows + 0.18], [-0.18, 0, 0, map.rows], [map.cols, 0, map.cols + 0.18, map.rows]];
       for (const [x0, z0, x1, z1] of map.island ? [] : edges) {
@@ -2392,6 +2406,8 @@ export function World3D({
             facadeWindow(g, x0 + 0.35, 0.9, st.y + st.h, 0.9, 0.8);
           }
           box(g, "#253e3c", S.x - 0.3, 2.6, S.y - 0.8, S.x + S.w + 0.3, 2.8, S.y + 0.6);
+          // The name board sits on a fascia built up from the canopy (not hovering above it).
+          box(g, "#253e3c", st.x + st.w / 2 - 2.55, 2.75, st.y + st.h - 0.15, st.x + st.w / 2 + 2.55, 3.7, st.y + st.h + 0.03);
           const name = sign(st.label.replace(/ Station$/, ""), { bg: "#ffffff", fg: "#13203a", w: 4.6, h: 0.6, badge: true });
           name.position.set(st.x + st.w / 2, 3.25, st.y + st.h + 0.06);
           g.add(name);
@@ -2555,6 +2571,8 @@ export function World3D({
         if (map.id === "scripture-island") for (const b of STORY_BIOMES) storyBiome(b);
         if (map.id === "city") {
           const events=sign("KHARIS · SUNDAY WORSHIP · PRAYER · FELLOWSHIP",{bg:"#38214e",fg:"#f8dfa1",w:8,h:.8});events.position.set(34,4.4,21.2);world.add(events);
+          // Two posts hold the banner up.
+          for (const x of [30.1, 37.9]) box(world, "#2a2730", x - 0.08, 0, 21.12, x + 0.08, 4.8, 21.28);
         }
       }
       if(map.id === "universities") {
@@ -3305,7 +3323,7 @@ export function World3D({
     const residentLimit = map.kind === "home" || map.story || map.id === "branch" || map.id === "flight" ? 0 : Math.min(budget.residents, london || map.id === "woodland" ? budget.residents : highland || map.kind === "station" || map.kind === "campus" ? Math.max(12, budget.residents - 4) : Math.max(8, Math.floor(budget.residents / 2)));
     const riderAt = new THREE.Vector3();
     const npcs = residentPaths(map, residentLimit).filter(path=>map.kind !== "prison" || path.x0<25&&path.x1<25).map((path, i) => {
-      const body = makeBody(map.kind === "prison" ? {...npcLook(i),...PRISON_LOOK} : london && i % 9 === 4 ? officerLook(i) : npcLook(i), null, true);
+      const body = makeBody(map.kind === "prison" ? {...npcLook(i),...PRISON_LOOK} : (london || map.id === "city") && i % 9 === 4 ? officerLook(i) : npcLook(i), null, true);
       const speech = speechMark(); body.root.add(speech);
       scene.add(body.root);
       return {
@@ -3325,12 +3343,14 @@ export function World3D({
         shove: new THREE.Vector3(),
         bumpedAt: 0,
         index: i,
-        officer: london && i % 9 === 4,
+        officer: (london || map.id === "city") && i % 9 === 4,
         downUntil: 0,
       };
     });
     let lastPunch = CAMERA_VIEW.punchAt, lastPush = CAMERA_VIEW.pushAt ?? 0;
     let luckyMesh: THREE.Mesh | null = null;
+    let injuryKind: string | null = null, injuryProp: THREE.Group | null = null;
+    let arrestStart = 0;
     const crossingNpcs = london ? crossingPedestrianPoses(Date.now()).map((pose, i) => {
       const body = makeBody(npcLook(90 + i)); scene.add(body.root);
       return { id: pose.id, body };
@@ -3385,7 +3405,7 @@ export function World3D({
     // A responding car and its officers are tied to the actual pursuit simulation.
     const responseCar = new THREE.Group();
     let wasTased = false;
-    const responders = london || highland ? [makeBody(officerLook(51)),makeBody(officerLook(52))] : [];
+    const responders = policeHere ? [makeBody(officerLook(51)),makeBody(officerLook(52))] : [];
     const lightBars: THREE.Mesh[][] = [];
     /** A blue-and-red light bar on a police car; it flashes when the car is responding. */
     const lightBar = (car: THREE.Group, y = 0.62) => {
@@ -3398,13 +3418,13 @@ export function World3D({
       const back = roof.clone(); back.rotation.y = Math.PI; car.add(back);
     };
     // The Met: a station sign on London Square where the response car waits.
-    if (london && map.id === "city") {
+    if (map.id === "city") {
       const met = sign("METROPOLITAN POLICE · KAIROS SQUARE STATION", { bg: "#16307a", fg: "#ffffff", w: 7.5, h: 0.6 });
       met.position.set(map.cols / 2 + 8, 3.1, 4.6); world.add(met);
       const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshBasicMaterial({ color: "#2b5fd9" }));
       lamp.position.set(map.cols / 2 + 8, 4.0, 4.6); world.add(lamp);
     }
-    if (london || highland) {
+    if (policeHere) {
       void placeCar(responseCar, "police").then((fitted) => { const b = new THREE.Box3().setFromObject(fitted); lightBar(responseCar, b.max.y + 0.05); });
       scene.add(responseCar,...responders.map(b=>b.root));
     }
@@ -3652,6 +3672,37 @@ export function World3D({
         }
       }
       me.root.visible = !want;
+      // A crash: you stay in the wrecked car until the paramedics get you out (off a bike, you're on the ground).
+      if (CRASH.current && CRASH.current.map === map.id) {
+        const c = CRASH.current;
+        if (c.vehicle === "car") me.root.visible = false;
+        else { me.root.position.set(c.x + 0.6, 0.05, c.y + 0.3); me.root.rotation.x = -Math.PI / 2; }
+      }
+      // Injuries: a wheelchair (you sit and roll) or crutches (you limp).
+      {
+        const inj = (globalThis as { __kairosInjury?: { current: { kind: string; until: number } | null } }).__kairosInjury?.current;
+        const kind = inj && inj.until > Date.now() && !want && !CRASH.current ? inj.kind : null;
+        if (kind !== injuryKind) {
+          injuryKind = kind;
+          if (injuryProp) { me.root.remove(injuryProp); injuryProp = null; }
+          if (kind === "wheelchair") {
+            const g = new THREE.Group(), metal = new THREE.MeshStandardMaterial({ color: "#8a929c", flatShading: true }), dark = new THREE.MeshStandardMaterial({ color: "#1d1d22", flatShading: true }), seat = new THREE.MeshStandardMaterial({ color: "#2b5fd9", flatShading: true });
+            const add = (geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, rx = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, 0, rz); g.add(o); };
+            add(new THREE.BoxGeometry(0.56, 0.08, 0.5), seat, 0, 0.5, 0);
+            add(new THREE.BoxGeometry(0.56, 0.5, 0.08), seat, 0, 0.78, -0.26);
+            for (const sx of [-0.33, 0.33]) { add(new THREE.TorusGeometry(0.3, 0.04, 6, 14), dark, sx, 0.32, -0.05, 0, Math.PI / 2); add(new THREE.BoxGeometry(0.04, 0.04, 0.5), metal, sx, 0.62, 0); }
+            for (const sx of [-0.2, 0.2]) add(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 8), dark, sx, 0.07, 0.3, 0, Math.PI / 2);
+            g.scale.setScalar(1.05); injuryProp = g;
+          } else if (kind === "crutches") {
+            const g = new THREE.Group(), m = new THREE.MeshStandardMaterial({ color: "#c9ccd2", flatShading: true });
+            for (const sx of [-0.42, 0.42]) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.5, 0.06), m); c.position.set(sx, 0.75, 0.12); c.rotation.z = sx > 0 ? -0.08 : 0.08; g.add(c); const top = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.06, 0.1), m); top.position.set(sx * 0.95, 1.5, 0.12); g.add(top); }
+            injuryProp = g;
+          }
+          if (injuryProp) { bendAll(injuryProp); me.root.add(injuryProp); }
+        }
+        if (kind === "wheelchair") { me.char?.play("sit"); }
+        else if (kind === "crutches" && p.walking) me.root.position.y += Math.abs(Math.sin(secs * 5)) * 0.05; // a hobbling step
+      }
       // Riding a hire bike: the bike appears under you and you sit up on it.
       const riding = !want && bikeRef.current;
       if (riding && !rideBike) {
@@ -3697,8 +3748,18 @@ export function World3D({
       if (fists.visible) {
         const since = (performance.now() - CAMERA_VIEW.punchAt) / 1000, punch = since < 0.32 ? Math.sin((since / 0.32) * Math.PI) : 0;
         const sway = p.walking && !reduce ? Math.sin(secs * 9) : 0;
-        fists.children[0].position.set(-0.11, -0.1 + sway * 0.008, -0.26);
-        fists.children[1].position.set(0.11, -0.1 - sway * 0.008 + punch * 0.04, -0.26 - punch * 0.14);
+        const cuffed = ARREST_SCENE.active && arrestStart && (performance.now() - arrestStart) / 1000 > 1.6;
+        const cuffs = fists.getObjectByName("cuffs");
+        if (cuffs) cuffs.visible = !!cuffed;
+        if (cuffed) {
+          // Wrists pulled together in front of you, cuffed.
+          fists.children[0].position.set(-0.035, -0.17, -0.24);
+          fists.children[1].position.set(0.035, -0.17, -0.24);
+          cuffs!.position.set(0, -0.17, -0.3);
+        } else {
+          fists.children[0].position.set(-0.11, -0.1 + sway * 0.008, -0.26);
+          fists.children[1].position.set(0.11, -0.1 - sway * 0.008 + punch * 0.04, -0.26 - punch * 0.14);
+        }
       }
       const fov = view === "first" ? 72 : view === "behind" ? 60 : camera.userData.baseFov ?? camera.fov;
       const nearClip = view === "first" ? 0.05 : 0.5;
@@ -3809,8 +3870,8 @@ export function World3D({
       if (tased && !wasTased) me.char?.play("die");
       if (!tased && wasTased) me.char?.play("idle");
       wasTased = Boolean(tased);
-      responseCar.visible = !!pursuit && (london || highland);
-      if (pursuit && (london || highland)) {
+      responseCar.visible = !!pursuit && policeHere;
+      if (pursuit && policeHere) {
         const cx=pursuit.car.x/TILE, cz=pursuit.car.y/TILE;
         if(Math.hypot(cx-carLast.x,cz-carLast.z)>0.01)responseCar.rotation.y=Math.atan2(-(cz-carLast.z),cx-carLast.x);
         responseCar.position.set(cx,0.05,cz); carLast.set(cx,0,cz);
@@ -3818,19 +3879,28 @@ export function World3D({
       // Lights: patrol cars glow steady; responding cars (and arrests) flash.
       const flashing = !!pursuit || ARREST_SCENE.active;
       lightBars.forEach(([blue, red], i) => { const on = Math.floor(now / 160 + i) % 2 === 0; (blue.material as THREE.MeshBasicMaterial).color.set(flashing && !on ? "#14244a" : "#2b5fd9"); (red.material as THREE.MeshBasicMaterial).color.set(flashing && on ? "#4a1410" : "#e04a3f"); });
-      if (ARREST_SCENE.active && (london || highland)) {
-        // The arrest: two officers stand either side, you're cuffed, the car waits behind.
-        me.char?.play("cuffed");
+      if (ARREST_SCENE.active && policeHere) {
+        // The arrest: the car pulls up, two officers get out, walk over and grab you,
+        // then cuff you. You only go into cuffs once they've got hold of you.
+        if (!arrestStart) { arrestStart = now; CAMERA_VIEW.yaw = Math.atan2(-1.6, 2.2); } // turn to face the car and the officers getting out
+        const t = (now - arrestStart) / 1000, WALK = 1.6;
         responseCar.visible = true;
         responseCar.position.set(mx + 2.2, 0.05, mz - 1.6); responseCar.rotation.y = 0;
+        const grabbed = t >= WALK;
+        me.char?.play(grabbed ? "cuffed" : "idle");
         responders.forEach((body, i) => {
           body.root.visible = true;
           const side = i ? 1 : -1;
-          body.root.position.set(mx + side * 0.75, 0, mz + 0.15);
-          body.root.rotation.y = Math.atan2(mx - body.root.position.x, mz - body.root.position.z);
-          setWalking(body, false); body.char?.play(i ? "arrest" : "idle");
+          const door = { x: mx + 2.2 + side * 0.4, z: mz - 0.9 }, spot = { x: mx + side * 0.62, z: mz + 0.12 };
+          const k = Math.min(1, Math.max(0, (t - i * 0.15) / WALK)), e = k * k * (3 - 2 * k);
+          const ox = door.x + (spot.x - door.x) * e, oz = door.z + (spot.z - door.z) * e;
+          body.root.position.set(ox, 0, oz);
+          body.root.rotation.y = k < 1 ? Math.atan2(spot.x - door.x, spot.z - door.z) : Math.atan2(mx - ox, mz - oz);
+          setWalking(body, k < 1);
+          if (k >= 1) body.char?.play(i ? "arrest" : "talk");
         });
-      } else responders.forEach((body,i)=>{
+        if (grabbed && t < WALK + 0.2) me.char?.react?.("bump");
+      } else { arrestStart = 0; responders.forEach((body,i)=>{
         const officer=pursuit?.officers[i];
         body.root.visible=!!officer;
         if(officer){
@@ -3840,6 +3910,7 @@ export function World3D({
           setWalking(body,pursuit?.stage === "chasing");
         }
       });
+      }
       searchlights.forEach((l, i) => { l.rotation.y = reduce ? i : secs * 0.35 + i * 1.6; });
       const patrols=prisonGuardPositions(Date.now()/1000);
       guardBodies.forEach((body,i)=>{const p=patrols[i];body.root.position.set(p.x/TILE,0,p.y/TILE);body.root.rotation.y=p.angle;setWalking(body,!reduce);});

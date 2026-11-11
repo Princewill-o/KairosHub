@@ -5,17 +5,19 @@
  * A/D turn; dragging the view turns too. Shared by movement and rendering.
  */
 export type CameraMode = "classic" | "behind" | "first";
-export const CAMERA_MODES: CameraMode[] = ["classic", "behind", "first"];
+/** The main views are close (over the shoulder) and first person; classic overhead is still supported. */
+export const CAMERA_MODES: CameraMode[] = ["behind", "first"];
 export const CAMERA_LABEL: Record<CameraMode, string> = { classic: "Classic", behind: "Close", first: "First person" };
 /** yaw: the facing direction in map space, (cos yaw, sin yaw), y pointing down/south. */
 // One shared object even when the 3D renderer is bundled separately from movement.
 type View = { mode: CameraMode; yaw: number; punchAt: number; pushAt?: number };
 const g = globalThis as unknown as { __kairosCamera?: View };
-export const CAMERA_VIEW: View = (g.__kairosCamera ??= { mode: "classic", yaw: -Math.PI / 2, punchAt: -10 });
+export const CAMERA_VIEW: View = (g.__kairosCamera ??= { mode: "behind", yaw: -Math.PI / 2, punchAt: -10 });
 export const TURN_SPEED = 2.6; // radians per second while A/D are held
 
 export function nextMode(m: CameraMode): CameraMode {
-  return CAMERA_MODES[(CAMERA_MODES.indexOf(m) + 1) % CAMERA_MODES.length];
+  const i = CAMERA_MODES.indexOf(m);
+  return CAMERA_MODES[i < 0 ? 0 : (i + 1) % CAMERA_MODES.length];
 }
 
 /**

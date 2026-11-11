@@ -151,6 +151,11 @@ async function logOut() {
   accounts.signOut();
   location.hash = "#welcome";
 }
+// The world's main menu can send you back to the landing page, or log you out.
+addEventListener("message", (e) => {
+  if (e.origin !== location.origin || e.data?.type !== "kairos-world:leave") return;
+  if (e.data.logout) logOut(); else location.hash = "#landing";
+});
 function bindHeader() {
   document.querySelector('#app').insertAdjacentHTML('beforeend',mobileTabs());
   const settings = document.querySelector(".header-settings");

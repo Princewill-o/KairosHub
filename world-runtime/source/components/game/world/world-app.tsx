@@ -63,6 +63,7 @@ import { LifeHub } from "./life-hub";
 import { DARK, buyDark } from "@/game/core/web";
 import { NowPlaying } from "./music-app";
 import { NextStationBoard } from "./next-station";
+import { activeInjury, injure, injurySpeed } from "@/game/core/injury";
 import { InPersonGame } from "./in-person-game";
 import { PoliceVan } from "./police-van";
 import { FIND_CHANCE, TIERS, rollTier, type Tier } from "@/game/core/lucky-blocks";
@@ -329,6 +330,16 @@ export function WorldApp({
   const [menuOpen, setMenuOpen] = useState(() => { try { return new URLSearchParams(location.search).get("menu") === "1"; } catch { return false; } });
   const showMenu = !kl.mode || menuOpen;
   useEffect(() => { try { parent.postMessage({ type: "kairos-world:menu", open: showMenu }, location.origin); } catch { /* not embedded */ } }, [showMenu]);
+  // Escape (with nothing else open) brings up the main menu.
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || showMenu || e.defaultPrevented) return;
+      if (document.querySelector('[role="dialog"]:not(.km-menu), [aria-modal="true"], .kp-phone, .ip-room, .lh-back, .gs-studio, .lb-back, .pv-scene')) return;
+      setMenuOpen(true);
+    };
+    addEventListener("keydown", esc);
+    return () => removeEventListener("keydown", esc);
+  }, [showMenu]);
   const closeLesson = useCallback(() => setLesson(null), []);
   // Preview hooks for art review: ?cutscene=<set> or ?lesson=<id>.
   useEffect(() => {
@@ -636,6 +647,9 @@ export function WorldApp({
   }, [mapId, me.id, say]);
   // Crashes: the car or bike stops, an ambulance comes, and the paramedics take you to hospital.
   const [crashed, setCrashed] = useState<"car" | "bike" | null>(null);
+  const [injury, setInjury] = useState(() => activeInjury());
+  useEffect(() => { if (!injury) return; const t = setInterval(() => { const i = activeInjury(); if (!i) { setInjury(null); say("You've recovered. Back on your feet!", true); } }, 5000); return () => clearInterval(t); }, [injury, say]);
+  useEffect(() => { if (injury && (driving || bike)) { setDriving(null); setBike(null); say(injury.kind === "wheelchair" ? "You can't drive or ride while you're in a wheelchair." : "Not on crutches. Wait till your leg heals.", true); } }, [injury, driving, bike, say]);
   const crash = useCallback((vehicle: "car" | "bike") => {
     if (CRASH.current) return;
     CRASH.current = { map: mapId, x: PLAYER.x / TILE, y: PLAYER.y / TILE, at: performance.now(), vehicle, car: driving, heading: 0 };
@@ -654,7 +668,11 @@ export function WorldApp({
         kl.update((l) => KL.crashed(l, { severity, fatal: false }) as typeof l);
       }
       goTo("hospital", "St Thomas' Hospital");
-      if (severity > 0.6) { say("A bad crash: broken bones and a long recovery. Your health has taken a real hit.", true); return; }
+      // Real consequences: serious crashes leave you in a wheelchair, moderate ones on crutches.
+      // Offline, recovery runs on the life's clock (a few game days); online, a few minutes.
+      const day = 24 * GAME_HOUR_MS;
+      if (severity > 0.6) { injure("wheelchair", offline ? 3 * day : 6 * 60_000, "a serious car crash"); setInjury(activeInjury()); say("A bad crash: broken bones and a long recovery. You'll be in a wheelchair for a while.", true); return; }
+      if (severity > 0.38) { injure("crutches", offline ? 1.5 * day : 3 * 60_000, "a crash"); setInjury(activeInjury()); say("You hurt your leg in the crash. You're on crutches until it heals.", true); return; }
       say(vehicle === "bike" ? "The paramedics checked you over after the bike crash: bruises, nothing broken. Wear a helmet and ride carefully!" : "The paramedics brought you in after the crash. You're shaken but OK. Slow down and keep your distance.", true);
     }, AMBULANCE_LEAVES * 1000);
   }, [mapId, driving, goTo, say, offline, kl]);
@@ -898,7 +916,7 @@ export function WorldApp({
               const challenged = { ...next, stage: "challenge" as const };
               pursuitRef.current = challenged; setPursuit(challenged);
             }
-          }, 1700);
+          }, 3400);
         }
       }
     }, 200);
@@ -913,7 +931,7 @@ export function WorldApp({
       // Officers cuff you and drive you to prison.
       setArrest(true);
       say("Officers cuff you and put you in the back of the van to HMP Thames.", true);
-      const t = setTimeout(() => { setArrest(false); escort("prison"); }, 2600);
+      const t = setTimeout(() => { setArrest(false); escort("prison"); }, 3600);
       return () => clearTimeout(t);
     }
     if (!jailed && mapId === "prison") {
@@ -1185,7 +1203,7 @@ export function WorldApp({
         onDrivingOffence={drivingOffence}
         onCrash={crash}
         me={{ ...me, username: lifeName, avatar: jailed || mapId === "prison" ? { ...lifeAvatar, ...PRISON_LOOK } : lifeAvatar }}
-        speed={(life.sick ? 0.7 : 1) * (driving && outdoors ? (carById(driving)?.speed ?? 1) : bike && outdoors ? bike.brand.speed : 1)}
+        speed={injurySpeed(injury) * (life.sick ? 0.7 : 1) * (driving && outdoors ? (carById(driving)?.speed ?? 1) : bike && outdoors ? bike.brand.speed : 1)}
         car={driving && outdoors ? driving : null}
         bike={!driving && bike && outdoors ? bike.brand.colour : null}
       />}
@@ -1304,7 +1322,7 @@ export function WorldApp({
         tasedOnce.current = false;
         pursuitRef.current = null; setPursuit(null);
         if(correct) { updateLife(clearWanted); say("Correct. The officers let you go with a warning.",true); }
-        else { setArrest(true); arrestTimer.current=setTimeout(()=>{updateLife(l=>({...clearWanted(l),hearing:{stars:l.stars,charge:wantedCharge(l)}}));setArrest(false);escort("court");},2600); }
+        else { setArrest(true); arrestTimer.current=setTimeout(()=>{updateLife(l=>({...clearWanted(l),hearing:{stars:l.stars,charge:wantedCharge(l)}}));setArrest(false);escort("court");},3600); }
       }}/ >}
       {arrest && <ArrestOverlay />}
       <button type="button" onClick={() => setPhone(true)} aria-label="Open phone (P)" data-hud="phone" className="kp-launch"><Smartphone className="size-5"/><span>Phone</span></button>
@@ -1392,7 +1410,7 @@ export function WorldApp({
         </section>;
       })()}
       {/* ── Kairos Life ── */}
-      {showMenu && <KairosMenu initial={kl.mode ?? "online"} onPick={(m) => { setMenuOpen(false); if (m !== kl.mode) kl.setMode(m); }} />}
+      {showMenu && <KairosMenu initial={kl.mode ?? "online"} onResume={kl.mode ? () => setMenuOpen(false) : undefined} onPick={(m) => { setMenuOpen(false); if (m !== kl.mode) kl.setMode(m); }} />}
       {offline && !kl.life && <NewLife onBorn={(l) => { kl.begin(l); say(`${l.name.first} ${l.name.last} was born in London.`, true); }} onOnline={() => kl.setMode("online")} />}
       {kl.mode === "online" && <button type="button" data-hud="kairos-life" className="kl-chip kl-chip-online" onClick={() => setMenuOpen(true)}><span><b>Quick play</b><small>Online · no ageing · start Kairos Life</small></span></button>}
       {lifeAlive && kl.life && <LifeChip life={kl.life} gameDate={gameDate} onOpen={() => setLifeOpen(true)} onAge={() => { kl.update((l) => ({ ...(KL.ageUp(l, Math.random, { issue: true }) as typeof l), lastDay: l.lastDay })); }} />}
@@ -1454,6 +1472,7 @@ export function WorldApp({
         say(`${o.title}: ${o.text}`, true);
       }} />}
       <NowPlaying />
+      {injury && <div className="kw-injury" data-hud="injury" role="status">{injury.kind === "wheelchair" ? "In a wheelchair" : "On crutches"} <small>after {injury.cause} · healing</small></div>}
       {van && <PoliceVan dest={van} />}
       {nearFamily && !chat && (
         <button type="button" className="kw-family-talk" data-hud="family-talk" onClick={() => talkFamily(nearFamily)}>

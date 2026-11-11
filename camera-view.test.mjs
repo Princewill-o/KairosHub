@@ -15,7 +15,8 @@ test('first person: W walks the way you face, A/D turn', () => {
   const s = steerInput('first', 0, 0, 1, 0.1);
   assert.ok(near(s.dx, -1));
 });
-test('views cycle classic → close → first', () => {
+test('views cycle close ↔ first person (classic falls back to close)', () => {
   assert.equal(nextMode('classic'), 'behind');
-  assert.equal(nextMode('first'), 'classic');
+  assert.equal(nextMode('behind'), 'first');
+  assert.equal(nextMode('first'), 'behind');
 });

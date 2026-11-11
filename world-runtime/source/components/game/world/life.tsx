@@ -82,12 +82,11 @@ export function WantedStars({ stars }: { stars: number }) {
 /** Blue lights: the police have caught up with you. */
 export function ArrestOverlay() {
   return (
-    <div className="arrest-flash pointer-events-none absolute inset-0 z-[100006] grid place-items-center bg-[#142235]/20" role="alert">
-      <div className="rounded-3xl border border-white/30 bg-[#13203a] px-7 py-6 text-center text-white shadow-2xl">
+    <div className="arrest-flash pointer-events-none absolute inset-x-0 top-[96px] z-[100006] grid place-items-center" role="alert">
+      <div className="rounded-3xl border border-white/30 bg-[#13203a]/95 px-6 py-4 text-center text-white shadow-2xl">
         <div className="flex justify-center"><CutsceneBrand kind="police"/></div>
-        <div className="relative mx-auto mt-5 grid size-16 place-items-center rounded-full bg-[#154d91] text-white"><Siren className="size-9" aria-hidden/><span className="absolute -inset-1 animate-ping rounded-full border-2 border-[#6bc6ff]/70"/></div>
-        <p className="mt-4 text-2xl font-black">Taser stop. You&apos;re under arrest.</p>
-        <p className="mt-2 text-sm text-white/75">You are stunned briefly while officers secure the scene.</p>
+        <p className="mt-2 flex items-center justify-center gap-2 text-xl font-black"><Siren className="size-6 animate-pulse" aria-hidden/>Police! You&apos;re under arrest.</p>
+        <p className="mt-1 text-sm text-white/75">Officers walk over, take hold of you and put you in handcuffs.</p>
       </div>
     </div>
   );

@@ -59,8 +59,10 @@ function GlassTile({ tile, big, onPick, focus, setFocus }: { tile: Tile; big?: b
   );
 }
 
-export function KairosMenu({ onPick, initial = "online" }: { onPick: (m: Mode) => void; initial?: Mode }) {
+export function KairosMenu({ onPick, initial = "online", onResume }: { onPick: (m: Mode) => void; initial?: Mode; onResume?: () => void }) {
   const [tab, setTab] = useState<Mode>(initial);
+  const [settings, setSettings] = useState(false);
+  const leave = (logout: boolean) => { try { parent.postMessage({ type: "kairos-world:leave", logout }, location.origin); } catch { /* not embedded */ } };
   const [focus, setFocus] = useState(TABS[initial].tiles[0].id);
   const t = TABS[tab];
   const line = t.tiles.find((x) => x.id === focus)?.line ?? t.hint;
@@ -68,10 +70,11 @@ export function KairosMenu({ onPick, initial = "online" }: { onPick: (m: Mode) =
     const key = (e: KeyboardEvent) => {
       if (e.key === "q" || e.key === "Q" || e.key === "[") setTab("online");
       if (e.key === "e" || e.key === "E" || e.key === "]") setTab("offline");
+      if (e.key === "Escape" && onResume) { e.preventDefault(); onResume(); }
     };
     addEventListener("keydown", key);
     return () => removeEventListener("keydown", key);
-  }, []);
+  }, [onResume]);
   useEffect(() => setFocus(TABS[tab].tiles[0].id), [tab]);
   const [hero, a, b, c, d] = t.tiles;
   return (
@@ -104,6 +107,16 @@ export function KairosMenu({ onPick, initial = "online" }: { onPick: (m: Mode) =
       </div>
       <footer className="km-foot">
         <p>{line}</p>
+        <div className="km-actions">
+          {onResume && <button type="button" className="km-ghost" onClick={onResume}>Resume <kbd>Esc</kbd></button>}
+          <button type="button" className="km-ghost" aria-expanded={settings} onClick={() => setSettings((v) => !v)}>Settings</button>
+        </div>
+        {settings && (
+          <div className="km-settings" role="menu" aria-label="Settings">
+            <button type="button" role="menuitem" onClick={() => leave(false)}>Back to the home page</button>
+            <button type="button" role="menuitem" className="km-danger" onClick={() => leave(true)}>Log out</button>
+          </div>
+        )}
         <button type="button" className="km-select" onClick={() => onPick(tab)}>{tab === "offline" ? "Start a life" : "Play online"} <span aria-hidden>→</span></button>
       </footer>
     </section>
