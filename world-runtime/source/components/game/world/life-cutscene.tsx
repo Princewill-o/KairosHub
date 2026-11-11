@@ -44,9 +44,27 @@ function buildSet(set: CutSet, scene: THREE.Scene, g: THREE.Group, movers: ((t: 
   if (kit) loader.loadAsync(`/world3d/cut-${kit}.glb`).then((m) => {
     m.scene.traverse((o) => { const mesh = o as THREE.Mesh; if (mesh.isMesh) { mesh.castShadow = true; mesh.receiveShadow = true; } });
     g.add(m.scene); g.remove(prim);
+    if (set === "church") for (const [x, ref, text] of [[-3, "JOHN 3:16", "For God so loved the world, that he gave his only begotten Son"], [3, "ROMANS 10:17", "So then faith cometh by hearing, and hearing by the word of God"]] as const) g.add(scriptureScreen(x, ref, text));
     if (set === "temptation") m.scene.traverse((o) => { const mesh = o as THREE.Mesh; const mat = mesh.material as THREE.MeshStandardMaterial | undefined; if (mesh.isMesh && mat?.emissiveIntensity && mat.emissive.getHex() !== 0) { const k = Math.random() * 6; movers.push((t) => { mat.emissiveIntensity = 0.6 + Math.sin(t * 4 + k) * 0.5; }); } });
   }).catch(() => {});
   buildPrimitives(set, prim, movers);
+}
+
+/** The church's side screens carry Scripture, EasyWorship style. */
+function scriptureScreen(x: number, ref: string, text: string) {
+  const c = document.createElement("canvas"); c.width = 512; c.height = 256;
+  const ctx = c.getContext("2d")!;
+  const grad = ctx.createLinearGradient(0, 0, 0, 256); grad.addColorStop(0, "#1a1430"); grad.addColorStop(1, "#3b2470");
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, 512, 256);
+  ctx.fillStyle = "#f5c518"; ctx.font = "800 30px Outfit, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText(ref, 256, 60);
+  ctx.fillStyle = "#fff"; ctx.font = "600 28px 'DM Sans', system-ui, sans-serif";
+  const words = text.split(" "); let line = "", y = 112;
+  for (const w of words) { const next = line ? line + " " + w : w; if (ctx.measureText(next).width > 440) { ctx.fillText(line, 256, y); line = w; y += 38; } else line = next; }
+  ctx.fillText(line, 256, y);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+  m.position.set(x, 2.4, -2.88);
+  return m;
 }
 
 function buildPrimitives(set: CutSet, g: THREE.Group, movers: ((t: number) => void)[]) {

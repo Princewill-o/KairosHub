@@ -5801,4 +5801,47 @@ html.dark body:has(.app-theme) {
 .ml-sermon iframe{width:100%;height:100%;border:0}
 .ml-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 
+/* Kairos World title menu: tiles of in-game shots with a liquid-glass hover */
+.km-menu{position:fixed;inset:0;z-index:2147482000;background:#050407;color:#fff;display:grid;grid-template-rows:auto 1fr auto;gap:18px;padding:74px clamp(16px,4.5vw,90px) 22px;font-family:Outfit,system-ui,sans-serif;overflow:auto}
+.km-menu::before{content:"";position:fixed;inset:0;background:radial-gradient(1200px 500px at 30% -10%,rgba(124,58,237,.28),transparent 60%),radial-gradient(900px 400px at 90% 110%,rgba(242,194,48,.12),transparent 60%);pointer-events:none}
+.km-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.km-title{margin:0;font-size:clamp(30px,4.2vw,58px);font-weight:800;letter-spacing:.08em;line-height:1}
+.km-tabs{display:flex;align-items:center;gap:6px}
+.km-tabs kbd{font:700 12px "DM Sans",system-ui;border:1.5px solid rgba(255,255,255,.7);border-radius:5px;padding:1px 6px;color:#fff;opacity:.8}
+.km-tabs button{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;padding:8px 18px;font:600 clamp(16px,1.6vw,24px) Outfit,system-ui;letter-spacing:.04em;text-transform:uppercase;color:#fff;transition:background .3s cubic-bezier(.16,1,.3,1),color .3s}
+.km-tabs button small{font:700 10px "DM Sans",system-ui;letter-spacing:.14em;opacity:.65}
+.km-tabs button.km-on{background:#fff;color:#0a0810}
+.km-tabs button:focus-visible{outline:2px solid #a78bfa;outline-offset:3px}
+.km-grid{position:relative;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1.25fr;gap:12px;min-height:0;animation:km-in .6s cubic-bezier(.16,1,.3,1)}
+@keyframes km-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.km-grid>:nth-child(1){grid-column:1/3;grid-row:1/3}
+.km-grid>:nth-child(2){grid-column:3;grid-row:1}
+.km-grid>:nth-child(3){grid-column:3;grid-row:2}
+.km-grid>:nth-child(4){grid-column:1/2;grid-row:3}
+.km-grid>:nth-child(5){grid-column:2/4;grid-row:3}
+.km-tile{all:unset;box-sizing:border-box;position:relative;overflow:hidden;cursor:pointer;border-radius:6px;min-height:120px;background:#111;--mx:50%;--my:50%;--tx:0deg;--ty:0deg;transform:perspective(900px) rotateX(var(--ty)) rotateY(var(--tx));transition:transform .5s cubic-bezier(.16,1,.3,1),box-shadow .5s cubic-bezier(.16,1,.3,1);box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.km-tile:hover,.km-tile:focus-visible{box-shadow:0 0 0 2px rgba(255,255,255,.85),0 24px 60px rgba(124,58,237,.35);z-index:2}
+.km-art,.km-lens{position:absolute;inset:0;background:var(--img) center/cover no-repeat}
+.km-art{transition:transform .8s cubic-bezier(.16,1,.3,1),filter .5s}
+.km-tile::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(5,4,7,.75));pointer-events:none}
+.km-tile:hover .km-art{transform:scale(1.05)}
+.km-lens{opacity:0;transform:scale(1.14);transform-origin:var(--mx) var(--my);filter:url(#km-liquid) saturate(1.35) brightness(1.08);-webkit-mask:radial-gradient(circle clamp(70px,9vw,140px) at var(--mx) var(--my),#000 62%,transparent 70%);mask:radial-gradient(circle clamp(70px,9vw,140px) at var(--mx) var(--my),#000 62%,transparent 70%);transition:opacity .35s cubic-bezier(.16,1,.3,1);z-index:1}
+.km-sheen{position:absolute;inset:0;z-index:1;opacity:0;transition:opacity .35s;pointer-events:none;background:radial-gradient(circle clamp(70px,9vw,140px) at var(--mx) var(--my),rgba(255,255,255,0) 58%,rgba(255,255,255,.75) 61%,rgba(255,255,255,.15) 64%,transparent 70%),radial-gradient(circle clamp(30px,4vw,60px) at calc(var(--mx) - 3%) calc(var(--my) - 5%),rgba(255,255,255,.35),transparent 70%)}
+.km-tile:hover .km-lens,.km-tile:hover .km-sheen{opacity:1}
+.km-tag{position:absolute;z-index:3;top:14px;left:14px;font:800 13px "DM Sans",system-ui;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:6px;background:#f2c230;color:#0a0810}
+.km-label{position:absolute;z-index:3;left:14px;bottom:14px;max-width:calc(100% - 28px);padding:8px 16px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.28);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -8px 18px rgba(255,255,255,.06),0 10px 30px rgba(0,0,0,.35);-webkit-backdrop-filter:blur(10px) saturate(1.7);backdrop-filter:blur(10px) saturate(1.7);transition:transform .5s cubic-bezier(.16,1,.3,1)}
+.km-tile:hover .km-label{animation:km-float 3.2s ease-in-out infinite}
+@keyframes km-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.km-glass-text{font-weight:800;text-transform:uppercase;letter-spacing:.03em;font-size:clamp(17px,1.9vw,30px);color:transparent;background:linear-gradient(110deg,#fff 0%,rgba(255,255,255,.62) 22%,#fff 38%,#e4dcff 52%,rgba(255,255,255,.7) 66%,#fff 82%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 2px 6px rgba(0,0,0,.55));animation:km-shimmer 6s linear infinite}
+.km-big .km-glass-text{font-size:clamp(22px,2.6vw,42px)}
+.km-title .km-glass-text{font-size:inherit;letter-spacing:.1em;filter:drop-shadow(0 4px 18px rgba(124,58,237,.55))}
+.km-tile:hover .km-glass-text{animation-duration:2.2s}
+@keyframes km-shimmer{to{background-position:-260% 0}}
+.km-foot{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;font:500 clamp(14px,1.3vw,19px) "DM Sans",system-ui}
+.km-foot p{margin:0;opacity:.9}
+.km-select{all:unset;cursor:pointer;padding:10px 20px;border-radius:999px;font:700 15px "DM Sans",system-ui;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.4);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.km-select:hover,.km-select:focus-visible{background:#fff;color:#0a0810}
+@media (max-width:760px){.km-grid{grid-template-columns:1fr;grid-template-rows:none;grid-auto-rows:150px}.km-grid>*{grid-column:auto!important;grid-row:auto!important}.km-grid>:first-child{min-height:220px}.km-head{justify-content:center}}
+@media (prefers-reduced-motion:reduce){.km-grid,.km-tile:hover .km-label,.km-glass-text{animation:none}.km-tile{transform:none}}
+
 html,body,#world-root{height:100%;margin:0;overflow:hidden}#world-root>div{height:100dvh!important}@media(max-width:700px){.world-lobby-bar{display:none}}

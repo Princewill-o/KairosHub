@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 const base = process.env.BASE ?? 'http://localhost:4180';
 mkdirSync('public/menu', { recursive: true });
 const SHOTS = {
-  preacher: { q: 'map=city&mode=online&cutscene=church&lead=preacher&leadAt=0,0.4,-1.9&pose=wave&solo=1', wait: 6000 },
+  preacher: { q: 'map=city&mode=online&cutscene=church&lead=preacher&leadAt=0,0.4,-1.2&pose=wave&solo=1', wait: 6000 },
   london: { q: 'map=city&mode=online', wait: 9000 },
   ltbs: { q: 'map=scripture-island&mode=online&at=40,42', wait: 9000 },
   church: { q: 'map=church&mode=online', wait: 9000 },
