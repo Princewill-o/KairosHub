@@ -57,6 +57,9 @@ import * as KL from "@/game/core/kairos-life";
 import { FLIGHT, LIFE_WORLD, setWorldBranch, setWorldFamily } from "@/game/core/life-world";
 import { FollowUpDialog } from "./preach-dialog";
 import { KairosPhone } from "./kairos-phone";
+import { LuckyBlock } from "./lucky-block";
+import { GameShow } from "./game-show";
+import { FIND_CHANCE, TIERS, rollTier, type Tier } from "@/game/core/lucky-blocks";
 import { MinistryDialog } from "./ministry-dialog";
 import { personaFor } from "@/game/core/ministry";
 const BusStop = dynamic(() => import("./bus-stop").then((module) => module.BusStop), { ssr: false, loading: () => null });
@@ -233,6 +236,19 @@ export function WorldApp({
   }, []);
   const [shop, setShop] = useState<"tescow" | "bootz" | null>(null);
   const [phone, setPhone] = useState(false);
+  // Lucky blocks: a 10% chance one turns up near you in each minute outdoors.
+  const [luckySpotted, setLuckySpotted] = useState<Tier | null>(null);
+  const [luckyOpen, setLuckyOpen] = useState<Tier | null>(null);
+  const [gameShow, setGameShow] = useState(false);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const t = q.get("lucky"); if (t && TIERS.some((x) => x.id === t)) setLuckyOpen(t as Tier); else if (t) setLuckySpotted(rollTier());
+    if (q.get("gameshow") === "1") setGameShow(true);
+    const open = () => { setPhone(false); setGameShow(true); };
+    window.addEventListener("kairos-open-gameshow", open);
+    const search = setInterval(() => { if (!document.hidden && Math.random() < FIND_CHANCE) setLuckySpotted((cur) => cur ?? rollTier()); }, 60_000);
+    return () => { clearInterval(search); window.removeEventListener("kairos-open-gameshow", open); };
+  }, []);
   const [miniGamesOpen, setMiniGamesOpen] = useState(false);
   const [nativeChallenge,setNativeChallenge] = useState<string|null>(null);
   const challenge = SCRIPTURE_CHALLENGES.find(item => item.id === nativeChallenge);
@@ -1283,6 +1299,24 @@ export function WorldApp({
         </Link>
       )}
       {bus && <GraceWorldPanel address="bus-travel" onClose={()=>setBus(null)}><BusStop here={bus} stops={BUS_STOPS} onGo={busRide} onClose={() => setBus(null)} /></GraceWorldPanel>}
+      {luckySpotted && !luckyOpen && (
+        <button type="button" data-hud="lucky" className="lb-spotted" style={{ ["--lb" as string]: TIERS.find((x) => x.id === luckySpotted)!.colour }} onClick={() => { setLuckyOpen(luckySpotted); setLuckySpotted(null); }}>
+          <span className="lb-mini" aria-hidden>?</span> You spotted a {TIERS.find((x) => x.id === luckySpotted)!.name}! Mine it
+        </button>
+      )}
+      {luckyOpen && <LuckyBlock tier={luckyOpen} onDone={(o) => {
+        setLuckyOpen(null);
+        if (offline && kl.life) kl.update(() => KL.windfall(kl.life!, o) as typeof kl.life);
+        else setWallet((w) => Math.max(0, w + o.coins));
+        say(`${o.title}: ${o.text}`, true);
+      }} />}
+      {gameShow && <GameShow avatar={lifeAvatar} onDone={(won) => {
+        setGameShow(false);
+        if (won > 0) {
+          if (offline && kl.life) kl.update(() => KL.windfall(kl.life!, { title: `Won ${"£" + won.toLocaleString("en-GB")} on Who Wants to Be a Kairos Millionaire.`, life: { money: won, happiness: 8 } }) as typeof kl.life);
+          else setWallet((w) => w + Math.round(won / 100));
+        }
+      }} />}
       <LifeHud avatar={lifeAvatar} name={lifeName}
         quests={quests}
         onLocate={(q) => {

@@ -21,7 +21,7 @@ import { STORE, appById, install, readApps, remove, spiritualReading, writeApps,
 
 type AppId =
   | "phone" | "messages" | "prayer" | "bible" | "tv" | "maps" | "friends" | "grace"
-  | "games" | "stories" | "wardrobe" | "season" | "camera" | "settings" | "followups" | "messagesPlay" | "chat" | "store" | "storeApp";
+  | "games" | "stories" | "wardrobe" | "season" | "camera" | "settings" | "followups" | "messagesPlay" | "chat" | "store" | "storeApp" | "gameshow";
 
 /** Low Poly Icon Sampler art where a matching icon exists; drawn glyphs elsewhere. */
 const ICON = (n: string) => `/world-ui/icons/${n}.png`;
@@ -40,6 +40,7 @@ const APPS: { id: AppId; name: string; glyph: string; color: string; image?: str
   { id: "wardrobe", name: "Wardrobe", glyph: "shirt", color: "#d26aa8", image: ICON("gift_box") },
   { id: "camera", name: "Camera", glyph: "camera", color: "#5d6673" },
   { id: "store", name: "App Store", glyph: "store", color: "#2b5fd9" },
+  { id: "gameshow", name: "Game Show", glyph: "star", color: "#1d2340" },
   { id: "settings", name: "Settings", glyph: "gear", color: "#8a929c", image: ICON("gear") },
 ];
 /** Built-in apps that can be deleted (and reinstalled from the App Store). */
@@ -128,6 +129,7 @@ export function KairosPhone(props: PhoneActions) {
     if (id === "messagesPlay") return props.onGrace("messages");
     if (id === "wardrobe") return props.onWardrobe();
     if (id === "camera") return props.onPhoto();
+    if (id === "gameshow") { window.dispatchEvent(new CustomEvent("kairos-open-gameshow")); return; }
     setApp(id);
   };
 

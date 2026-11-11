@@ -455,6 +455,20 @@ export const inPrison = (s) => (s.prisonUntil || 0) > s.age;
 
 const toPendingApp = (e, s) => ({ id: e.id, title: e.title, text: `${e.text} (It started on your phone.)`, category: e.category, options: e.options.map((x) => ({ label: x.label, effect: x.effect })) });
 
+/** A lucky block or a game-show prize changed your life. */
+export function windfall(s0, { title, life }, r = Math.random) {
+  if (!s0.alive) return s0;
+  const s = clone(s0);
+  const e = { ...life };
+  if (e.money === -999999999) { e.money = -s.money; s.debt = (s.debt || 0) + 5000; }
+  const SALARY = { "Head chef": 38000, Surgeon: 95000, "Assistant pastor": 28000, Footballer: 120000, CEO: 400000, "Government adviser": 85000 };
+  if (e.career) { s.job = { id: "lucky", title: e.career, salary: SALARY[e.career] || 40000 }; say(s, `New career: ${e.career}.`, "milestone"); delete e.career; }
+  if (e.car) { s.car = { name: "Prize car" }; delete e.car; }
+  applyEffect(s, e, r);
+  say(s, title, "lucky");
+  return fix(s);
+}
+
 /** You installed or deleted an app on your phone. */
 export function phoneChanged(s0, { apps, id: appId, action }, r = Math.random) {
   if (!s0.alive) return s0;
