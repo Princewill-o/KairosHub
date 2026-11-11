@@ -8,6 +8,7 @@ import { PLAYER } from "./art";
 
 import { KIND, placesFor, type Place, type PlaceKind } from "@/game/core/map-guide";
 import { CITY, TILE, type WorldMap } from "@/game/core/world";
+import { paintLowPolyMap } from "../../../../../public/lowpoly-map.mjs";
 
 /**
  * London map: a minimap that follows you, and a full map with every station,
@@ -52,14 +53,8 @@ function useCityCanvas(map: WorldMap, scale: number) {
     if (!c || !ctx) return;
     c.width = map.cols * scale;
     c.height = map.rows * scale;
-    ctx.fillStyle = "#d9cfbd";
-    ctx.fillRect(0, 0, c.width, c.height);
-    map.tiles.forEach((row, y) =>
-      [...row].forEach((ch, x) => {
-        ctx.fillStyle = COLOUR[ch] ?? (map.id === "highlands" ? (ch === "k" ? "#9a98a2" : "#a98f6f") : "#c7b9a3");
-        ctx.fillRect(x * scale, y * scale, scale, scale);
-      }),
-    );
+    // Low-poly terrain with ink outlines, the same look as the 3D world.
+    paintLowPolyMap(ctx, map, scale, { frame: false });
   }, [map, scale]);
   return ref;
 }
@@ -101,22 +96,22 @@ export function MiniMap({ map, waypoint, onOpen, onArrive, searchArea }: { searc
   }, [waypoint, onArrive]);
   return (
     <button type="button" data-hud="minimap" onClick={onOpen} aria-label="Open the map" className="absolute top-[118px] right-3 z-[100001] block text-left">
-      <span ref={viewport} className="relative block size-20 overflow-hidden rounded-full border-4 border-[#f6f2e8] bg-[#d9cfbd] shadow-xl sm:size-[104px] xl:size-28">
+      <span ref={viewport} className="relative block size-20 overflow-hidden rounded-full border-[3px] border-[#120c18] bg-[#46a6cf] shadow-[4px_4px_0_#120c18] sm:size-[104px] xl:size-28">
         <span ref={wrap} className="absolute top-0 left-0 block" style={{ width: map.cols * S, height: map.rows * S }}>
           {searchArea && <span aria-label="Police search area" className="pointer-events-none absolute z-10 rounded-full border-2 border-[#e04a3f] bg-[#e04a3f]/20" style={{left:(searchArea.origin.x-searchArea.radius)/TILE*S,top:(searchArea.origin.y-searchArea.radius)/TILE*S,width:searchArea.radius*2/TILE*S,height:searchArea.radius*2/TILE*S}}/>}
             <canvas ref={canvas} className="absolute inset-0" aria-hidden />
           {places.map((p) => (
-            <span key={p.id} className="absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white" style={{ left: (p.x / TILE) * S, top: (p.y / TILE) * S, background: KIND[p.kind].colour }} />
+            <span key={p.id} className="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#120c18]" style={{ left: (p.x / TILE) * S, top: (p.y / TILE) * S, background: KIND[p.kind].colour }} />
           ))}
           {waypoint && <span ref={pin} className="map-me absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#d4241f]" />}
         </span>
-        <span className="absolute top-1/2 left-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#f2a03a]" />
-        <span className="absolute right-1 bottom-1 grid size-7 place-items-center rounded-full bg-[#13203a] text-white">
+        <span className="absolute top-1/2 left-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border-[2.5px] border-[#120c18] bg-[#f5b83d]" aria-hidden />
+        <span className="absolute right-1 bottom-1 grid size-7 place-items-center rounded-full border-2 border-[#120c18] bg-[#2a1d44] text-white">
           <MapIcon className="size-4" aria-hidden />
         </span>
       </span>
       {waypoint && (
-        <span className="mt-2 flex items-center justify-center gap-1.5 rounded-full bg-[#13203a] px-2 py-1 text-xs font-black text-white">
+        <span className="mt-2 flex items-center justify-center gap-1.5 rounded-full border-[3px] border-[#120c18] bg-[#2a1d44] px-2 py-1 text-xs font-black text-white shadow-[3px_3px_0_#120c18]">
           <span ref={arrow} className="inline-block">
             <ArrowUp className="size-3.5" aria-hidden />
           </span>

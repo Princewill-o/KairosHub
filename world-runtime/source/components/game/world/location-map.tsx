@@ -17,6 +17,7 @@ import {
   type PlaceKind,
 } from "@/game/core/map-guide";
 import { TILE, type WorldMap } from "@/game/core/world";
+import { paintLowPolyMap, pill } from "../../../../../public/lowpoly-map.mjs";
 import { cn } from "@/lib/utils";
 
 const COLOURS: Record<string, string> = {
@@ -105,64 +106,18 @@ export function LocationMap({
     if (!c || !ctx) return;
     c.width = Math.ceil(map.cols * S);
     c.height = Math.ceil(map.rows * S);
-    ctx.fillStyle = "#d9cfbd";
-    ctx.fillRect(0, 0, c.width, c.height);
-    map.tiles.forEach((row, y) =>
-      [...row].forEach((tile, x) => {
-        ctx.fillStyle = COLOURS[tile] ?? "#c7b9a3";
-        ctx.fillRect(x * S, y * S, Math.ceil(S), Math.ceil(S));
-        if (tile === "#") {
-          ctx.strokeStyle = "#a2927e";
-          ctx.lineWidth = 0.4;
-          ctx.strokeRect(x * S, y * S, S, S);
-        }
-      }),
-    );
-    // Quiet grid lines keep streets and destinations visually dominant.
-    ctx.strokeStyle = "rgba(19,32,58,.035)";
-    ctx.lineWidth = 1;
-    for (let x = 0; x < map.cols; x += 10) {
-      ctx.beginPath();
-      ctx.moveTo(x * S, 0);
-      ctx.lineTo(x * S, c.height);
-      ctx.stroke();
-    }
-    for (let y = 0; y < map.rows; y += 10) {
-      ctx.beginPath();
-      ctx.moveTo(0, y * S);
-      ctx.lineTo(c.width, y * S);
-      ctx.stroke();
-    }
-    if (map.id === "city" && !map.island) {
-      // Draw complete building footprints instead of a checker of solid tiles.
-      for (const building of buildLondon().things) {
-        if (building.kind !== "building") continue;
-        ctx.fillStyle = building.id.startsWith("hotel-") ? "#879d90" : "#b5a795";
-        ctx.fillRect((building.x+.12)*S,(building.y+.12)*S,(building.w-.24)*S,(building.h-.24)*S);
-        ctx.strokeStyle = "#968c7f"; ctx.lineWidth = 1;
-        ctx.strokeRect((building.x+.12)*S,(building.y+.12)*S,(building.w-.24)*S,(building.h-.24)*S);
-      }
-      ctx.font = `bold ${Math.max(12, S * 1.6)}px sans-serif`;
-      ctx.fillStyle = "#295a79";
-      const river = buildLondon().river,
-        point = river[Math.floor(river.length / 2)];
-      ctx.save();
-      ctx.translate(point[0] * S, point[1] * S);
-      ctx.rotate(0.1);
-      ctx.fillText("RIVER THAMES", 0, 0);
-      ctx.restore();
-      for (const district of LONDON_DISTRICTS) {
-        const x=(district.x+district.w/2)*S,y=(district.y+district.h-2)*S;
-        ctx.save();
-        ctx.font=`600 ${Math.max(10,S*1.25)}px sans-serif`;
-        ctx.textAlign="center";
-        const width=ctx.measureText(district.name).width+12;
-        ctx.fillStyle="rgba(255,250,235,0.92)";
-        ctx.fillRect(x-width/2,y-12,width,18);
-        ctx.fillStyle="#385448";
-        ctx.fillText(district.name,x,y);
-        ctx.restore();
-      }
+    // Low-poly terrain, raised buildings and ink outlines: the world's own look.
+    const london = map.art === "london";
+    const L = london ? buildLondon() : null;
+    const buildings = L ? L.things.filter((b) => b.kind === "building").map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h })) : [];
+    paintLowPolyMap(ctx, map, S, { labels: true, buildings });
+    if (L) {
+      ctx.font = `900 ${Math.max(12, S * 1.6)}px system-ui, sans-serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      const point = L.river[Math.floor(L.river.length / 2)];
+      pill(ctx, point[0] * S, point[1] * S, "RIVER THAMES", S, "#d7f0fb");
+      ctx.font = `800 ${Math.max(10, S * 1.2)}px system-ui, sans-serif`;
+      for (const district of LONDON_DISTRICTS) pill(ctx, (district.x + district.w / 2) * S, (district.y + district.h - 2) * S, district.name, S, "#f5b83d");
     }
     if (viewport.current) {
       viewport.current.scrollLeft =
@@ -213,10 +168,10 @@ export function LocationMap({
             }
           }
         }}
-        className="map-open flex h-full max-h-[850px] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-[#f7f1e6] text-[#13203a] md:flex-row"
+        className="map-open flex h-full max-h-[850px] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border-4 border-[#120c18] bg-[#fff8ec] text-[#120c18] shadow-[8px_8px_0_#120c18] md:flex-row"
       >
         <div className="relative min-h-[200px] flex-1 overflow-hidden">
-          <div className="absolute top-3 left-3 z-30 flex items-center gap-1 rounded-2xl border border-[#c7b9a3] bg-white/95 p-1 shadow">
+          <div className="absolute top-3 left-3 z-30 flex items-center gap-1 rounded-2xl border-[3px] border-[#120c18] bg-[#fff8ec] p-1 shadow-[3px_3px_0_#120c18]">
             <button
               type="button"
               aria-label="Zoom out"
@@ -247,14 +202,14 @@ export function LocationMap({
               <LocateFixed className="size-4" />
             </button>
           </div>
-          <div className="pointer-events-none absolute top-3 right-3 z-30 rounded-xl bg-[#13203a] px-3 py-2 text-xs font-black text-white">
+          <div className="pointer-events-none absolute top-3 right-3 z-30 rounded-xl border-[3px] border-[#120c18] bg-[#2a1d44] px-3 py-2 text-xs font-black text-white shadow-[3px_3px_0_#120c18]">
             ↑ N
           </div>
           <div
             ref={viewport}
             tabIndex={0}
             aria-label="Location map. Scroll to explore, or select a destination from the list."
-            className="h-full w-full overflow-auto overscroll-contain bg-[#d9cfbd]"
+            className="h-full w-full overflow-auto overscroll-contain bg-[#46a6cf]"
           >
             <div
               className="relative mx-auto"

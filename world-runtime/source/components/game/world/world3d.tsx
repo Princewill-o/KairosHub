@@ -2028,6 +2028,7 @@ export function World3D({
     if (!el) return;
     const highland = map.art === "highlands";
     const london = map.art === "london";
+    const portalGates: { swirl: THREE.Mesh; motes: THREE.Points; pos: Float32Array; seed: Float32Array; pool: THREE.Mesh }[] = [];
     const outdoors = map.kind === "campus" || map.kind === "woodland";
     const indoors = !london && !highland && !outdoors;
     const station = map.kind === "station";
@@ -2342,8 +2343,44 @@ export function World3D({
         sg.position.set(st.x + st.w / 2, 2.95, st.y + st.h + 0.07);
         g.add(sg);
       }
+      // LTBS: every story and Scripture challenge is a walk-in portal gate (Blender: create_story_portal.py)
+      // with a swirling purple opening, a glow pool, purple motes drifting out and a name tag.
+      let moteTex: THREE.CanvasTexture | null = null;
+      const moteSprite = () => {
+        if (moteTex) return moteTex;
+        const c = document.createElement("canvas"); c.width = c.height = 64;
+        const x = c.getContext("2d")!; const g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+        g.addColorStop(0, "rgba(255,240,255,1)"); g.addColorStop(0.25, "rgba(200,140,255,.9)"); g.addColorStop(1, "rgba(120,40,220,0)");
+        x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+        return (moteTex = new THREE.CanvasTexture(c));
+      };
+      const storyPortal = (portal: Portal) => {
+        const cx = portal.rect.x / TILE + portal.rect.w / TILE / 2, cz = portal.rect.y / TILE + portal.rect.h / TILE / 2;
+        const gate = new THREE.Group(); gate.position.set(cx, 0, cz); world.add(gate);
+        // Story portals are grand; the Scripture challenge gates are smaller so the precinct isn't crowded.
+        if (portal.to.kind === "scripture-challenge") gate.scale.setScalar(0.66);
+        jobs.push(loader.loadAsync("/world3d/story-portal.glb?v=1").then(g => { if (disposed) return; const m = g.scene.clone(true); m.rotation.y = Math.PI; m.traverse(n => { const mesh = n as THREE.Mesh; if (mesh.isMesh) mesh.castShadow = true; }); bendAll(m); gate.add(m); }));
+        const swirl = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.7), new THREE.ShaderMaterial({
+          uniforms: { uTime: { value: 0 } }, transparent: true, depthWrite: false, toneMapped: false,
+          vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+          fragmentShader: "uniform float uTime; varying vec2 vUv; float h(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1))) * 45758.5); } void main(){ vec2 p = vUv - 0.5; p.x *= 0.74; float r = length(p); float a = atan(p.y, p.x); float swirl = sin(a * 3.0 + r * 22.0 - uTime * 3.2) * 0.5 + 0.5; float rings = sin(r * 34.0 - uTime * 4.5) * 0.5 + 0.5; vec2 cell = floor(vUv * vec2(18.0, 24.0) + vec2(0.0, uTime * 2.0)); float spark = step(0.965, h(cell)); vec3 deep = vec3(0.20, 0.03, 0.42), mid = vec3(0.55, 0.22, 0.95), hot = vec3(0.92, 0.72, 1.0); vec3 c = mix(deep, mid, swirl * 0.75 + rings * 0.25); c = mix(c, hot, smoothstep(0.42, 0.0, r) * 0.35 + spark * 0.8); gl_FragColor = vec4(c, 0.93); }",
+        }));
+        swirl.position.set(0, 0.16 + 1.35, 0.02); gate.add(swirl);
+        const pool = new THREE.Mesh(new THREE.CircleGeometry(1.7, 24), new THREE.MeshBasicMaterial({ color: "#9b5cff", transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+        pool.rotation.x = -Math.PI / 2; pool.position.set(0, 0.03, 0.6); gate.add(pool);
+        const count = 36, pos = new Float32Array(count * 3), seed = new Float32Array(count);
+        for (let i = 0; i < count; i++) { seed[i] = Math.random(); pos[i * 3] = (Math.random() - 0.5) * 1.8; pos[i * 3 + 1] = 0.3 + Math.random() * 2.5; pos[i * 3 + 2] = Math.random() * 1.5; }
+        const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+        const motes = new THREE.Points(geo, new THREE.PointsMaterial({ color: "#b06cff", map: moteSprite(), size: 0.32, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+        gate.add(motes);
+        const name = portal.to.kind === "story-enter" ? portal.label.replace(/^Enter\s+/i, "") : portal.label;
+        const tag = sign(name, { bg: "#120c18", fg: "#f5b83d", w: Math.min(3.4, 1 + name.length * 0.13), h: 0.46 });
+        tag.position.set(0, 4.15, 0.05); gate.add(tag);
+        portalGates.push({ swirl, motes, pos, seed, pool });
+      };
       if (map.island) {
         for (const portal of map.portals.filter(portal => ["games","act","story-enter","scripture-challenge"].includes(portal.to.kind))) {
+          if (map.id === "scripture-island" && (portal.to.kind === "story-enter" || portal.to.kind === "scripture-challenge")) { storyPortal(portal); continue; }
           const marker = sign(portal.label, { bg: "#38214e", fg: "#f8dfa1", w: 4, h: .5 });
           marker.position.set(portal.rect.x/TILE+1,1.6,portal.rect.y/TILE-.3);world.add(marker);
           cyl(world,"#d8cdb8",portal.rect.x/TILE+1,portal.rect.y/TILE-.3,0,1.4,.065,8);
@@ -3650,6 +3687,16 @@ export function World3D({
       updateCrash(now);
       updateDelivery(now);
       storyScene?.update(secs, { x: me.root.position.x, z: me.root.position.z }, STORY_FOUND.found);
+      for (const g of portalGates) {
+        (g.swirl.material as THREE.ShaderMaterial).uniforms.uTime.value = secs;
+        (g.pool.material as THREE.MeshBasicMaterial).opacity = 0.22 + Math.sin(secs * 2.2) * 0.08;
+        for (let i = 0; i < g.seed.length; i++) {
+          // Motes drift out of the portal towards you and rise, then start again.
+          g.pos[i * 3 + 2] += dt * (0.5 + g.seed[i] * 0.7); g.pos[i * 3 + 1] += dt * (0.25 + g.seed[i] * 0.3); g.pos[i * 3] += Math.sin(secs * 2 + g.seed[i] * 9) * dt * 0.2;
+          if (g.pos[i * 3 + 2] > 2.6 || g.pos[i * 3 + 1] > 3.4) { g.pos[i * 3] = (Math.random() - 0.5) * 1.8; g.pos[i * 3 + 1] = 0.3 + Math.random() * 2.3; g.pos[i * 3 + 2] = 0.05; }
+        }
+        g.motes.geometry.attributes.position.needsUpdate = true;
+      }
       for (const f of family) {
         // Family pottering about: a few steps, a pause, a turn.
         const t = secs * 0.4 + f.phase, step = Math.sin(t) * 0.6;
