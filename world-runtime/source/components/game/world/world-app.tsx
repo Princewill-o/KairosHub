@@ -31,7 +31,6 @@ import { type Choice, type Encounter, type Story, encounter, excuseEncounter, fa
 import { ARREST_SCENE } from "@/game/core/pursuit";
 import { conductOf, fullSentence } from "@/game/core/justice";
 import { LevelBadge, LifeHud, type Quest } from "./life-hud";
-import { PoliceTransportCutscene } from "./police-transport-cutscene";
 import { SceneWipe, Tutorial } from "./scene";
 import { SceneMusic } from "./scene-music";
 import { PASSENGERS, RIDE, TRAIN_CALL } from "./train-state";
@@ -297,6 +296,7 @@ export function WorldApp({
   const arrestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Set when the police tase you; cleared when the stop is resolved or the stars go. */
   const tasedOnce = useRef(false);
+  const jailEscort = useRef(false);
   useEffect(() => () => { if (arrestTimer.current) clearTimeout(arrestTimer.current); }, []);
   useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get("phone") === "1") setPhone(true); if (q.get("talk") === "1") setPreaching(true); }, []);
   const [arrest, setArrest] = useState(false);
@@ -363,6 +363,8 @@ export function WorldApp({
     const lead = q.get("lead") === "preacher" ? ({ ...playerAvatar, graceAppearance: normalizeAvatar({ skin: "#6e4630", hair: "crop", hairColor: "#1c1412", top: "#f5c518", outfit: "hoodie", print: "kharis-church", trousers: "jeans", scarf: false }) } as typeof playerAvatar) : undefined;
     if (set) setCut({ set: set as Cutscene["set"], eyebrow: `Preview · ${set}`, caption: "A cutscene preview from the Kairos Life kit.", ms: 60000, lead, leadAt: at?.length === 3 ? at : undefined, pose: q.get("pose") ?? undefined, solo: q.has("solo") });
     if (id) { const l = lessonById(id); if (l) setLesson(l); }
+    const vanTo = q.get("van");
+    if (vanTo === "court" || vanTo === "prison") setTimeout(() => escort(vanTo), 2000);
     const sceneOf = q.get("scene");
     if (sceneOf) { const sc = scriptFor({ id: sceneOf, title: sceneOf, text: sceneOf, category: "temptation" }, "home"); setCut({ set: sc.set, eyebrow: `Preview · ${sceneOf}`, caption: `Staged scene for “${sceneOf}”.`, ms: 60000, script: sc }); }
     // ?hearing=<charge> opens a court case; ?arrest=1 shows the cuffing scene (art review and tests).
@@ -946,12 +948,16 @@ export function WorldApp({
       updateLife(l=>releaseFromPrison(l)); return;
     }
     if (jailed && mapId !== "prison") {
-      // Officers cuff you and drive you to prison.
+      // Officers cuff you and drive you to prison: once per sentence, even if the
+      // effect runs again while it plays (it used to restart and loop).
+      if (jailEscort.current) return;
+      jailEscort.current = true;
       setArrest(true);
       say("Officers cuff you and put you in the back of the van to HMP Thames.", true);
-      const t = setTimeout(() => { setArrest(false); escort("prison"); }, 3600);
-      return () => clearTimeout(t);
+      setTimeout(() => { setArrest(false); escort("prison"); }, 3600);
+      return;
     }
+    if (!jailed) jailEscort.current = false;
     if (!jailed && mapId === "prison") {
       if (life.stars || life.heatAt || life.hearing) updateLife(releaseFromPrison);
       say(releaseReason.current === "escaped" ? "You found the service exit. Escape succeeded — your wanted stars are cleared." : "You have served your sentence. Your wanted stars are cleared.", true);
@@ -1404,7 +1410,7 @@ export function WorldApp({
           {toast.text}
         </div>
       )}
-      {policeTransport && <PoliceTransportCutscene onArrive={() => {
+      {policeTransport && <PoliceVan dest="prison" onDone={() => {
         const stars = transportStars.current;
         updateLife(life => ({ ...clearWanted(life), jailUntil: Date.now() + sentenceMs(stars), hearing: null }));
         setPoliceTransport(false); setArrest(false);

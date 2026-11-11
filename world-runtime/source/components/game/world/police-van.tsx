@@ -1,10 +1,13 @@
 "use client";
+import { useEffect, useRef } from "react";
 /**
  * Being taken in: a Metropolitan Police van with Battenburg livery and blue
  * lights drives you across London to Crown Court or HMP Thames. A short
  * cinematic between the arrest and where you're going.
  */
-export function PoliceVan({ dest }: { dest: "court" | "prison" }) {
+export function PoliceVan({ dest, onDone }: { dest: "court" | "prison"; onDone?: () => void }) {
+  const done = useRef(onDone); done.current = onDone;
+  useEffect(() => { if (!done.current) return; const t = setTimeout(() => done.current?.(), 5200); return () => clearTimeout(t); }, []);
   return (
     <div className="pv-scene" role="status" aria-live="polite" data-dest={dest}>
       <div className="pv-sky" aria-hidden><span className="pv-sun" /></div>
