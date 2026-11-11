@@ -1,0 +1,386 @@
+[
+ {
+  "id": "police-officer",
+  "name": "Police officer",
+  "category": "Work",
+  "file": "/skins/police-officer.png"
+ },
+ {
+  "id": "firefighter",
+  "name": "Firefighter",
+  "category": "Work",
+  "file": "/skins/firefighter.png"
+ },
+ {
+  "id": "paramedic",
+  "name": "Paramedic",
+  "category": "Work",
+  "file": "/skins/paramedic.png"
+ },
+ {
+  "id": "nurse",
+  "name": "Nurse",
+  "category": "Work",
+  "file": "/skins/nurse.png"
+ },
+ {
+  "id": "doctor",
+  "name": "Doctor",
+  "category": "Work",
+  "file": "/skins/doctor.png"
+ },
+ {
+  "id": "surgeon",
+  "name": "Surgeon",
+  "category": "Work",
+  "file": "/skins/surgeon.png"
+ },
+ {
+  "id": "chef",
+  "name": "Chef",
+  "category": "Work",
+  "file": "/skins/chef.png"
+ },
+ {
+  "id": "builder",
+  "name": "Builder",
+  "category": "Work",
+  "file": "/skins/builder.png"
+ },
+ {
+  "id": "pilot",
+  "name": "Pilot",
+  "category": "Work",
+  "file": "/skins/pilot.png"
+ },
+ {
+  "id": "barista",
+  "name": "Barista",
+  "category": "Work",
+  "file": "/skins/barista.png"
+ },
+ {
+  "id": "teacher",
+  "name": "Teacher",
+  "category": "Work",
+  "file": "/skins/teacher.png"
+ },
+ {
+  "id": "scientist",
+  "name": "Scientist",
+  "category": "Work",
+  "file": "/skins/scientist.png"
+ },
+ {
+  "id": "postie",
+  "name": "Postal worker",
+  "category": "Work",
+  "file": "/skins/postie.png"
+ },
+ {
+  "id": "bus-driver",
+  "name": "Bus driver",
+  "category": "Work",
+  "file": "/skins/bus-driver.png"
+ },
+ {
+  "id": "judge",
+  "name": "Judge",
+  "category": "Work",
+  "file": "/skins/judge.png"
+ },
+ {
+  "id": "businessman",
+  "name": "Navy suit",
+  "category": "Smart",
+  "file": "/skins/businessman.png"
+ },
+ {
+  "id": "businesswoman",
+  "name": "Grey suit",
+  "category": "Smart",
+  "file": "/skins/businesswoman.png"
+ },
+ {
+  "id": "wedding-suit",
+  "name": "Wedding suit",
+  "category": "Smart",
+  "file": "/skins/wedding-suit.png"
+ },
+ {
+  "id": "wedding-dress",
+  "name": "Wedding dress",
+  "category": "Smart",
+  "file": "/skins/wedding-dress.png"
+ },
+ {
+  "id": "sunday-best",
+  "name": "Sunday best",
+  "category": "Smart",
+  "file": "/skins/sunday-best.png"
+ },
+ {
+  "id": "gold-dress",
+  "name": "Gold dress",
+  "category": "Smart",
+  "file": "/skins/gold-dress.png"
+ },
+ {
+  "id": "plum-dress",
+  "name": "Plum dress",
+  "category": "Smart",
+  "file": "/skins/plum-dress.png"
+ },
+ {
+  "id": "pastor",
+  "name": "Pastor (yellow hoodie)",
+  "category": "Church",
+  "file": "/skins/pastor.png"
+ },
+ {
+  "id": "choir",
+  "name": "Choir robe",
+  "category": "Church",
+  "file": "/skins/choir.png"
+ },
+ {
+  "id": "usher",
+  "name": "Church usher",
+  "category": "Church",
+  "file": "/skins/usher.png"
+ },
+ {
+  "id": "worship-leader",
+  "name": "Worship leader",
+  "category": "Church",
+  "file": "/skins/worship-leader.png"
+ },
+ {
+  "id": "youth-worker",
+  "name": "Youth worker",
+  "category": "Church",
+  "file": "/skins/youth-worker.png"
+ },
+ {
+  "id": "shepherd",
+  "name": "Shepherd",
+  "category": "Bible",
+  "file": "/skins/shepherd.png"
+ },
+ {
+  "id": "king",
+  "name": "King",
+  "category": "Bible",
+  "file": "/skins/king.png"
+ },
+ {
+  "id": "queen",
+  "name": "Queen",
+  "category": "Bible",
+  "file": "/skins/queen.png"
+ },
+ {
+  "id": "fisherman",
+  "name": "Galilean fisherman",
+  "category": "Bible",
+  "file": "/skins/fisherman.png"
+ },
+ {
+  "id": "roman-soldier",
+  "name": "Roman soldier",
+  "category": "Bible",
+  "file": "/skins/roman-soldier.png"
+ },
+ {
+  "id": "prophet",
+  "name": "Prophet",
+  "category": "Bible",
+  "file": "/skins/prophet.png"
+ },
+ {
+  "id": "footballer-red",
+  "name": "Footballer (red, 9)",
+  "category": "Sport",
+  "file": "/skins/footballer-red.png"
+ },
+ {
+  "id": "footballer-blue",
+  "name": "Footballer (blue, 7)",
+  "category": "Sport",
+  "file": "/skins/footballer-blue.png"
+ },
+ {
+  "id": "footballer-green",
+  "name": "Footballer (green, 10)",
+  "category": "Sport",
+  "file": "/skins/footballer-green.png"
+ },
+ {
+  "id": "basketball",
+  "name": "Basketball (14)",
+  "category": "Sport",
+  "file": "/skins/basketball.png"
+ },
+ {
+  "id": "runner",
+  "name": "Runner",
+  "category": "Sport",
+  "file": "/skins/runner.png"
+ },
+ {
+  "id": "gym",
+  "name": "Gym kit",
+  "category": "Sport",
+  "file": "/skins/gym.png"
+ },
+ {
+  "id": "cyclist",
+  "name": "Cyclist",
+  "category": "Sport",
+  "file": "/skins/cyclist.png"
+ },
+ {
+  "id": "swimmer",
+  "name": "Lifeguard",
+  "category": "Sport",
+  "file": "/skins/swimmer.png"
+ },
+ {
+  "id": "hoodie-purple",
+  "name": "Purple hoodie",
+  "category": "Casual",
+  "file": "/skins/hoodie-purple.png"
+ },
+ {
+  "id": "hoodie-black",
+  "name": "Black hoodie",
+  "category": "Casual",
+  "file": "/skins/hoodie-black.png"
+ },
+ {
+  "id": "camo",
+  "name": "Camo jacket",
+  "category": "Casual",
+  "file": "/skins/camo.png"
+ },
+ {
+  "id": "checked-shirt",
+  "name": "Checked shirt",
+  "category": "Casual",
+  "file": "/skins/checked-shirt.png"
+ },
+ {
+  "id": "stripy-tee",
+  "name": "Stripy tee",
+  "category": "Casual",
+  "file": "/skins/stripy-tee.png"
+ },
+ {
+  "id": "denim",
+  "name": "Denim jacket",
+  "category": "Casual",
+  "file": "/skins/denim.png"
+ },
+ {
+  "id": "varsity",
+  "name": "Varsity jacket",
+  "category": "Casual",
+  "file": "/skins/varsity.png"
+ },
+ {
+  "id": "raincoat",
+  "name": "Yellow raincoat",
+  "category": "Casual",
+  "file": "/skins/raincoat.png"
+ },
+ {
+  "id": "puffer",
+  "name": "Puffer jacket",
+  "category": "Casual",
+  "file": "/skins/puffer.png"
+ },
+ {
+  "id": "summer",
+  "name": "Summer tee & shorts",
+  "category": "Casual",
+  "file": "/skins/summer.png"
+ },
+ {
+  "id": "gamer",
+  "name": "Gamer",
+  "category": "Casual",
+  "file": "/skins/gamer.png"
+ },
+ {
+  "id": "artist",
+  "name": "Artist",
+  "category": "Casual",
+  "file": "/skins/artist.png"
+ },
+ {
+  "id": "student",
+  "name": "Student",
+  "category": "Casual",
+  "file": "/skins/student.png"
+ },
+ {
+  "id": "graduate",
+  "name": "Graduate",
+  "category": "Smart",
+  "file": "/skins/graduate.png"
+ },
+ {
+  "id": "abaya",
+  "name": "Abaya & hijab",
+  "category": "Smart",
+  "file": "/skins/abaya.png"
+ },
+ {
+  "id": "kente",
+  "name": "Kente shirt",
+  "category": "Smart",
+  "file": "/skins/kente.png"
+ },
+ {
+  "id": "sari",
+  "name": "Sari",
+  "category": "Smart",
+  "file": "/skins/sari.png"
+ },
+ {
+  "id": "farmer",
+  "name": "Farmer",
+  "category": "Work",
+  "file": "/skins/farmer.png"
+ },
+ {
+  "id": "astronaut",
+  "name": "Astronaut",
+  "category": "Fun",
+  "file": "/skins/astronaut.png"
+ },
+ {
+  "id": "ninja",
+  "name": "Ninja",
+  "category": "Fun",
+  "file": "/skins/ninja.png"
+ },
+ {
+  "id": "detective",
+  "name": "Detective",
+  "category": "Fun",
+  "file": "/skins/detective.png"
+ },
+ {
+  "id": "prisoner",
+  "name": "Prison jumpsuit",
+  "category": "Fun",
+  "file": "/skins/prisoner.png"
+ },
+ {
+  "id": "pyjamas",
+  "name": "Pyjamas",
+  "category": "Fun",
+  "file": "/skins/pyjamas.png"
+ }
+]

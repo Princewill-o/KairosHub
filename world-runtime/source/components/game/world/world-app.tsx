@@ -333,7 +333,13 @@ export function WorldApp({
   const [lifeOpen, setLifeOpen] = useState(false);
   const [churchService, setChurchService] = useState(false);
   const lifeAlive = offline && !!kl.life?.alive;
-  const lifeAvatar = useMemo(() => (offline && kl.life ? ({ ...playerAvatar, lifeAge: kl.life.age } as typeof playerAvatar) : playerAvatar), [offline, kl.life?.age, playerAvatar]);
+  // A skin picked from the phone's Skins app (the Kairos skin pack) is worn over your look.
+  const [skinChoice, setSkinChoice] = useState<string | null>(() => { try { return localStorage.getItem("kairos-skin-choice"); } catch { return null; } });
+  useEffect(() => { const on = (e: Event) => setSkinChoice((e as CustomEvent<string | null>).detail); addEventListener("kairos-skin-choice", on); return () => removeEventListener("kairos-skin-choice", on); }, []);
+  const lifeAvatar = useMemo(() => {
+    const base = skinChoice ? ({ ...playerAvatar, skinUrl: `/skins/${skinChoice}.png` } as typeof playerAvatar) : playerAvatar;
+    return offline && kl.life ? ({ ...base, lifeAge: kl.life.age } as typeof playerAvatar) : base;
+  }, [offline, kl.life?.age, playerAvatar, skinChoice]);
   const tooYoungToPreachRef = useRef(false);
   const lifeName = offline && kl.life ? `${kl.life.name.first} ${kl.life.name.last}` : me.username;
   const tooYoungToPreach = offline && !!kl.life && kl.life.age < KL.PREACH_AGE;
@@ -1350,7 +1356,7 @@ export function WorldApp({
       }}/ >}
       {arrest && <ArrestOverlay />}
       <button type="button" onClick={() => setPhone(true)} aria-label="Open phone (P)" data-hud="phone" className="kp-launch"><Smartphone className="size-5"/><span>Phone</span></button>
-      {phone && <KairosPhone gameTime={gameDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })} playerName={me.username}
+      {phone && <KairosPhone avatar={lifeAvatar} gameTime={gameDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })} playerName={me.username}
         onClose={() => setPhone(false)}
         onMap={() => { setPhone(false); setMapOpen(true); }}
         onBible={() => { setPhone(false); setBibleOpen(true); }}

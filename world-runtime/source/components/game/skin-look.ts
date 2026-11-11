@@ -23,6 +23,9 @@ export function skinLook(input: Avatar): SkinLook {
     const who = raw ? normalizeAvatar(raw) : normalizeAvatar({});
     return { ...who, outfit: "jumpsuit", top: "#e98a1f", legs: "#e98a1f", shoe: "#d8d5cb", hat: "none", scarf: false, backpack: false, glasses: who.glasses, print: "none" } as SkinLook;
   }
+  // A skin from the Kairos skin pack (or any 64×64 Minecraft skin URL on this site).
+  const url = (input as { skinUrl?: string }).skinUrl;
+  if (url && /^\/skins\/[a-z0-9-]+\.png$/.test(url)) return { ...normalizeAvatar(raw ?? {}), skin64: url } as SkinLook;
   if (raw) return { ...normalizeAvatar(raw), skin64: typeof raw.skin64 === "string" ? raw.skin64 : undefined } as SkinLook;
   const c = outfitColours(a);
   const hair = ({ "hair-short": "swoop", "hair-curly": "curly", "hair-bob": "bob", "hair-braids": "braids", "hair-buns": "puffs", "hair-afro": "afro", "hair-buzz": "crop", "hair-bald": "bald", "hair-long": "long" } as Record<string, string>)[a.hair] ?? "swoop";

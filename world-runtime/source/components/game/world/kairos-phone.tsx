@@ -19,11 +19,12 @@ import { FriendsChatApp } from "./friends-app";
 import { LIFE_WORLD } from "@/game/core/life-world";
 import { MusicApp } from "./music-app";
 import { WebApp } from "./web-app";
+import { SkinsApp } from "./skins-app";
 import { STORE, appById, install, readApps, remove, spiritualReading, writeApps, type PhoneApps, type StoreApp } from "@/game/core/app-store";
 
 type AppId =
   | "phone" | "messages" | "prayer" | "bible" | "tv" | "maps" | "friends" | "grace"
-  | "games" | "stories" | "wardrobe" | "season" | "camera" | "settings" | "followups" | "messagesPlay" | "chat" | "store" | "storeApp" | "gameshow" | "lifehub" | "music" | "web";
+  | "games" | "stories" | "wardrobe" | "season" | "camera" | "settings" | "followups" | "messagesPlay" | "chat" | "store" | "storeApp" | "gameshow" | "lifehub" | "music" | "web" | "skins";
 
 /** Low Poly Icon Sampler art where a matching icon exists; drawn glyphs elsewhere. */
 const ICON = (n: string) => `/world-ui/icons/${n}.png`;
@@ -46,6 +47,7 @@ const APPS: { id: AppId; name: string; glyph: string; color: string; image?: str
   { id: "lifehub", name: "Life", glyph: "home", color: "#3d8a5b" },
   { id: "music", name: "Music", glyph: "music", color: "#1db954" },
   { id: "web", name: "Browser", glyph: "compass", color: "#2b5fd9" },
+  { id: "skins", name: "Skins", glyph: "shirt", color: "#e2556b" },
   { id: "settings", name: "Settings", glyph: "gear", color: "#8a929c", image: ICON("gear") },
 ];
 /** Built-in apps that can be deleted (and reinstalled from the App Store). */
@@ -72,6 +74,7 @@ const DOCK: { id: AppId; name: string; glyph: string; color: string; image?: str
 ];
 
 export type PhoneActions = {
+  avatar?: import("@/game/core/cosmetics").Avatar;
   onClose: () => void;
   onMap: () => void;
   onBible: () => void;
@@ -215,6 +218,7 @@ export function KairosPhone(props: PhoneActions) {
               {app === "settings" && <SettingsApp />}
               {app === "music" && <MusicApp />}
               {app === "web" && <WebApp />}
+              {app === "skins" && <SkinsApp avatar={props.avatar ?? ({} as never)} />}
               {app === "store" && <AppStore apps={apps} change={changeApp} onOpen={(a) => { setStoreApp(a); setApp("storeApp"); }} />}
               {app === "storeApp" && storeApp && <StoreAppScreen app={storeApp} onDelete={() => { changeApp(storeApp.id, "delete"); setApp(null); }} />}
             </div>

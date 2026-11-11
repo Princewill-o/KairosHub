@@ -174,11 +174,19 @@ export async function buildCharacter(input: Avatar, height = 1.15, _logo: string
 /** Police officers: uniform shirt, duty belt and peaked cap. */
 export function officerLook(i: number): Avatar {
   const base = npcLook(i) as Avatar & { graceAppearance: Record<string, unknown> };
-  return { ...base, lifeAge: 28 + (i % 25), graceAppearance: normalizeAvatar({ ...base.graceAppearance, outfit: "uniform", hat: "police", top: "#2f4a73", legs: "#1d2638", shoe: "#151515", scarf: false, backpack: false, glasses: false }) } as Avatar;
+  return { ...base, skinUrl: "/skins/police-officer.png", lifeAge: 28 + (i % 25), graceAppearance: normalizeAvatar({ ...base.graceAppearance, outfit: "uniform", hat: "police", top: "#2f4a73", legs: "#1d2638", shoe: "#151515", scarf: false, backpack: false, glasses: false }) } as Avatar;
 }
 
 /** Residents: a mixed city of every age, frame and job. */
+/** The Kairos skin pack (public/skins): residents wear these as well as painted outfits. */
+export const SKIN_PACK = ["police-officer","firefighter","paramedic","nurse","doctor","surgeon","chef","builder","pilot","barista","teacher","scientist","postie","bus-driver","judge","businessman","businesswoman","wedding-suit","wedding-dress","sunday-best","gold-dress","plum-dress","pastor","choir","usher","worship-leader","youth-worker","shepherd","king","queen","fisherman","roman-soldier","prophet","footballer-red","footballer-blue","footballer-green","basketball","runner","gym","cyclist","swimmer","hoodie-purple","hoodie-black","camo","checked-shirt","stripy-tee","denim","varsity","raincoat","puffer","summer","gamer","artist","student","graduate","abaya","kente","sari","farmer","astronaut","ninja","detective","prisoner","pyjamas"];
+const EVERYDAY = SKIN_PACK.filter((id) => !["judge","wedding-dress","wedding-suit","king","queen","shepherd","prophet","roman-soldier","astronaut","ninja","prisoner","pyjamas","choir","graduate","police-officer","firefighter"].includes(id));
 export function npcLook(i: number): Avatar {
+  const base = npcLookPainted(i), n = Math.abs(i);
+  // Two in three residents wear a skin from the pack; the rest keep painted outfits.
+  return n % 3 === 2 ? base : ({ ...base, skinUrl: `/skins/${EVERYDAY[(n * 7 + 3) % EVERYDAY.length]}.png` } as Avatar);
+}
+function npcLookPainted(i: number): Avatar {
   const n = Math.abs(i),
     skins = ["#d9a778", "#6e4630", "#8a5a3c", "#f2c7a5", "#482e25", "#a6734d", "#e9c09a", "#c08b62"],
     hair = ["curly", "braids", "swoop", "long", "afro", "bob", "crop", "puffs", "bald"],

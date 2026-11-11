@@ -6264,4 +6264,15 @@ html.dark body:has(.app-theme) {
 .km-settings button:hover, .km-settings button:focus-visible { background: rgba(255,255,255,.1); }
 .km-settings .km-danger { color: #ff8a7a; }
 
+/* ── Skins app ───────────────────────────────────────────────────────── */
+.sk-app { display: grid; gap: 10px; }
+.sk-cats { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.sk-cats button, .sk-own { flex: none; min-height: 30px; padding: 0 10px; border-radius: 999px; border: 0; background: #fff; color: #13203a; font-weight: 800; font-size: 11px; }
+.sk-cats button[aria-pressed="true"], .sk-own[aria-pressed="true"] { background: #e2556b; color: #fff; }
+.sk-own { justify-self: start; }
+.sk-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sk-grid button { width: 100%; display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 14px; border: 2px solid transparent; background: #ffffffe6; color: #13203a; font-size: 10px; font-weight: 800; }
+.sk-grid button[aria-pressed="true"] { border-color: #e2556b; background: #ffe3e8; }
+.sk-grid canvas { background: linear-gradient(#8fb4ff, #c9dcff); border-radius: 10px; }
+
 html,body,#world-root{height:100%;margin:0;overflow:hidden}#world-root>div{height:100dvh!important}@media(max-width:700px){.world-lobby-bar{display:none}}
