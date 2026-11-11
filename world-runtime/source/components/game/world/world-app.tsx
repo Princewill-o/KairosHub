@@ -26,6 +26,8 @@ import { DeveloperTeleport, type TeleportDestination } from "./developer-telepor
 import { PoliceChallenge } from "./law-dialogs";
 import { ArrestOverlay, PrisonHud, ShopDialog, WantedStars } from "./life";
 import { JusticeDialog } from "./justice-dialog";
+import { NpcDialog } from "./npc-dialog";
+import { type Choice, type Encounter, type Story, encounter, roleFor } from "@/game/core/npc-encounters";
 import { ARREST_SCENE } from "@/game/core/pursuit";
 import { conductOf, fullSentence } from "@/game/core/justice";
 import { LevelBadge, LifeHud, type Quest } from "./life-hud";
@@ -248,6 +250,7 @@ export function WorldApp({
   const transportStars = useRef(4);
   const { life, update: updateLife } = useLife(me.id,wantedResetToken);
   const updateLifeRef = useRef(updateLife); updateLifeRef.current = updateLife;
+  const chatRef = useRef<(index?: number) => void>(() => {});
   const { needs } = useNeeds();
   const [nearPerson, setNearPerson] = useState(false);
   const [nearPersonIndex, setNearPersonIndex] = useState(0);
@@ -287,6 +290,8 @@ export function WorldApp({
     const hearing = q.get("hearing");
     if (hearing) setTimeout(() => updateLifeRef.current((l) => ({ ...l, hearing: { stars: Number(q.get("stars") ?? 3), charge: hearing } })), 2500);
     if (q.get("arrest") === "1") setTimeout(() => setArrest(true), 1500);
+    const talkTo = q.get("talk");
+    if (talkTo !== null) setTimeout(() => chatRef.current(Number(talkTo) || 0), 3000);
   }, []);
   const lifeOverlay = !!cut || !kl.mode || (offline && (!kl.life || !kl.life.alive || !!kl.life.pending)) || lifeOpen || churchService || menuOpen;
   useLifeClock(kl.mode, kl.life, gameDate, kl.update, garage.length > 0);
@@ -848,7 +853,49 @@ export function WorldApp({
     }, 300);
     return () => clearInterval(t);
   }, [outdoors, map.kind]);
+  // Conversations: residents talk to you, shaped by who they are and your story.
+  const [chat, setChat] = useState<Encounter | null>(null);
+  const [approach, setApproach] = useState(false);
+  const nextApproach = useRef(Date.now() + 25_000);
+  const storyNow = useCallback((): Story => ({
+    offline, age: offline ? kl.life?.age ?? null : null, saved: offline ? !!kl.life?.saved : true, stars: life.stars,
+    record: offline ? (kl.life as { record?: unknown[] } | null)?.record?.length ?? 0 : life.record?.length ?? 0,
+    inPrison: jailed, mapKind: map.kind, hour: gameDate.getHours(), money: offline ? kl.life?.money ?? null : null,
+    job: offline ? kl.life?.job?.title ?? null : null, sunday: gameDate.getDay() === 0,
+  }), [offline, kl.life, life.stars, life.record, jailed, map.kind, gameDate]);
+  const openChat = useCallback((index?: number) => {
+    const i = index ?? nearPersonIndex;
+    const who = { index: i, name: personaFor(i).name, role: roleFor(i, map.kind, map.art === "london") };
+    setApproach(false);
+    setChat(encounter(who, storyNow(), Math.floor(Date.now() / 60_000) + i));
+  }, [nearPersonIndex, map.kind, map.art, storyNow]);
+  chatRef.current = openChat;
+  // Now and then someone near you starts the conversation.
+  useEffect(() => {
+    if (!nearPerson || chat || preaching || jailed && map.kind !== "prison") { if (!nearPerson) setApproach(false); return; }
+    if (Date.now() < nextApproach.current) return;
+    nextApproach.current = Date.now() + 45_000 + Math.random() * 45_000;
+    setApproach(true);
+  }, [nearPerson, nearPersonIndex, chat, preaching, jailed, map.kind]);
+  const chooseChat = useCallback((c: Choice) => {
+    if (!chat) return;
+    if (offline && kl.life && c.life) kl.update(() => KL.encountered(kl.life!, { who: chat.who.name, choice: c.label, effect: c.life }) as typeof kl.life);
+    if (c.world === "hand-in") setTimeout(() => { setChat(null); updateLife((l) => ({ ...clearWanted(l), hearing: { stars: Math.max(1, l.stars - 1), charge: wantedCharge(l) } })); }, 1800);
+    if (c.world === "flee") updateLife((l) => addStar(l, Date.now(), "Fleeing the police"));
+    if (c.world === "preach") setTimeout(() => { setChat(null); setPreaching(true); }, 1400);
+  }, [chat, offline, kl, updateLife]);
   const talk = useCallback(() => {
+    const person = personaFor(nearPersonIndex).name;
+    // A conversation first; preaching is one of the things you can do in it.
+    if (!approach && !(tooYoungToPreachRef.current)) {
+      try {
+        const records = JSON.parse(localStorage.getItem(`kairos-outreach:${me.id}`) ?? "[]") as { name: string; outcome: string; followedUp?: boolean }[];
+        if (records.some((record) => record.name === person && record.outcome === "contact" && !record.followedUp)) { setFollowUp(person); return; }
+      } catch { /* fall through to a conversation */ }
+    }
+    openChat();
+  }, [nearPersonIndex, me.id, approach, openChat]);
+  const preachTo = useCallback(() => {
     if (tooYoungToPreachRef.current) { say(`You're too young to go out preaching on your own. From ${KL.PREACH_AGE} you can share Jesus with people.`, true); return; }
     const person = personaFor(nearPersonIndex).name;
     try {
@@ -862,11 +909,11 @@ export function WorldApp({
   }, [nearPersonIndex, me.id]);
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === "f" && nearPerson && !phone && !inmate && !arrest && !preaching && pursuit?.stage !== "challenge" && !document.querySelector('[role="dialog"]') && !(e.target instanceof HTMLElement && e.target.closest("input, textarea, button, [role=dialog]"))) talk();
+      if (e.key.toLowerCase() === "f" && nearPerson && !chat && !phone && !inmate && !arrest && !preaching && pursuit?.stage !== "challenge" && !document.querySelector('[role="dialog"]') && !(e.target instanceof HTMLElement && e.target.closest("input, textarea, button, [role=dialog]"))) talk();
     };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, [nearPerson, talk, phone, inmate, arrest, preaching, pursuit?.stage]);
+  }, [nearPerson, talk, chat, phone, inmate, arrest, preaching, pursuit?.stage]);
 
   // Riding the Underground: to another London station, or further afield.
   const ride = useCallback(
@@ -1054,11 +1101,13 @@ export function WorldApp({
       {mallDept && <MallDialog dept={mallDept} playerId={me.id} clout={wallet} onClose={() => setMallDept(null)} onPaid={(left, message) => { setWallet(left); say(message, true); }} onWear={(state) => { applyWearing(state); say("Looking sharp. Your new outfit is on.", true); }} />}
       {crashed && <div role="alert" className="ks-card ks-bottom kw-crash"><p className="ks-eyebrow">{crashed === "bike" ? "Bike crash" : "Crash"}</p><h2>Are you OK?</h2><p>Someone has called 999. An ambulance is on its way, blue lights on. Stay still; the paramedics will take you to St Thomas' Hospital.</p></div>}
       {life.sick && <p className="pointer-events-none absolute top-[104px] left-1/2 z-[60] -translate-x-1/2 rounded-full bg-[#c8322d] px-3 py-1 text-xs font-black text-white">Unwell: get medicine or see a doctor</p>}
-      {nearPerson && !jailed && !driving && (
-        <button type="button" data-hud="action" data-tone="violet" onClick={talk} className="absolute right-3 bottom-52 z-[100001] min-h-11 rounded-full bg-[#6d45a2] px-4 py-2 text-sm font-black text-white shadow-lg">
-          <span className="flex items-center gap-2"><HeartHandshake className="size-4"/> Preach / talk (F)</span>
+      {nearPerson && (!jailed || map.kind === "prison") && !driving && !chat && (
+        <button type="button" data-hud="action" data-tone="violet" onClick={talk} className={cn("absolute right-3 bottom-52 z-[100001] min-h-11 rounded-full bg-[#6d45a2] px-4 py-2 text-sm font-black text-white shadow-lg", approach && "kn-approach")}>
+          <span className="flex items-center gap-2"><HeartHandshake className="size-4"/> {approach ? `${personaFor(nearPersonIndex).name} wants a word (F)` : "Talk (F)"}</span>
         </button>
       )}
+      {nearPerson && !jailed && !driving && !chat && <button type="button" data-hud="action" onClick={preachTo} className="absolute right-3 bottom-[264px] z-[100001] min-h-11 rounded-full border border-white/30 bg-[#21152e]/95 px-4 py-2 text-xs font-black text-white shadow-lg">Share your faith</button>}
+      {chat && <NpcDialog e={chat} onChoose={chooseChat} onClose={() => setChat(null)} />}
       <button type="button" data-hud="bible" data-tone="ink" onClick={() => setBibleOpen(true)} className="absolute left-3 bottom-24 z-[100001] flex min-h-11 items-center gap-2 rounded-full border border-[#f2d15b]/50 bg-[#171221] px-4 py-2 text-sm font-black text-[#f2d15b] shadow-lg"><BookOpen className="size-4"/> Bible</button>
       {preaching && <MinistryDialog persona={personaFor(nearPersonIndex)} onClose={() => setPreaching(false)} onDone={message => {
         void recordKairosActivity("outreach_conversation");

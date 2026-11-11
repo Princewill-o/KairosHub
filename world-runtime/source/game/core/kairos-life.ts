@@ -362,6 +362,14 @@ export function sentenced(s0, { charge, verdict, months }) {
 }
 export const inPrison = (s) => (s.prisonUntil || 0) > s.age;
 
+/** Something that happened in the world with another person (a conversation, a kindness, a dare). */
+export function encountered(s0, { who, choice, effect }, r = Math.random) {
+  const s = clone(s0);
+  say(s, `${who}: ${choice}.`, "encounter");
+  if (effect) applyEffect(s, effect, r);
+  return fix(s);
+}
+
 export function choose(s0, index, r = Math.random) {
   if (!s0.pending) return s0;
   const s = clone(s0);

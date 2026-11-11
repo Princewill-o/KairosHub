@@ -550,6 +550,9 @@
   .bottom-\[252px\] {
     bottom: 252px;
   }
+  .bottom-\[264px\] {
+    bottom: 264px;
+  }
   .-left-1\.5 {
     left: calc(var(--spacing) * -1.5);
   }
@@ -5892,5 +5895,25 @@ html.dark body:has(.app-theme) {
 .kj-judge{font-style:italic}
 .kj-note{margin:12px 0 0;font-size:11px;opacity:.6}
 @media (prefers-reduced-motion:reduce){.kj-backdrop,.kj-card,.kj-gavel{animation:none}}
+
+/* Conversations with residents */
+.kn-dialog{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);z-index:100005;width:min(560px,calc(100% - 24px));background:#17151f;color:#f6f1e7;border:3px solid #f6f1e7;border-radius:14px;box-shadow:6px 6px 0 rgba(0,0,0,.4);padding:14px 16px;animation:kn-in .3s cubic-bezier(.16,1,.3,1)}
+@keyframes kn-in{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}
+.kn-dialog header{display:flex;align-items:baseline;gap:8px}
+.kn-dialog header b{font:800 17px Outfit,system-ui}
+.kn-dialog header span{font:700 11px "DM Sans",system-ui;letter-spacing:.1em;text-transform:uppercase;color:#c9b8ff}
+.kn-dialog header button{margin-left:auto;all:unset;cursor:pointer;font-size:20px;line-height:1;padding:0 4px}
+.kn-line{font:600 16px/1.4 "DM Sans",system-ui;margin:.5rem 0 .7rem;min-height:2.8em}
+.kn-caret{font-style:normal;animation:kn-blink .8s steps(1) infinite}
+@keyframes kn-blink{50%{opacity:0}}
+.kn-choices{display:grid;gap:6px}
+.kn-choices button,.kn-done{all:unset;box-sizing:border-box;cursor:pointer;display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:10px;background:#2a2638;font-weight:700}
+.kn-choices button:hover,.kn-choices button:focus-visible,.kn-done:hover,.kn-done:focus-visible{background:#7c3aed;outline:none}
+.kn-choices kbd{font:800 11px "DM Sans",system-ui;border:1.5px solid currentColor;border-radius:5px;padding:0 5px;opacity:.7}
+.kn-done{justify-content:center;background:#f6f1e7;color:#17151f}
+@media (prefers-reduced-motion:reduce){.kn-dialog{animation:none}.kn-caret{animation:none}}
+.kn-approach{animation:kn-pulse 1.2s ease-in-out infinite}
+@keyframes kn-pulse{0%,100%{box-shadow:0 0 0 0 rgba(167,139,250,.7)}50%{box-shadow:0 0 0 10px rgba(167,139,250,0)}}
+@media (prefers-reduced-motion:reduce){.kn-approach{animation:none}}
 
 html,body,#world-root{height:100%;margin:0;overflow:hidden}#world-root>div{height:100dvh!important}@media(max-width:700px){.world-lobby-bar{display:none}}
