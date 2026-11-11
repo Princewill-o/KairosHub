@@ -63,6 +63,7 @@ import { LifeHub } from "./life-hub";
 import { DARK, buyDark } from "@/game/core/web";
 import { NowPlaying } from "./music-app";
 import { NextStationBoard } from "./next-station";
+import { scriptFor } from "./cutscene-scripts";
 import { activeInjury, injure, injurySpeed } from "@/game/core/injury";
 import { InPersonGame } from "./in-person-game";
 import { PoliceVan } from "./police-van";
@@ -208,7 +209,21 @@ export function WorldApp({
   const [wallet, setWallet] = useState(clout);
   // Offline, your life's money is the money you spend in the world (shops, mall, bank, home).
   const lifeMoneyRef = useRef<number | null>(null);
-  useEffect(() => { setWallet(clout + readStorySave().grace); }, [clout]);
+  // Online Grace is a real balance: it's saved, so what you earn stays and what you
+  // spend is gone. (First time: start from your shell Grace plus story-mode Grace.)
+  const WALLET_KEY = "kairos-grace-wallet-v1";
+  const walletLoaded = useRef(false);
+  useEffect(() => {
+    let saved: number | null = null;
+    try { const v = Number(localStorage.getItem(WALLET_KEY)); if (localStorage.getItem(WALLET_KEY) !== null && Number.isFinite(v)) saved = v; } catch { /* storage optional */ }
+    // New players get 300 starter Grace so the shops work from day one.
+    setWallet(saved ?? Math.max(300, clout + readStorySave().grace));
+    walletLoaded.current = true;
+  }, [clout]);
+  useEffect(() => {
+    if (!walletLoaded.current || (globalThis as { __kairosOffline?: boolean }).__kairosOffline) return;
+    try { localStorage.setItem(WALLET_KEY, String(Math.max(0, Math.round(wallet)))); } catch { /* storage optional */ }
+  }, [wallet]);
   const [bankOpen, setBankOpen] = useState(false);
   const [bankLoan, setBankLoan] = useState<BankLoan>({ balance: 0, status: "none" });
   const [gameDate, setGameDate] = useState(() => new Date());
@@ -348,6 +363,8 @@ export function WorldApp({
     const lead = q.get("lead") === "preacher" ? ({ ...playerAvatar, graceAppearance: normalizeAvatar({ skin: "#6e4630", hair: "crop", hairColor: "#1c1412", top: "#f5c518", outfit: "hoodie", print: "kharis-church", trousers: "jeans", scarf: false }) } as typeof playerAvatar) : undefined;
     if (set) setCut({ set: set as Cutscene["set"], eyebrow: `Preview · ${set}`, caption: "A cutscene preview from the Kairos Life kit.", ms: 60000, lead, leadAt: at?.length === 3 ? at : undefined, pose: q.get("pose") ?? undefined, solo: q.has("solo") });
     if (id) { const l = lessonById(id); if (l) setLesson(l); }
+    const sceneOf = q.get("scene");
+    if (sceneOf) { const sc = scriptFor({ id: sceneOf, title: sceneOf, text: sceneOf, category: "temptation" }, "home"); setCut({ set: sc.set, eyebrow: `Preview · ${sceneOf}`, caption: `Staged scene for “${sceneOf}”.`, ms: 60000, script: sc }); }
     // ?hearing=<charge> opens a court case; ?arrest=1 shows the cuffing scene (art review and tests).
     const hearing = q.get("hearing");
     if (hearing) setTimeout(() => updateLifeRef.current((l) => ({ ...l, hearing: { stars: Number(q.get("stars") ?? 3), charge: hearing } })), 2500);
@@ -373,7 +390,8 @@ export function WorldApp({
     if (p && cutFor.current !== key) {
       cutFor.current = key;
       const why = (p as { context?: string[] }).context?.[0];
-      setCut({ set: setFor(p.category, l.age), eyebrow: `${p.category === "temptation" ? "Temptation" : p.title} · age ${l.age}`, caption: why ? `${p.text} ${why}` : p.text, ms: why ? 6200 : 4200 });
+      const script = scriptFor({ id: p.id, title: p.title, text: p.text, category: p.category }, setFor(p.category, l.age));
+      setCut({ set: script.set, eyebrow: `${p.category === "temptation" ? "Temptation" : p.title} · age ${l.age}`, caption: why ? `${p.text} ${why}` : p.text, ms: why ? 7200 : 6200, script });
     }
   }, [offline, kl.life, cut]);
   // Your family appears in the world (set before the scene for a map is built).
@@ -1272,8 +1290,8 @@ export function WorldApp({
         </button>
       )}
       <LevelBadge xp={xpNow} />
-      <div data-hud="wallet" data-tone="ink" className="absolute top-14 right-3 z-[70] flex min-h-10 items-center gap-2 rounded-full border border-[#f2d15b]/60 bg-[#171221]/95 px-3 text-xs font-black text-[#f2d15b] shadow-lg" aria-label={`${wallet.toLocaleString()} Grace in-game currency`}>
-        <Coins className="size-4" aria-hidden /> {wallet.toLocaleString()} Grace
+      <div data-hud="wallet" data-tone="ink" className="absolute top-14 right-3 z-[70] flex min-h-10 items-center gap-2 rounded-full border border-[#f2d15b]/60 bg-[#171221]/95 px-3 text-xs font-black text-[#f2d15b] shadow-lg" aria-label={offline ? `£${wallet.toLocaleString()} (your life's money)` : `${wallet.toLocaleString()} Grace in-game currency`}>
+        <Coins className="size-4" aria-hidden /> {offline ? `£${wallet.toLocaleString()}` : `${wallet.toLocaleString()} Grace`}
       </div>
       <button type="button" data-hud="ltbs" data-tone="violet" onClick={() => setMiniGamesOpen(true)} className="absolute right-3 bottom-40 z-[100001] flex min-h-11 items-center gap-1.5 rounded-full bg-[#6d45a2] px-3 py-1.5 text-xs font-black text-white shadow-lg">
         <Gamepad2 className="size-4" aria-hidden /> LTBS · Stories & games
