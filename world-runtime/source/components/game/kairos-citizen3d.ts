@@ -18,12 +18,13 @@ let asset: ReturnType<GLTFLoader["loadAsync"]> | null = null;
 const load = () =>
   asset ??
   (asset = new GLTFLoader()
-    .loadAsync("/world3d/kairos-citizen.glb")
+    .loadAsync("/world3d/kairos-citizen-v2.glb")
     .catch((error) => {
       asset = null;
       throw error;
     }));
-/** Original Blender meshes, with animated shoulders/hips and modelled clothing. */
+/** Kairos citizen v2 (art-sources/scripts/create_kairos_citizen_v2.py): a fully modelled
+ * person whose clothing is lofted from the body itself, so every outfit fits; hair hugs the skull. */
 export async function buildCharacter(
   input: Avatar,
   height = 1.15,
@@ -86,8 +87,9 @@ export async function buildCharacter(
   model.traverse((node) => {
     if (node.name.startsWith("hair_"))
       node.visible = node.name === "hair_" + selectedHair;
+    // Long sleeves live under each arm as outfit_<name>001 / 002.
     if (node.name.startsWith("outfit_"))
-      node.visible = node.name === "outfit_" + outfit;
+      node.visible = node.name.replace(/\.?\d{3}$/, "") === "outfit_" + outfit;
     if (node.name.startsWith("trouser_cargo"))
       node.visible =
         custom?.trousers === "cargo" || a.bottom === "bottom-cargo";
@@ -120,8 +122,8 @@ export async function buildCharacter(
       mesh.receiveShadow = true;
       if (custom?.trousers === "shorts" && /^trouser_[LR]$/.test(mesh.name)) {
         // Modest cut: shorts finish at the knee.
-        mesh.scale.y = 0.78;
-        mesh.position.y = -0.09;
+        mesh.scale.y = 0.55; // trousers hang from the hip joint
+        mesh.position.y = 0;
       }
       if (custom?.trousers === "shorts" && mesh.name.startsWith("sewn_crease"))
         mesh.visible = false;
@@ -217,11 +219,11 @@ export async function buildCharacter(
       ctx.fillText(text[1], 128, 104);
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
-      const decal = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.23), new THREE.MeshBasicMaterial({ map: texture, transparent: true, toneMapped: false }));
+      const decal = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.13), new THREE.MeshBasicMaterial({ map: texture, transparent: true, toneMapped: false }));
       decal.name = "hoodie_print";
       materials.set("hoodie_print", decal.material);
       generated.add(decal.geometry);
-      decal.position.set(0, 0.4, 0.235);
+      decal.position.set(0, 0.3, 0.122);
       torso.add(decal);
     }
   }

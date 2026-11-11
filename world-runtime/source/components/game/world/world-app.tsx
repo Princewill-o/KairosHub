@@ -2,6 +2,7 @@
 import { islandMap } from "@/game/core/islands";
 import {gracePlaces,graceIslands} from '../../../../../public/grace-catalog.mjs';
 import {worldAppearance} from '../../../../../public/grace-avatar.mjs';
+import { normalizeAvatar } from '../../../../../public/avatar.mjs';
 import { readStorySave, LTBS_SAVE_KEY } from "@/game/core/ltbs-stories";
 import { SCRIPTURE_CHALLENGES } from "@/game/core/ltbs-challenges";
 import { storyWorldMap } from "@/game/core/story-world";
@@ -44,6 +45,7 @@ import { useNeeds, doActivity } from "./use-needs";
 import { type Me, useLobby } from "./use-world";
 import { WorldView } from "./world-view";
 import { LifeCutscene, setFor, type Cutscene } from "./life-cutscene";
+import { MotionLesson, lessonAfter, lessonById, type Lesson } from "./motion-lesson";
 import { useKharisUpdates, ChurchService, LifeChip, LifeDecision, LifeEnding, LifePanel, NewLife, PlayModePicker, isServiceTime, markAttended, useKairosLife, useLifeClock } from "./kairos-life";
 import * as KL from "@/game/core/kairos-life";
 import { FLIGHT, LIFE_WORLD, setWorldBranch, setWorldFamily } from "@/game/core/life-world";
@@ -262,6 +264,16 @@ export function WorldApp({
   tooYoungToPreachRef.current = tooYoungToPreach;
   const kharis = useKharisUpdates();
   const [cut, setCut] = useState<(Cutscene & { after?: () => void }) | null>(null);
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const closeLesson = useCallback(() => setLesson(null), []);
+  // Preview hooks for art review: ?cutscene=<set> or ?lesson=<id>.
+  useEffect(() => {
+    const q = new URLSearchParams(location.search), set = q.get("cutscene"), id = q.get("lesson");
+    const at = q.get("leadAt")?.split(",").map(Number) as [number, number, number] | undefined;
+    const lead = q.get("lead") === "preacher" ? ({ ...playerAvatar, graceAppearance: normalizeAvatar({ skin: "#6e4630", hair: "crop", hairColor: "#1c1412", top: "#f2c230", outfit: "hoodie", print: "kharis-church", trousers: "jeans", legs: "#22263a", shoe: "#f6f0e4" }) } as typeof playerAvatar) : undefined;
+    if (set) setCut({ set: set as Cutscene["set"], eyebrow: `Preview · ${set}`, caption: "A cutscene preview from the Kairos Life kit.", ms: 60000, lead, leadAt: at?.length === 3 ? at : undefined, pose: q.get("pose") ?? undefined, solo: q.has("solo") });
+    if (id) { const l = lessonById(id); if (l) setLesson(l); }
+  }, []);
   const lifeOverlay = !!cut || !kl.mode || (offline && (!kl.life || !kl.life.alive || !!kl.life.pending)) || lifeOpen || churchService;
   useLifeClock(kl.mode, kl.life, gameDate, kl.update, garage.length > 0);
   // Cutscenes: your birth, then every year's decision or issue plays out before you choose.
@@ -1134,7 +1146,8 @@ export function WorldApp({
       {kl.mode === "online" && <button type="button" data-hud="kairos-life" className="kl-chip kl-chip-online" onClick={() => kl.setMode("offline")}><span><b>Quick play</b><small>Online · no ageing · start Kairos Life</small></span></button>}
       {lifeAlive && kl.life && <LifeChip life={kl.life} gameDate={gameDate} onOpen={() => setLifeOpen(true)} onAge={() => { kl.update((l) => ({ ...(KL.ageUp(l, Math.random, { issue: true }) as typeof l), lastDay: l.lastDay })); }} />}
       {cut && <LifeCutscene cut={cut} avatar={lifeAvatar} onDone={() => { const after = cut.after; setCut(null); after?.(); }} />}
-      {lifeAlive && kl.life?.pending && !churchService && !cut && <LifeDecision life={kl.life} onChoose={(i) => { const before = kl.life!; const next = KL.choose(before, i) as typeof before; kl.update(() => next); if (next.notice) say(next.notice, true); }} />}
+      {lifeAlive && kl.life?.pending && !churchService && !cut && <LifeDecision life={kl.life} onChoose={(i) => { const before = kl.life!; const category = before.pending?.category ?? ""; let next = KL.choose(before, i) as typeof before & { seenLessons?: string[] }; const lesson = lessonAfter(category, (before as { seenLessons?: string[] }).seenLessons); if (lesson) { next = { ...next, seenLessons: [...(next.seenLessons ?? []), lesson.id] }; setLesson(lesson); } kl.update(() => next); if (next.notice) say(next.notice, true); }} />}
+      {lesson && <MotionLesson lesson={lesson} onDone={closeLesson} />}
       {lifeAlive && kl.life && lifeOpen && <LifePanel life={kl.life} gameDate={gameDate} hasCar={garage.length > 0}
         onAct={(id) => kl.update((l) => KL.act(l, id) as typeof l)}
         onAgeUp={() => { setLifeOpen(false); kl.update((l) => ({ ...(KL.ageUp(l, Math.random, { issue: true }) as typeof l), lastDay: l.lastDay })); }}
