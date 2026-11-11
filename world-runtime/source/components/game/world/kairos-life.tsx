@@ -60,7 +60,7 @@ export function useKairosLife(_playerId: string) {
     const onFamily = (e: Event) => {
       const { name, kind } = (e as CustomEvent<{ name: string; kind: string }>).detail;
       update((l) => {
-        const next = { ...l, happiness: Math.min(100, l.happiness + 3), family: l.family.map((p) => p.name === name ? { ...p, closeness: Math.min(100, p.closeness + 6) } : p) };
+        const next = L.tally({ ...l, year: { ...l.year }, happiness: Math.min(100, l.happiness + 3), family: l.family.map((p) => p.name === name ? { ...p, closeness: Math.min(100, p.closeness + 6) } : p) }, "family");
         return (kind === "pray" ? L.credit(next, "pray", rng) : next) as Life;
       });
     };
@@ -72,14 +72,14 @@ export function useKairosLife(_playerId: string) {
   return { mode, setMode, life, update, begin, credit };
 }
 
-/** Advance a year for each in-game day that has passed, one decision at a time. */
+/** Keeps the life in step with the world (your car). Ageing is only ever by the age circle. */
 export function useLifeClock(mode: PlayMode | null, life: Life | null, gameDate: Date, update: (f: (l: Life) => Life | null) => void, hasCar: boolean) {
   const today = worldDay(gameDate);
   useEffect(() => {
     if (mode !== "offline" || !life || !life.alive) return;
     if (life.lastDay == null) { update((l) => ({ ...l, lastDay: today })); return; }
     if (!!life.car !== hasCar) update((l) => ({ ...l, car: hasCar ? { name: "Your car" } : null }));
-    if (L.yearsDue(life.lastDay, today) > 0 && !life.pending) update((l) => ({ ...(L.ageUp(l, rng) as Life), lastDay: (l.lastDay ?? today) + 1 }));
+    // No automatic ageing: you live each year in the world, and grow older only with the +1 age circle.
   }, [mode, life, today, update, hasCar]);
 }
 
@@ -108,7 +108,7 @@ export function PlayModePicker({ onPick }: { onPick: (m: PlayMode) => void }) {
       <p className="ks-eyebrow">Kairos World</p>
       <h2 id="kl-mode">How do you want to play?</h2>
       <div className="kl-modes">
-        <button type="button" onClick={() => onPick("offline")}><b>Offline · Kairos Life</b><span>Be born, grow up and grow old in this world. One in-game day is one year. Health, faith, family, temptations, ministry. Then eternity.</span></button>
+        <button type="button" onClick={() => onPick("offline")}><b>Offline · Kairos Life</b><span>Be born, grow up and grow old in this world. Live each year, then press +1 when you are ready to grow older. Health, faith, family, temptations, ministry. Then eternity.</span></button>
         <button type="button" onClick={() => onPick("online")}><b>Online · Quick play</b><span>The whole world with friends, chat and calls. No ageing. Jump in and out.</span></button>
       </div>
     </section>
@@ -169,6 +169,7 @@ export function LifeDecision({ life, onChoose }: { life: Life; onChoose: (i: num
       <p className="ks-eyebrow">{p.category === "temptation" ? "Temptation" : p.category} · age {life.age}</p>
       <h2 id="kl-dq">{p.title}</h2>
       <p>{p.text}</p>
+      {(p as { context?: string[]; prepared?: boolean | null }).context?.map((line) => <p key={line} className={`kl-context ${(p as { prepared?: boolean | null }).prepared ? "ready" : "unready"}`}>{line}</p>)}
       <div className="kl-choices">{p.options.map((o, i) => <button key={i} ref={i === 0 ? first : undefined} type="button" onClick={() => onChoose(i)}>{o.label}</button>)}</div>
     </section>
   );
@@ -198,11 +199,12 @@ export function LifePanel({ life, gameDate, hasCar, onAct, onAgeUp, onPickup, on
       <div className="kl-cols">
         <div>
           <h3>This year <small>{4 - life.year.acts} choices left · real actions don't count</small></h3>
+          <p className="kl-sofar">{L.reviewText(life.year.did || {}, life.age).replace(/^Your year at \d+: /, "So far this year: ")}</p>
           <div className="kl-acts">{acts.filter((a) => !WORLD_ACTIONS[a.id]).map((a) => <button key={a.id} type="button" disabled={a.disabled} title={a.reason} onClick={() => onAct(a.id)}>{a.label}</button>)}</div>
           <h3>Do these in the world</h3>
           <ul className="kl-hints">{acts.filter((a) => WORLD_ACTIONS[a.id]).map((a) => <li key={a.id}><b>{a.label}</b> {WORLD_ACTIONS[a.id]}</li>)}</ul>
-          <button type="button" className="kl-go kl-wide" disabled={!!life.pending} onClick={onAgeUp}>Age up now · +1 year</button>
-          <p className="ks-muted">Otherwise a year passes every in-game day.</p>
+          <button type="button" className="kl-go kl-wide" disabled={!!life.pending} onClick={onAgeUp}>Grow older · +1 year</button>
+          <p className="ks-muted">Live this year in the world. When you're ready, press +1 to grow older and face what the next year brings.</p>
         </div>
         <div>
           <h3>2pm service · {nextServiceLabel(gameDate, true)}</h3>

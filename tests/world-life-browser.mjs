@@ -23,16 +23,21 @@ await tryClick(".kl-cut-skip"); await skipTutorial();
 await p.waitForTimeout(1500); await shot("2-born-hud");
 const name = await world().textContent("[data-hud='kairos-life'] .kl-chip b");
 if (name !== "Ama") errs.push(`chip name ${name}`);
-let cuts = 0;
+// Living, not ageing: standing about brings no cutscenes or decisions.
+await p.waitForTimeout(6000);
+if (await has(".kl-cut") || await has(".kl-decision")) errs.push("a challenge appeared without pressing +1");
+let cuts = 0, presses = 0, contexts = 0;
 for (let i = 0; i < 16; i++) {
   if (await has(".kl-cut")) { cuts++; if (cuts === 3) { await p.waitForTimeout(2000); await shot("3-year-cutscene"); } await tryClick(".kl-cut-skip"); await p.waitForTimeout(400); continue; }
-  if (await has(".kl-decision")) { if (cuts === 3) await shot("4-decision"); await tryClick(".kl-choices button >> nth=0"); await p.waitForTimeout(400); continue; }
+  if (await has(".kl-decision")) { if (await has(".kl-context")) contexts++; if (cuts === 3) await shot("4-decision"); await tryClick(".kl-choices button >> nth=0"); await p.waitForTimeout(400); continue; }
   await p.waitForTimeout(500);
   if (await has(".kl-cut") || await has(".kl-decision")) continue;
   if (await has(".kl-age:disabled")) { await shot("stuck"); errs.push("stuck: age circle disabled with nothing to answer"); break; }
-  await tryClick(".kl-age"); await p.waitForTimeout(700);
+  try { await world().$eval(".kl-age", (b) => b.click()); presses++; } catch {} await p.waitForTimeout(700);
 }
 if (cuts < 3) errs.push(`only ${cuts} cutscenes`);
+if (!contexts) errs.push("no decision explained how the year shaped it");
+if (cuts > presses + 1) errs.push(`${cuts} cutscenes for ${presses} presses: back to back`);
 const age = Number(await world().textContent("[data-hud='kairos-life'] svg text"));
 if (!(age >= 3)) errs.push(`age ${age}`);
 await world().click("[data-hud='phone']"); await p.waitForTimeout(600);
@@ -41,4 +46,4 @@ await shot("5-family-calls");
 if (!(await has("text=/^Call /"))) errs.push("no family in call list");
 await b.close();
 if (errs.length) { console.error(errs.join("\n")); process.exit(1); }
-console.log(`Kairos Life world flow passed: ${cuts} cutscenes, age ${age}.`);
+console.log(`Kairos Life world flow passed: ${presses} presses, ${cuts} cutscenes (incl. birth), age ${age}.`);

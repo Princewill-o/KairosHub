@@ -79,7 +79,7 @@ export function newLife(opts = {}, r = Math.random) {
     family, partner: null, job: null, education: "none", car: null, contacts: [], branch: null, illness: null,
     log: [{ age: 0, kind: "birth", text: `You were born in ${cityName(d.city)}${home ? " into a Christian home" : ""}.` }],
     recent: [], queue: [], pending: null, ending: null, notice: null, cause: null,
-    year: { acts: 0, faith: 0, exercise: 0, diet: 0, checkup: 0 },
+    year: { acts: 0, faith: 0, exercise: 0, diet: 0, checkup: 0, did: {} },
   };
 }
 
@@ -289,6 +289,10 @@ const fix = (s) => {
 const clone = (s) => JSON.parse(JSON.stringify(s));
 const say = (s, text, kind = "event") => { s.log.push({ age: s.age, kind, text }); if (s.log.length > 400) s.log.splice(1, s.log.length - 400); };
 
+/** What you do in a year, in the world or from the Life panel. It shapes the next year. */
+const ACT_KIND = { pray: "pray", "read-bible": "bible", fast: "fast", preach: "preach", serve: "serve", exercise: "exercise", "eat-well": "eat", checkup: "checkup", "family-time": "family", study: "study", repent: "pray" };
+export function tally(s, kind, n = 1) { s.year.did = { ...(s.year.did || {}), [kind]: ((s.year.did || {})[kind] || 0) + n }; return s; }
+
 export function act(s0, actionId, r = Math.random) {
   const a = ACTIONS.find((x) => x.id === actionId);
   const avail = availableActions(s0).find((x) => x.id === actionId);
@@ -297,6 +301,8 @@ export function act(s0, actionId, r = Math.random) {
   if (actionId === "church") return attendService(s0, null, r);
   const s = clone(s0);
   s.year.acts++;
+  const kind = ACT_KIND[actionId];
+  if (kind) tally(s, kind);
   const text = a.run(s, r);
   s.notice = text;
   say(s, text, "action");
@@ -325,9 +331,20 @@ export function choose(s0, index, r = Math.random) {
   if (!s0.pending) return s0;
   const s = clone(s0);
   const opt = s.pending.options[index] || s.pending.options[0];
+  const { prepared, domain } = s.pending;
   say(s, `${s.pending.title}: ${opt.label}.`, "choice");
   s.pending = null;
-  applyEffect(s, opt.effect, r);
+  // Last year's habits change how this turns out.
+  const e = { ...opt.effect };
+  const stat = domain === "faith" ? "walk" : domain === "body" ? "health" : domain ? "happiness" : null;
+  const good = stat ? (e[stat] || 0) > 0 && !(e.drift > 0) : false, bad = stat ? (e[stat] || 0) < 0 || e.drift > 0 || !!e.risk : false;
+  let why = "";
+  if (stat && prepared === true && good) { e[stat] = (e[stat] || 0) + 4; why = domain === "faith" ? "Because you'd been praying, you stood firm — and grew." : domain === "body" ? "Because you'd looked after yourself, you bounced back quickly." : "The people you'd kept close carried you through."; }
+  if (stat && prepared === false && bad) { e[stat] = (e[stat] || 0) - 3; if (domain === "faith") e.drift = (e.drift || 0) + 1; if (e.risk) e.risk *= 1.5; why = domain === "faith" ? "With no prayer behind you, it went deeper than you meant." : domain === "body" ? "With nothing in reserve, it hit your health hard." : "With no one close, it was harder to recover."; }
+  if (stat && prepared === false && good) why = "You chose well, even though it was hard without the habits behind you.";
+  applyEffect(s, e, r);
+  s.notice = why || null;
+  if (why) say(s, why, "consequence");
   if (s.alive && s.queue?.length) s.pending = s.queue.shift();
   return fix(s);
 }
@@ -350,6 +367,46 @@ function die(s, cause) {
   s.ending = judge(s);
 }
 
+const n = (d, ...k) => k.reduce((t, x) => t + (d[x] || 0), 0);
+const plural = (c, word) => `${word} ${c}×`;
+/** A short line for your story: what you did with the year. */
+export function reviewText(d, age) {
+  const parts = [];
+  if (d.pray) parts.push(plural(d.pray, "prayed"));
+  if (d.bible) parts.push(plural(d.bible, "read the Bible"));
+  if (d.church) parts.push(plural(d.church, "went to church"));
+  if (d.preach) parts.push(plural(d.preach, "shared Jesus"));
+  if (d.followup) parts.push(plural(d.followup, "followed up"));
+  if (d.exercise) parts.push(plural(d.exercise, "exercised"));
+  if (d.eat) parts.push(plural(d.eat, "ate well"));
+  if (d.checkup) parts.push(plural(d.checkup, "saw the GP"));
+  if (d.family) parts.push(plural(d.family, "made time for family"));
+  return parts.length ? `Your year at ${age}: you ${parts.join(", ")}.` : `Your year at ${age}: you drifted through it without doing much for your faith, health or family.`;
+}
+/** Which areas of life you neglected last year (they're likeliest to come up next). */
+export function neglected(d, s) {
+  const out = [];
+  if (n(d, "pray", "bible", "church", "fast") === 0 && (s.saved || s.age >= 8)) out.push("spiritual", "temptation");
+  if (n(d, "exercise", "eat", "checkup") === 0 && s.age >= 5) out.push("health");
+  if (n(d, "family", "followup") === 0 && s.age >= 16) out.push("relationships");
+  return out;
+}
+const DOMAIN = { spiritual: "faith", temptation: "faith", health: "body", relationships: "people", mind: "mind" };
+/** Explain how last year's choices shape this challenge, and remember whether you were ready. */
+export function withContext(s) {
+  if (!s.pending) return s;
+  const d = s.lastYear || {}, domain = DOMAIN[s.pending.category];
+  const lines = [];
+  let prepared = null;
+  if (domain === "faith" && s.age < 8 && !s.saved) { s.pending = { ...s.pending, context: [], prepared: null, domain: null }; return s; }
+  if (domain === "faith") { prepared = n(d, "pray", "bible", "fast") >= 2 || n(d, "church") >= 1; lines.push(prepared ? `You've been praying and in the Word this year (prayed ${d.pray || 0}×, Bible ${d.bible || 0}×, church ${d.church || 0}×). You see this one coming.` : "You haven't prayed, read your Bible or been to church this year. This hits harder."); }
+  if (domain === "body") { prepared = n(d, "exercise", "eat", "checkup") >= 2; lines.push(prepared ? "You've looked after your body this year. You have strength in reserve." : "You've barely exercised or eaten well this year. Your body has nothing in reserve."); }
+  if (domain === "people") { prepared = n(d, "family", "followup") >= 1; lines.push(prepared ? "You've kept close to the people in your life. They're there for you." : "You've hardly been in touch with anyone this year. You face this alone."); }
+  if (domain === "mind") { prepared = n(d, "pray", "family", "church", "exercise") >= 2; lines.push(prepared ? "Prayer, people and rest have kept you steady this year." : "You've been running on empty all year."); }
+  s.pending = { ...s.pending, context: lines, prepared, domain: domain || null };
+  return s;
+}
+
 export function ageUp(s0, r = Math.random, opts = {}) {
   if (!s0.alive || s0.pending) return s0;
   const s = clone(s0);
@@ -369,7 +426,7 @@ export function ageUp(s0, r = Math.random, opts = {}) {
   if (s.age <= 12 && s.christianHome) y.diet = 1;
   // faith: neglect cools the walk; time with God restores it
   const accountable = s.saved || s.age >= 12;
-  if (s.age <= 11 && s.christianHome) { s.churchYears++; s.faith.walk += 2; }
+  if (s.age <= 11 && s.christianHome) { s.churchYears++; s.faith.walk += 2; tally(s, "church"); } // your parents take you
   else if (s.servicesThisYear > 0) s.churchYears++;
   if (accountable && s.age >= 5 && y.faith === 0 && s.servicesThisYear === 0) { s.faith.drift += 1; s.faith.walk -= 3 + s.faith.drift * 1.5; }
   else s.faith.drift = Math.max(0, s.faith.drift - 1);
@@ -385,7 +442,10 @@ export function ageUp(s0, r = Math.random, opts = {}) {
     s.illness = { found: s.habits.checkups >= 2, treated: false };
     if (s.illness.found) { s.illness.treated = true; say(s, "A routine check caught an illness early. Treatment started straight away.", "warning"); }
   }
-  s.year = { acts: 0, faith: 0, exercise: 0, diet: 0, checkup: 0 };
+  // The year in review: what you actually did shapes what comes next.
+  s.lastYear = { ...(y.did || {}) };
+  say(s, reviewText(s.lastYear, s.age - 1), "review");
+  s.year = { acts: 0, faith: 0, exercise: 0, diet: 0, checkup: 0, did: {} };
   s.servicesThisYear = 0;
   fix(s);
   const now = stageFor(s.age);
@@ -396,14 +456,26 @@ export function ageUp(s0, r = Math.random, opts = {}) {
   if (s.health <= 0 && r() < 0.35) die(s, "poor health");
   else if (s.age >= 120 || r() < mortality(s)) die(s, s.illness && !s.illness.treated ? "an illness that was never checked" : s.age >= 80 ? "old age" : "a sudden illness");
   if (!s.alive) return s;
-  // Adding a year yourself (the age circle) brings a fresh issue on top of the year's decision.
+  // Growing older with the age circle brings one challenge. What you neglected last
+  // year is most likely to come back to meet you.
   const toPending = (e) => ({ id: e.id, title: e.title, text: e.text, category: e.category, options: e.options.map((x) => ({ label: x.label, effect: x.effect })) });
   if (opts.issue) {
     const st = now.id;
-    const all = ISSUES.filter((e) => e.stages.includes(st) && (!e.when || e.when(s)));
-    const fresh = all.filter((e) => !s.recent.includes(e.id));
-    const fits = fresh.length ? fresh : all;
-    if (fits.length) { const e = pick(r, fits); s.queue = [toPending(e)]; s.recent = [...s.recent, e.id].slice(-10); }
+    const okNow = (e) => e.stages.includes(st) && (!e.when || e.when(s));
+    const freshFirst = (list) => { const all = list.filter(okNow), fresh = all.filter((e) => !s.recent.includes(e.id)); return fresh.length ? fresh : all; };
+    const issues = freshFirst(ISSUES), events = s.age >= 3 ? freshFirst(EVENTS) : [], temptations = s.age >= 3 ? freshFirst(TEMPTATIONS) : [];
+    const prefer = neglected(s.lastYear || {}, s);
+    const pool = [...issues, ...events, ...temptations];
+    const preferred = pool.filter((e) => prefer.includes(e.category));
+    let from;
+    if (preferred.length && r() < 0.75) from = preferred;
+    else if (issues.length && (s.age < 3 || r() < 0.5)) from = issues;
+    else from = temptations.length && r() < 0.4 ? temptations : events.length ? events : issues;
+    if (from.length) {
+      const e = pick(r, from); s.pending = toPending(e); s.recent = [...s.recent, e.id].slice(-10);
+      return withContext(s);
+    }
+    return s;
   }
   if (!opts.skipEvents && s.age >= 3) {
     const st = now.id;
@@ -416,8 +488,7 @@ export function ageUp(s0, r = Math.random, opts = {}) {
       s.recent = [...s.recent, e.id].slice(-10);
     }
   }
-  if (!s.pending && s.queue?.length) s.pending = s.queue.shift();
-  return s;
+  return withContext(s);
 }
 
 // ---------- follow-up & services ----------
@@ -461,6 +532,7 @@ export function sundayService(s, series, r = Math.random) {
 export function attendService(s0, svc, r = Math.random) {
   const s = clone(s0);
   s.servicesThisYear++; s.year.faith++; s.year.acts++;
+  tally(s, "church");
   s.faith.walk += 4; s.happiness += 2;
   const brought = [];
   for (const c of s.contacts) if (c.stage === "pickup") { c.stage = "attended"; c.warmth += 15; brought.push(c.name.split(" ")[0]); }
@@ -527,6 +599,7 @@ export function credit(s0, kind, r = Math.random) {
   const c = CREDITS[kind];
   if (!c || !s0.alive) return s0;
   const s = clone(s0);
+  tally(s, kind);
   if (c.walk) s.faith.walk += c.walk;
   if (c.witness) s.faith.witness += c.witness;
   if (c.fruit) s.faith.fruit += c.fruit;

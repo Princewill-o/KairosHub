@@ -278,7 +278,8 @@ export function WorldApp({
     const key = p ? `${l.age}:${p.id}` : "";
     if (p && cutFor.current !== key) {
       cutFor.current = key;
-      setCut({ set: setFor(p.category, l.age), eyebrow: `${p.category === "temptation" ? "Temptation" : p.title} · age ${l.age}`, caption: p.text });
+      const why = (p as { context?: string[] }).context?.[0];
+      setCut({ set: setFor(p.category, l.age), eyebrow: `${p.category === "temptation" ? "Temptation" : p.title} · age ${l.age}`, caption: why ? `${p.text} ${why}` : p.text, ms: why ? 6200 : 4200 });
     }
   }, [offline, kl.life, cut]);
   // Your family appears in the world (set before the scene for a map is built).
@@ -1133,7 +1134,7 @@ export function WorldApp({
       {kl.mode === "online" && <button type="button" data-hud="kairos-life" className="kl-chip kl-chip-online" onClick={() => kl.setMode("offline")}><span><b>Quick play</b><small>Online · no ageing · start Kairos Life</small></span></button>}
       {lifeAlive && kl.life && <LifeChip life={kl.life} gameDate={gameDate} onOpen={() => setLifeOpen(true)} onAge={() => { kl.update((l) => ({ ...(KL.ageUp(l, Math.random, { issue: true }) as typeof l), lastDay: l.lastDay })); }} />}
       {cut && <LifeCutscene cut={cut} avatar={lifeAvatar} onDone={() => { const after = cut.after; setCut(null); after?.(); }} />}
-      {lifeAlive && kl.life?.pending && !churchService && !cut && <LifeDecision life={kl.life} onChoose={(i) => kl.update((l) => KL.choose(l, i) as typeof l)} />}
+      {lifeAlive && kl.life?.pending && !churchService && !cut && <LifeDecision life={kl.life} onChoose={(i) => { const before = kl.life!; const next = KL.choose(before, i) as typeof before; kl.update(() => next); if (next.notice) say(next.notice, true); }} />}
       {lifeAlive && kl.life && lifeOpen && <LifePanel life={kl.life} gameDate={gameDate} hasCar={garage.length > 0}
         onAct={(id) => kl.update((l) => KL.act(l, id) as typeof l)}
         onAgeUp={() => { setLifeOpen(false); kl.update((l) => ({ ...(KL.ageUp(l, Math.random, { issue: true }) as typeof l), lastDay: l.lastDay })); }}

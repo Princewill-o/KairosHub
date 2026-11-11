@@ -223,20 +223,23 @@ test("bodies grow from baby to elder", () => {
   assert.ok(L.bodyForAge(85).grey > 0.9 && L.bodyForAge(85).stoop > 0);
 });
 
-test("adding a year with the age circle brings a decision and a fresh issue, even for babies", () => {
+test("each press of the age circle brings exactly one challenge, and issues appear among them, even for babies", () => {
   const r = seeded(50);
   let s = L.newLife({ random: true }, r);
   s = L.ageUp(s, r, { issue: true });
   assert.ok(s.pending, "babies face issues too");
-  const titles = [s.pending.title];
+  const ids = [];
   s = L.choose(s, 0, r);
-  for (let i = 0; i < 12 && s.alive; i++) {
+  for (let i = 0; i < 30 && s.alive; i++) {
     s = L.ageUp(s, r, { issue: true });
-    let n = 0;
-    while (s.pending) { titles.push(s.pending.title); s = L.choose(s, 0, r); n++; }
-    if (s.age >= 3) assert.ok(n >= 2, `age ${s.age}: decision plus issue`);
+    assert.ok(s.pending, `age ${s.age}: one challenge`);
+    ids.push(s.pending.id);
+    s = L.choose(s, 0, r);
+    assert.equal(s.pending, null, `age ${s.age}: nothing back to back`);
   }
-  assert.ok(new Set(titles).size > 8, "issues vary");
+  assert.ok(ids.some((id) => id.startsWith("i-")), "issues appear");
+  assert.ok(ids.some((id) => !id.startsWith("i-")), "ordinary decisions appear");
+  assert.ok(new Set(ids).size > 12, "challenges vary");
   for (const iss of L.ISSUES) { assert.ok(iss.options.length >= 2, iss.id); assert.ok(iss.stages.length, iss.id); }
 });
 
@@ -246,4 +249,59 @@ test("branches are planted only in UK cities Kharis hasn't reached", () => {
   let s = { ...L.newLife({ random: true }, r), age: 35, saved: true, money: 9000, faith: { walk: 80, witness: 30, fruit: 40, drift: 0 } };
   s = L.act(s, "plant-branch", r);
   assert.ok(s.branch && L.UNREACHED_CITIES.includes(s.branch.city));
+});
+
+test("what you do in the world during a year is counted and reviewed when you grow older", () => {
+  const r = seeded(60);
+  let s = { ...L.newLife({ random: true }, r), age: 20, saved: true };
+  s = L.credit(s, "pray", r); s = L.credit(s, "pray", r); s = L.credit(s, "church", r); s = L.credit(s, "exercise", r);
+  assert.equal(s.year.did.pray, 2); assert.equal(s.year.did.church, 1); assert.equal(s.year.did.exercise, 1);
+  s = L.ageUp(s, r, { issue: true });
+  assert.equal(s.lastYear.pray, 2);
+  assert.ok(s.log.some((e) => e.kind === "review" && /prayed 2/.test(e.text)), "year in review in your story");
+  assert.deepEqual(s.year.did, {}, "a new year starts a new record");
+});
+
+test("neglect shapes what comes up: a prayerless year brings spiritual trials, a sedentary year brings health trouble", () => {
+  const count = (setup) => {
+    let hits = { spiritual: 0, health: 0 };
+    for (let seed = 1; seed <= 120; seed++) {
+      const r = seeded(seed);
+      let s = { ...L.newLife({ random: true }, r), age: 30, saved: true, job: { id: "care", title: "Care worker", salary: 22000 } };
+      s = setup(s, r);
+      s = L.ageUp(s, r, { issue: true });
+      if (!s.pending) continue;
+      if (["spiritual", "temptation"].includes(s.pending.category)) hits.spiritual++;
+      if (s.pending.category === "health") hits.health++;
+    }
+    return hits;
+  };
+  const faithful = count((s, r) => ["pray", "bible", "church", "pray"].reduce((x, k) => L.credit(x, k, r), s));
+  const neglected = count((s, r) => ["exercise", "eat", "exercise"].reduce((x, k) => L.credit(x, k, r), s));
+  assert.ok(neglected.spiritual > faithful.spiritual + 15, `spiritual: neglected ${neglected.spiritual} vs faithful ${faithful.spiritual}`);
+  assert.ok(faithful.health > neglected.health + 10, `health: lazy ${faithful.health} vs active ${neglected.health}`);
+});
+
+test("preparation changes how a choice turns out, and the card explains it", () => {
+  const r = seeded(61);
+  const pending = { id: "t-porn", title: "Alone online", text: "…", category: "temptation", options: [{ label: "Close it", effect: { walk: 5 } }, { label: "Click", effect: { walk: -8, drift: 2 } }] };
+  const base = { ...L.newLife({ random: true }, r), age: 25, saved: true, faith: { walk: 50, witness: 0, fruit: 0, drift: 0 } };
+  const ready = L.withContext({ ...base, lastYear: { pray: 4, bible: 2 }, pending: { ...pending } });
+  const unready = L.withContext({ ...base, lastYear: {}, pending: { ...pending } });
+  assert.ok(ready.pending.context.some((t) => /pray/i.test(t)));
+  assert.ok(unready.pending.context.length > 0);
+  const goodReady = L.choose(ready, 0, r), goodUnready = L.choose(unready, 0, r);
+  assert.ok(goodReady.faith.walk > goodUnready.faith.walk, "resisting is stronger when you've been praying");
+  const badReady = L.choose(ready, 1, r), badUnready = L.choose(unready, 1, r);
+  assert.ok(badUnready.faith.drift > badReady.faith.drift, "falling costs more when you've been prayerless");
+  assert.ok(goodReady.notice && goodReady.notice.length > 0, "the outcome says why");
+});
+
+test("little children aren't judged on their prayer life, and Christian homes take them to church", () => {
+  const r = seeded(62);
+  let s = { ...L.newLife({ christianHome: true, first: "A", last: "B" }, r), age: 5 };
+  s = L.ageUp(s, r, { issue: true });
+  assert.ok((s.lastYear.church || 0) >= 1, "parents took you to church");
+  const kid = L.withContext({ ...s, saved: false, age: 5, pending: { id: "x", title: "x", text: "x", category: "temptation", options: [{ label: "a", effect: { walk: 1 } }, { label: "b", effect: { walk: -1 } }] } });
+  assert.deepEqual(kid.pending.context, []);
 });

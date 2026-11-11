@@ -5764,5 +5764,9 @@ html.dark body:has(.app-theme) {
 @media (prefers-reduced-motion: no-preference) { .kl-bar-top, .kl-bar-bottom { animation: kl-bars .5s ease-out both; } }
 @keyframes kl-bars { from { transform: scaleY(0); } }
 .kl-live { background: #14101e; color: #f3e9ff; border-radius: 12px; padding: 8px 12px; font-size: 13px !important; } .kl-live b { color: #f5b83d; } .kl-live a { color: #fff; font-weight: 800; }
+.kl-context { border-radius: 10px; padding: 6px 10px; font-size: 13px !important; font-weight: 700 !important; }
+.kl-context.ready { background: #ddf4e6; color: #17603f; }
+.kl-context.unready { background: #fde3e7; color: #9c2338; }
+.kl-sofar { font: 700 13px/1.4 system-ui; color: #4d3f63; background: #f3ecff; border-radius: 10px; padding: 6px 10px; }
 
 html,body,#world-root{height:100%;margin:0;overflow:hidden}#world-root>div{height:100dvh!important}@media(max-width:700px){.world-lobby-bar{display:none}}

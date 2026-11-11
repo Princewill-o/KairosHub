@@ -18,8 +18,8 @@ export function setChurchScreen(next: Partial<Omit<typeof CHURCH_SCREEN, "versio
 
 /**
  * Online quick play keeps the real week: Sunday, doors 1:30pm, service until 4pm.
- * In offline Kairos Life one game day is a whole year, so the church holds its
- * 2pm service every game day, from late morning to evening.
+ * In offline Kairos Life the church holds its 2pm service every game day, from
+ * late morning to evening, so you never wait long to go.
  */
 export function isServiceTime(date: Date, offline = false) {
   const m = date.getUTCHours() * 60 + date.getUTCMinutes();
@@ -27,7 +27,7 @@ export function isServiceTime(date: Date, offline = false) {
 }
 export function nextServiceLabel(date: Date, offline = false) {
   if (isServiceTime(date, offline)) return "On now (2pm)";
-  if (offline) return date.getUTCHours() >= 20 ? "Tomorrow (next year), 2pm" : "Today, 2pm";
+  if (offline) return date.getUTCHours() >= 20 ? "Tomorrow, 2pm" : "Today, 2pm";
   const days = (7 - date.getUTCDay()) % 7 || (date.getUTCHours() >= 16 ? 7 : 0);
   return days === 0 ? "Today at 2pm" : days === 1 ? "Tomorrow, 2pm" : `Sunday 2pm (in ${days} days)`;
 }
