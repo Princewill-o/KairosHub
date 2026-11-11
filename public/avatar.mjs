@@ -46,6 +46,10 @@ export const avatarOptions = {
     ["freckles", "Freckles"],
     ["beard", "Short beard"],
   ]),
+  frame: choices([
+    ["masc", "Masculine"],
+    ["fem", "Feminine"],
+  ]),
   build: choices([
     ["standard", "Classic"],
     ["slim", "Slim"],
@@ -109,6 +113,7 @@ export const avatarDefaults = {
   hairColor: "#241a18",
   eyes: "round",
   face: "soft",
+  frame: "masc",
   build: "standard",
   outfit: "hoodie",
   top: "#6b3fa0",
@@ -251,11 +256,14 @@ export function avatarSvg(
     poly("68,271 104,271 104,278 68,278", shade(a.shoe, -45)) +
     poly("109,271 146,271 144,278 109,278", shade(a.shoe, -45));
   const y = a.outfit === "tunic" ? 218 : 199;
+  // Feminine frame: narrower shoulders over the same hips, a defined waist.
+  const fem = a.frame === "fem", sl = fem ? 79 : 74, sr = fem ? 126 : 131;
   let body =
-    poly(`74,125 131,125 144,${y} 65,${y}`, top) +
-    poly(`74,125 91,136 83,${y} 65,${y}`, dark) +
-    poly(`91,136 131,125 144,${y} 119,${y}`, light) +
-    poly(`119,139 131,125 144,${y} 132,${y}`, dark);
+    poly(`${sl},125 ${sr},125 144,${y} 65,${y}`, top) +
+    poly(`${sl},125 91,136 83,${y} 65,${y}`, dark) +
+    poly(`91,136 ${sr},125 144,${y} 119,${y}`, light) +
+    poly(`119,139 ${sr},125 144,${y} 132,${y}`, dark) +
+    (fem ? poly("70,170 83,163 83,176 69,182", dark) + poly("140,170 127,163 127,176 141,182", dark) : "");
   if (a.outfit === "hoodie")
     body +=
       poly("82,127 105,146 128,127 119,117 92,117", shade(top, -15)) +

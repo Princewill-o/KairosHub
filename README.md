@@ -177,3 +177,30 @@ Children under 12 in Christian homes are taken to church by their parents; under
 Blender sources: `world-runtime/art-sources/scripts/create_travel.py` (airliner, open-topped cabin with a camera-side cut-away, terminal, ferry). Tests: `node --test life.test.mjs travel.test.mjs`.
 
 All Kairos Life events, jobs and text are original. No code or content from BitLife (a commercial Candywriter game) is used.
+
+## Kairos World menu
+
+The world opens on a title menu in a tile layout: **Kairos Online** (quick play) and **Kairos Life** (story mode) tabs, each a grid of shots captured from the game itself (`tests/capture-menu-art.mjs` → `public/menu/`). Under the pointer, a tile becomes liquid glass. An SVG displacement lens refracts the shot, a glass ring follows the cursor, and the label floats on a glass pill. Press Q or E to switch tabs. The Quick play chip reopens the menu.
+
+## Motion lessons
+
+`public/motion-lessons.mjs` has ten short low-poly motion graphics, one for each lesson: grace, temptation, prayer, the body, hard seasons, time, rest, the Word, worship and follow-up. Each frame is a pure function of time, following the claude-motion rules: eased curves, word stagger, reading holds, grain and one accent colour.
+
+- The same `drawLesson()` drives several places:
+  - the full-screen lesson in the game, shown after the first challenge of its kind in a life;
+  - the page players;
+  - the looping MP4s in `public/lessons/`, rendered by `tests/render-lessons.mjs`.
+- Every lesson pairs with a Kharis sermon excerpt. It plays through the official YouTube embed under "Hear the message". The audio is never ripped.
+
+## People
+
+Every person in Kairos World uses Kairos citizen v3, built in Blender by `world-runtime/art-sources/scripts/create_kairos_citizen_v3.py`.
+
+- **Build:** faceted anatomy about seven heads tall, with masculine and feminine frames. Pick the frame under **Body** in the character studio.
+- **Clothing:** lofted from each body's own profile, so outfits fit.
+- **Hair:** hugs the skull with a real hairline.
+- **Faces:** they blink, talk, smile and look surprised.
+- **Joints:** elbows and knees bend when people walk, run, jump, land and sit.
+- **Collisions:** people collide. A bump pushes a resident aside, never into a wall, and both bodies react. Residents also step apart from each other.
+
+Life cutscenes use nine Blender sets (`create_cutscene_kit.py`). Preview any of them with `?cutscene=<set>`, or preview a lesson with `?lesson=<id>`.

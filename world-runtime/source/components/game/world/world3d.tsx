@@ -3187,6 +3187,8 @@ export function World3D({
         talkPoint: new THREE.Vector3(),
         talkTarget: new THREE.Vector3(),
         talkingAnimation: false,
+        shove: new THREE.Vector3(),
+        bumpedAt: 0,
       };
     });
     const crossingNpcs = london ? crossingPedestrianPoses(Date.now()).map((pose, i) => {
@@ -3738,6 +3740,43 @@ export function World3D({
           }
         }
       });
+      // Body collisions: people don't pass through each other. A shoulder bump
+      // pushes the resident aside (never into a wall), both bodies react, and the
+      // push fades over a second or two as they settle back onto their route.
+      {
+        const R = 0.72, decay = Math.exp(-dt * 2.2);
+        const near = npcs.filter((n) => n.body.root.visible && n.body.root.position.distanceToSquared(me.root.position) < 8 * 8);
+        const tryPush = (n: typeof npcs[number], x: number, z: number) => {
+          const at = n.body.root.position;
+          if (blocked(map, (at.x + x) * TILE, (at.z + z) * TILE)) return;
+          at.x += x; at.z += z; n.shove.x += x; n.shove.z += z;
+        };
+        for (const n of near) {
+          n.body.root.position.add(n.shove);
+          n.shove.multiplyScalar(decay);
+          for (const other of [me, ...others.values()]) {
+            const dx = n.body.root.position.x - other.root.position.x, dz = n.body.root.position.z - other.root.position.z;
+            const d = Math.hypot(dx, dz);
+            if (d >= R || d < 1e-4) continue;
+            tryPush(n, (dx / d) * (R - d), (dz / d) * (R - d));
+            if (now - n.bumpedAt > 1_400) {
+              n.bumpedAt = now;
+              n.body.char?.react?.("bump");
+              other.char?.react?.("bump");
+              n.body.root.rotation.y = Math.atan2(-dx, -dz); // turn to see who bumped them
+            }
+          }
+        }
+        for (let a = 0; a < near.length; a++) for (let b = a + 1; b < near.length; b++) {
+          const A = near[a].body.root.position, B = near[b].body.root.position;
+          const dx = B.x - A.x, dz = B.z - A.z, d = Math.hypot(dx, dz);
+          if (d >= R * 0.85 || d < 1e-4) continue;
+          const push = (R * 0.85 - d) / 2;
+          tryPush(near[b], (dx / d) * push, (dz / d) * push);
+          tryPush(near[a], (-dx / d) * push, (-dz / d) * push);
+          if (now - near[a].bumpedAt > 4_000 && now - near[b].bumpedAt > 4_000) { near[a].bumpedAt = near[b].bumpedAt = now; near[a].body.char?.react?.("nod"); near[b].body.char?.react?.("nod"); }
+        }
+      }
       crossingNpcs.forEach((n, i) => {
         const pose = crossingWalkers[i];
         n.body.root.position.set(pose.x, .12, pose.y);

@@ -9,6 +9,8 @@ import { normalizeAvatar } from "../../../../public/avatar.mjs";
 export const avatarColours = outfitColours;
 export interface Character3D {
   object: THREE.Group;
+  /** A short full-body reaction layered over whatever the body is doing. */
+  react?: (kind: "bump" | "land" | "nod") => void;
   mixer: THREE.AnimationMixer;
   play: (clip: string) => void;
   update: (dt: number, reducedMotion?: boolean) => void;
@@ -18,7 +20,7 @@ let asset: ReturnType<GLTFLoader["loadAsync"]> | null = null;
 const load = () =>
   asset ??
   (asset = new GLTFLoader()
-    .loadAsync("/world3d/kairos-citizen-v2.glb")
+    .loadAsync("/world3d/kairos-citizen-v3.glb")
     .catch((error) => {
       asset = null;
       throw error;
@@ -84,27 +86,31 @@ export async function buildCharacter(
             : /suit|denim/.test(a.top)
               ? "jacket"
               : "tshirt");
+  // Masculine or feminine frame: each has its own body, head and fitted clothing.
+  const frame = (custom as { frame?: string } | null)?.frame === "fem" ? "fem" : "masc";
   model.traverse((node) => {
+    const base = node.name.replace(/\.?\d{3}$/, "");
+    if (node.name.startsWith("frame_")) node.visible = node.name.startsWith("frame_" + frame);
     if (node.name.startsWith("hair_"))
       node.visible = node.name === "hair_" + selectedHair;
     // Long sleeves live under each arm as outfit_<name>001 / 002.
     if (node.name.startsWith("outfit_"))
-      node.visible = node.name.replace(/\.?\d{3}$/, "") === "outfit_" + outfit;
+      node.visible = base === "outfit_" + outfit;
     if (node.name.startsWith("trouser_cargo"))
       node.visible =
         custom?.trousers === "cargo" || a.bottom === "bottom-cargo";
-    if (node.name === "extras_glasses")
+    if (base === "extras_glasses")
       node.visible = custom?.glasses ?? a.face !== "face-none";
-    if (node.name === "extras_scarf") node.visible = custom?.scarf ?? false;
-    if (node.name === "extras_backpack")
+    if (base === "extras_scarf") node.visible = custom?.scarf ?? false;
+    if (base === "extras_backpack")
       node.visible = custom?.backpack ?? false;
-    if (node.name === "extras_cap")
+    if (base === "extras_cap")
       node.visible = custom?.hat === "cap" || a.hat === "hat-cap";
-    if (node.name === "extras_beanie")
+    if (base === "extras_beanie")
       node.visible = custom?.hat === "beanie" || a.hat === "hat-beanie";
-    if (node.name === "extras_freckles")
+    if (base === "extras_freckles")
       node.visible = custom?.face === "freckles";
-    if (node.name === "extras_beard") node.visible = custom?.face === "beard";
+    if (base === "extras_beard") node.visible = custom?.face === "beard";
     const mesh = node as THREE.Mesh;
     if (mesh.isMesh) {
       const src = mesh.material as THREE.MeshStandardMaterial;
@@ -114,6 +120,7 @@ export async function buildCharacter(
         m.roughness = 0.83;
         m.metalness = 0;
         if (colours[src.name]) m.color.set(colours[src.name]);
+        if (src.name === "lips") m.color.set(colours.skin).lerp(new THREE.Color(frame === "fem" ? "#9a3448" : "#4a2626"), frame === "fem" ? 0.45 : 0.3);
         materials.set(src.name, m);
         material = m;
       }
@@ -121,13 +128,13 @@ export async function buildCharacter(
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       if (custom?.trousers === "shorts" && /^trouser_[LR]$/.test(mesh.name)) {
-        // Modest cut: shorts finish at the knee.
-        mesh.scale.y = 0.55; // trousers hang from the hip joint
+        // Modest cut: shorts finish just above the knee.
+        mesh.scale.y = 0.8; // trousers hang from the hip joint
         mesh.position.y = 0;
       }
-      if (custom?.trousers === "shorts" && mesh.name.startsWith("sewn_crease"))
+      if (custom?.trousers === "shorts" && /^(sewn_crease|trouser_lower)/.test(mesh.name))
         mesh.visible = false;
-      if (custom?.face === "angular" && mesh.name === "sculpted_head")
+      if (custom?.face === "angular" && mesh.name.startsWith("sculpted_head"))
         mesh.scale.x = 0.94;
       if (custom?.eyes === "smile" && mesh.name.startsWith("eye_"))
         mesh.scale.y = 0.4;
@@ -153,11 +160,24 @@ export async function buildCharacter(
   const body = model.getObjectByName("Body")!,
     head = model.getObjectByName("Head")!,
     arms = [model.getObjectByName("ArmL")!, model.getObjectByName("ArmR")!],
-    legs = [model.getObjectByName("LegL")!, model.getObjectByName("LegR")!];
+    legs = [model.getObjectByName("LegL")!, model.getObjectByName("LegR")!],
+    elbows = [model.getObjectByName("ElbowL"), model.getObjectByName("ElbowR")],
+    knees = [model.getObjectByName("KneeL"), model.getObjectByName("KneeR")];
+  if (frame === "fem") arms.forEach((a) => (a.position.x *= 0.9));
+  // Face pieces stay separate meshes so they can blink, talk and react.
+  const isFace = (n: string) => /^(eye_|brow|mouth|lash)/.test(n);
+  const face = { eyes: [] as THREE.Object3D[], brows: [] as THREE.Object3D[], mouth: null as THREE.Object3D | null };
+  model.traverseVisible((n) => {
+    if (!(n as THREE.Mesh).isMesh || !isFace(n.name)) return;
+    n.userData.rest = { s: n.scale.clone(), p: n.position.clone() };
+    if (n.name.startsWith("eye_") || n.name.startsWith("lash")) face.eyes.push(n);
+    else if (n.name.startsWith("brow")) face.brows.push(n);
+    else face.mouth = n;
+  });
   // Bake small buttons, seams and facial pieces together per material and joint.
   // The shoulders, hips and head remain independently animated. Cached source geometry stays untouched.
   model.updateMatrixWorld(true);
-  const joints = new Set<THREE.Object3D>([body, head, ...arms, ...legs]);
+  const joints = new Set<THREE.Object3D>([body, head, ...arms, ...legs, ...elbows.filter((x): x is THREE.Object3D => !!x), ...knees.filter((x): x is THREE.Object3D => !!x)]);
   const batches = new Map<
     THREE.Object3D,
     Map<
@@ -167,7 +187,7 @@ export async function buildCharacter(
   >();
   model.traverseVisible((node) => {
     const mesh = node as THREE.Mesh;
-    if (!mesh.isMesh || Array.isArray(mesh.material)) return;
+    if (!mesh.isMesh || Array.isArray(mesh.material) || isFace(mesh.name)) return;
     let joint = mesh.parent;
     while (joint && !joints.has(joint)) joint = joint.parent;
     if (!joint) return;
@@ -219,11 +239,11 @@ export async function buildCharacter(
       ctx.fillText(text[1], 128, 104);
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
-      const decal = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.13), new THREE.MeshBasicMaterial({ map: texture, transparent: true, toneMapped: false }));
+      const decal = new THREE.Mesh(new THREE.PlaneGeometry(0.21, 0.105), new THREE.MeshBasicMaterial({ map: texture, transparent: true, toneMapped: false }));
       decal.name = "hoodie_print";
       materials.set("hoodie_print", decal.material);
       generated.add(decal.geometry);
-      decal.position.set(0, 0.3, 0.122);
+      decal.position.set(0, frame === "fem" ? 0.38 : 0.36, frame === "fem" ? 0.118 : 0.122);
       torso.add(decal);
     }
   }
@@ -231,84 +251,82 @@ export async function buildCharacter(
     mixer = new THREE.AnimationMixer(model);
   let mode = "idle",
     time = 0,
-    dead = false;
-  const approach = (
-    o: THREE.Object3D,
-    axis: "x" | "y" | "z",
-    value: number,
-    k: number,
-  ) => {
-    o.rotation[axis] = THREE.MathUtils.lerp(o.rotation[axis], value, k);
+    dead = false,
+    reaction = { kind: "", at: -10 },
+    airborne = 0,
+    nextBlink = 1.5 + Math.random() * 3;
+  const seed = Math.random() * 10;
+  const approach = (o: THREE.Object3D | null | undefined, axis: "x" | "y" | "z", value: number, k: number) => {
+    if (o) o.rotation[axis] = THREE.MathUtils.lerp(o.rotation[axis], value, k);
   };
   return {
     object: holder,
     mixer,
     play(clip) {
+      if (mode !== "jump" && clip === "jump") airborne = 0;
+      if (mode === "jump" && clip !== "jump" && airborne > 0.25) reaction = { kind: "land", at: time };
       mode = clip;
+    },
+    react(kind) {
+      if (time - reaction.at < 0.35 && reaction.kind === kind) return;
+      reaction = { kind, at: time };
     },
     update(dt, reduced = false) {
       if (dead) return;
       dt = Math.min(0.1, Math.max(0, dt));
       time += dt;
       const k = 1 - Math.exp(-dt * 15),
+        run = /run|sprint/.test(mode),
         walk = /walk|run|sprint|cycle/.test(mode),
         jump = mode === "jump",
         wave = /wave|emote|cheer|celebrate/.test(mode),
+        talk = /emote-yes|talk|greet/.test(mode),
         sit = /sit|drive/.test(mode),
-        stride = Math.sin(time * (mode === "run" ? 13 : 8));
+        stride = Math.sin(time * (run ? 12 : 7.5)),
+        lift = Math.cos(time * (run ? 12 : 7.5));
+      if (jump) airborne += dt;
+      // Reaction envelope: quick attack, smooth release.
+      const since = time - reaction.at, dur = reaction.kind === "bump" ? 0.75 : reaction.kind === "land" ? 0.35 : 0.6;
+      const env = reduced || since > dur ? 0 : Math.sin(Math.min(1, since / dur) * Math.PI) ** 0.7;
+      const bump = reaction.kind === "bump" ? env : 0, land = reaction.kind === "land" ? env : 0, nod = reaction.kind === "nod" ? env : 0;
       arms.forEach((o, i) => {
-        approach(
-          o,
-          "x",
-          walk
-            ? stride * (i ? -0.55 : 0.55)
-            : jump
-              ? -0.65
-              : mode === "read"
-                ? -0.8
-                : mode === "think" && i === 1
-                  ? -1.3
-                  : 0,
-          k,
-        );
-        approach(
-          o,
-          "z",
-          wave && i === 1
-            ? -2.3 + Math.sin(time * 7) * 0.16
-            : jump
-              ? i
-                ? -0.45
-                : 0.45
-              : 0,
-          k,
-        );
+        const side = i ? -1 : 1;
+        approach(o, "x",
+          (walk ? stride * (i ? -0.5 : 0.5) * (run ? 1.4 : 1) : jump ? -0.9 : mode === "read" ? -0.75 : mode === "think" && i === 1 ? -1.2 : 0) - bump * 0.5, k);
+        approach(o, "z",
+          (wave && i === 1 ? -2.4 + Math.sin(time * 7) * 0.18 : jump ? side * 0.35 : 0) + side * (bump * 0.75 + land * 0.25), k);
       });
+      elbows.forEach((o, i) =>
+        approach(o, "x",
+          walk ? -0.25 - Math.max(0, stride * (i ? 1 : -1)) * (run ? 0.9 : 0.45) : jump ? -0.6 : mode === "read" ? -1.0 : mode === "think" && i === 1 ? -1.9 : wave && i === 1 ? -0.5 : bump ? -0.6 * bump : -0.08, k));
       legs.forEach((o, i) =>
-        approach(
-          o,
-          "x",
-          sit
-            ? -1.3
-            : jump
-              ? i
-                ? 0.38
-                : -0.28
-              : walk
-                ? stride * (i ? 0.7 : -0.7)
-                : 0,
-          k,
-        ),
-      );
-      body.position.y =
-        restY +
-        (reduced
-          ? 0
-          : walk
-            ? Math.abs(stride) * 0.027
-            : Math.sin(time * 2) * 0.007);
-      approach(body, "z", walk && !reduced ? stride * 0.023 : 0, k);
-      approach(head, "y", wave && !reduced ? Math.sin(time * 3) * 0.06 : 0, k);
+        approach(o, "x",
+          sit ? -1.4 : jump ? (i ? 0.35 : -0.45) : walk ? stride * (i ? 0.6 : -0.6) * (run ? 1.25 : 1) : -land * 0.35, k));
+      knees.forEach((o, i) =>
+        approach(o, "x",
+          sit ? 1.45 : jump ? (i ? 0.9 : 0.5) : walk ? Math.max(0, (i ? -lift : lift)) * (run ? 1.3 : 0.75) + 0.05 : land * 0.7, k));
+      const breathe = reduced ? 0 : Math.sin(time * 1.6 + seed) * 0.006;
+      body.position.y = restY + (reduced ? 0 : walk ? Math.abs(stride) * (run ? 0.04 : 0.025) : breathe) - land * 0.08;
+      approach(body, "x", (run ? -0.12 : walk ? -0.04 : 0) + bump * 0.32 - land * 0.12, k); // lean into a run, rock back on a bump
+      approach(body, "z", walk && !reduced ? stride * 0.025 : 0, k);
+      approach(head, "y", wave && !reduced ? Math.sin(time * 3) * 0.08 : !walk && !reduced ? Math.sin(time * 0.35 + seed) * 0.18 : 0, k * 0.5);
+      approach(head, "x", -bump * 0.25 + nod * 0.3 * Math.sin(since * 14) + (talk ? Math.sin(time * 5) * 0.05 : 0), k);
+      // Face: blinks, talking, smiles and surprise.
+      if (time > nextBlink) nextBlink = time + 2.2 + Math.random() * 3.5;
+      const blinking = !reduced && nextBlink - time < 0.12; // the last 120 ms before each scheduled blink
+      for (const e of face.eyes) {
+        const r = e.userData.rest;
+        e.scale.y = r.s.y * (blinking ? 0.12 : bump ? 1.25 : wave ? 0.8 : 1);
+      }
+      for (const b of face.brows) {
+        const r = b.userData.rest;
+        b.position.y = r.p.y + (bump ? 0.008 : wave ? 0.004 : mode === "think" ? -0.004 : 0);
+      }
+      if (face.mouth) {
+        const r = face.mouth.userData.rest;
+        const open = bump ? 2.6 : talk && !reduced ? 1 + Math.abs(Math.sin(time * 13)) * 1.8 : 1;
+        face.mouth.scale.set(r.s.x * (wave || talk ? 1.25 : 1), r.s.y * open, r.s.z);
+      }
     },
     dispose() {
       if (dead) return;
@@ -325,7 +343,8 @@ export async function buildCharacter(
 export function npcLook(i: number): Avatar {
   const n = Math.abs(i),
     skins = ["#d9a778", "#6e4630", "#8a5a3c", "#f2c7a5", "#482e25", "#a6734d"],
-    hair = ["curly", "braids", "swoop", "afro", "bob", "crop", "puffs", "long"],
+    // Even residents are feminine frames, odd masculine; hair drawn from a mixed set.
+    hair = ["curly", "braids", "swoop", "long", "afro", "bob", "crop", "puffs"],
     tops = ["#6b3fa0", "#367c73", "#e0ab3c", "#d97554", "#334963", "#a44760"],
     outfits = ["hoodie", "jacket", "tshirt", "overalls", "tunic"];
   return {
@@ -339,7 +358,10 @@ export function npcLook(i: number): Avatar {
       trousers: n % 3 === 0 ? "cargo" : "jeans",
       glasses: n % 5 === 0,
       backpack: n % 4 === 0,
-      build: n % 4 === 0 ? "broad" : "standard",
+      build: n % 4 === 0 ? "broad" : n % 5 === 1 ? "slim" : "standard",
+      frame: n % 2 ? "fem" : "masc",
+      face: n % 2 === 0 && n % 3 === 0 ? "beard" : n % 11 === 5 ? "freckles" : "soft",
+      eyes: ["round", "almond", "relaxed"][n % 3],
     }),
     // A city of every age: children, teenagers, adults and grey-haired elders.
     lifeAge: n % 9 === 4 ? 6 + (n % 5) : n % 9 === 7 ? 14 + (n % 3) : n % 7 === 0 ? 68 + (n % 15) : 22 + (n % 35),

@@ -27,6 +27,7 @@ export function mountCharacterStudio(root, { onChange = () => {} } = {}) {
   const sections = {
     look: [
       ["skin", "Skin tone"],
+      ["frame", "Body"],
       ["build", "Build"],
       ["hair", "Hair style"],
       ["hairColor", "Hair colour"],
