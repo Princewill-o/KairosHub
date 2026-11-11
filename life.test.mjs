@@ -369,3 +369,12 @@ test("rarely, standing firm under persecution costs your life, and heaven says s
   assert.equal(d.alive, false);
   assert.equal(d.ending.title, "Faithful unto death");
 });
+
+test("crashes hurt your health; a serious one ends the life", () => {
+  const s = { ...L.newLife({ random: true }, seeded(2)), age: 30, health: 80 };
+  const hurt = L.crashed(s, { severity: 0.7, fatal: false });
+  assert.ok(hurt.health < 80 && hurt.alive);
+  const dead = L.crashed(s, { severity: 1, fatal: true });
+  assert.equal(dead.alive, false);
+  assert.match(dead.cause, /crash/);
+});

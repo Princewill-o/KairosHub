@@ -73,7 +73,7 @@ import { recordKairosActivity } from "@/lib/game/kairos-activity";
 import type { BikeBrand } from "@/game/core/bikes";
 import { carById } from "@/game/core/cars";
 import { nearestDrivingSpot, nearestParkingSpot } from "@/game/core/driving";
-import { gameDateAt } from "@/game/core/game-clock";
+import { GAME_HOUR_MS, gameDateAt } from "@/game/core/game-clock";
 import { type Placed, type HomeAction, furnitureById, homeUse } from "@/game/core/homes";
 import { PRISON_LOOK, SHOP, releaseFromPrison, addStar, clearWanted, wantedCharge, sentenceMs } from "@/game/core/law";
 import { type Pursuit, startPursuit, tickPursuit, caughtByPrisonGuard } from "@/game/core/pursuit";
@@ -199,6 +199,8 @@ export function WorldApp({
   const [dock, setDock] = useState(false);
   const [bike, setBike] = useState<{ brand: BikeBrand; until: number } | null>(null);
   const [wallet, setWallet] = useState(clout);
+  // Offline, your life's money is the money you spend in the world (shops, mall, bank, home).
+  const lifeMoneyRef = useRef<number | null>(null);
   useEffect(() => { setWallet(clout + readStorySave().grace); }, [clout]);
   const [bankOpen, setBankOpen] = useState(false);
   const [bankLoan, setBankLoan] = useState<BankLoan>({ balance: 0, status: "none" });
@@ -282,6 +284,16 @@ export function WorldApp({
   // ── Kairos Life: offline ageing, or online quick play ──
   const kl = useKairosLife(me.id);
   const offline = kl.mode === "offline";
+  useEffect(() => {
+    if (!offline || !kl.life) return;
+    const m = Math.max(0, Math.round(kl.life.money));
+    if (lifeMoneyRef.current !== m) { lifeMoneyRef.current = m; setWallet(m); }
+  }, [offline, kl.life?.money]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!offline || !kl.life || lifeMoneyRef.current === null || wallet === lifeMoneyRef.current) return;
+    lifeMoneyRef.current = wallet;
+    kl.update((l) => ({ ...l, money: wallet }));
+  }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
   const [lifeOpen, setLifeOpen] = useState(false);
   const [churchService, setChurchService] = useState(false);
   const lifeAlive = offline && !!kl.life?.alive;
@@ -602,10 +614,18 @@ export function WorldApp({
     window.setTimeout(() => {
       CRASH.current = null;
       setCrashed(null);
+      // How bad: speed, and luck. Offline, your health takes the hit, and a serious crash can end your life.
+      const severity = Math.min(1, (vehicle === "car" ? 0.25 : 0.1) + Math.random() * 0.75);
+      if (offline && kl.life?.alive) {
+        const serious = severity > 0.92 || (severity > 0.8 && kl.life.health < 35);
+        if (serious) { kl.update((l) => KL.crashed(l, { severity, fatal: true }) as typeof l); say("It was a serious crash. You didn't survive.", true); return; }
+        kl.update((l) => KL.crashed(l, { severity, fatal: false }) as typeof l);
+      }
       goTo("hospital", "St Thomas' Hospital");
+      if (severity > 0.6) { say("A bad crash: broken bones and a long recovery. Your health has taken a real hit.", true); return; }
       say(vehicle === "bike" ? "The paramedics checked you over after the bike crash: bruises, nothing broken. Wear a helmet and ride carefully!" : "The paramedics brought you in after the crash. You're shaken but OK. Slow down and keep your distance.", true);
     }, AMBULANCE_LEAVES * 1000);
-  }, [mapId, driving, goTo, say]);
+  }, [mapId, driving, goTo, say, offline, kl]);
   /** Where the next train you board will take you, if you asked staff for somewhere. */
   const plannedStop = useRef<RideStop | null>(null);
   /** Walk straight from the platform into a real carriage. No cutscene: the ride happens around you. */
@@ -831,7 +851,13 @@ export function WorldApp({
     if (jailed && Date.now() >= life.jailUntil) {
       updateLife(l=>releaseFromPrison(l)); return;
     }
-    if (jailed && mapId !== "prison") goTo("prison", "HMP Thames");
+    if (jailed && mapId !== "prison") {
+      // Officers cuff you and drive you to prison.
+      setArrest(true);
+      say("Officers cuff you and put you in the back of the van to HMP Thames.", true);
+      const t = setTimeout(() => { setArrest(false); goTo("prison", "HMP Thames"); }, 2600);
+      return () => clearTimeout(t);
+    }
     if (!jailed && mapId === "prison") {
       if (life.stars || life.heatAt || life.hearing) updateLife(releaseFromPrison);
       say(releaseReason.current === "escaped" ? "You found the service exit. Escape succeeded — your wanted stars are cleared." : "You have served your sentence. Your wanted stars are cleared.", true);
@@ -1185,9 +1211,11 @@ export function WorldApp({
         const unit = (f: number) => offline ? `${Math.max(1, Math.round(full * f * 6))} months` : `${Math.round(sentenceMs(c.stars) * full / Math.max(1, c.stars) * f / 1000)} seconds`;
         return <JusticeDialog c={c} unit={unit} onDone={(o) => {
           const served = o.verdict === "guilty" && o.deal !== "caution" && o.deal !== "community" && o.fraction > 0;
-          const ms = Math.max(15_000, sentenceMs(c.stars) * full / Math.max(1, c.stars) * o.fraction);
+          const months = o.verdict === "guilty" && o.deal !== "caution" && o.deal !== "community" ? Math.max(1, Math.round(full * o.fraction * 6)) : 0;
+          // Offline the sentence runs on the life's clock: one game day is a year, so each month is two game hours.
+          const ms = offline ? months * 2 * GAME_HOUR_MS : Math.max(15_000, sentenceMs(c.stars) * full / Math.max(1, c.stars) * o.fraction);
           updateLife((l) => ({ ...l, hearing: null, record: o.verdict === "guilty" ? [...(l.record ?? []), h.charge] : l.record ?? [], jailUntil: served ? Date.now() + ms : l.jailUntil }));
-          if (offline && kl.life) kl.update(() => KL.sentenced(kl.life!, { charge: h.charge, verdict: o.verdict, months: o.verdict === "guilty" ? (o.deal === "caution" ? 0 : o.deal === "community" ? 0 : Math.max(1, Math.round(full * o.fraction * 6))) : 0 }) as typeof kl.life);
+          if (offline && kl.life) kl.update(() => KL.sentenced(kl.life!, { charge: h.charge, verdict: o.verdict, months }) as typeof kl.life);
           teach(o.verdict === "guilty" ? "court" : "crime", 600);
           if (!served) {
             say(o.verdict === "acquitted" ? "Not guilty. You're free to go." : o.deal === "community" ? "Community service: you'll help at the food bank. It stays on your record." : "A formal caution. Don't let it happen again.", true);

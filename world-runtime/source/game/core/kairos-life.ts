@@ -455,6 +455,18 @@ export const inPrison = (s) => (s.prisonUntil || 0) > s.age;
 
 const toPendingApp = (e, s) => ({ id: e.id, title: e.title, text: `${e.text} (It started on your phone.)`, category: e.category, options: e.options.map((x) => ({ label: x.label, effect: x.effect })) });
 
+/** A road crash: injuries scale with how bad it was; a serious one is fatal. */
+export function crashed(s0, { severity, fatal }) {
+  if (!s0.alive) return s0;
+  const s = clone(s0);
+  if (fatal) { die(s, "injuries from a serious road crash"); return s; }
+  const hurt = Math.round(5 + severity * 35);
+  s.health -= hurt; s.happiness -= Math.round(severity * 10);
+  if (s.car && severity > 0.6) { say(s, "Your car was written off.", "warning"); s.car = null; }
+  say(s, severity > 0.6 ? `A bad crash: broken bones and a long recovery (health −${hurt}).` : `A crash left you bruised and shaken (health −${hurt}).`, "warning");
+  return fix(s);
+}
+
 /** A lucky block or a game-show prize changed your life. */
 export function windfall(s0, { title, life }, r = Math.random) {
   if (!s0.alive) return s0;
