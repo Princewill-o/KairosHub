@@ -135,6 +135,24 @@ Scroll Quest shares the larger question bank (253 questions), older verse games 
 
 Run `node --test content-expansion.test.mjs supabase.test.mjs` and `node tests/content-browser.mjs` alongside the existing checks.
 
-## Kairos World temporarily locked
+## Kairos World availability
 
-Kairos World is currently unavailable while it is unfinished. Together and `#world` display a Coming soon notice; the standalone `/world/index.html` entry also shows the notice without loading the game. The runtime refuses to mount while `WORLD_ENABLED` is false in `public/world-availability.mjs`. Existing source, artwork and saved progress are preserved. Re-enabling it requires changing the flag and rebuilding.
+Kairos World is live (`WORLD_ENABLED = true` in `public/world-availability.mjs`). Setting the flag to `false` and rebuilding shows the retained Coming soon notice instead.
+
+## Kairos Life — offline play mode
+
+Open `#life` (also linked from the landing page and Grace home). Kairos Life is the single-player, offline mode: you live a whole life one year at a time, from birth to judgement. Kairos World (`#world`) is the online quick-play mode, with friends and no ageing.
+
+- **Start:** custom details (name, sex, UK city, Christian home or not), a *Random details* button, or continue a saved life (`kairos-life-v1` in local storage; blocked storage falls back to memory with a notice).
+- **Stages:** baby, child, teen, young adult, adult, elder, each marked as a milestone, plus primary and secondary school.
+- **Every year:** after *Age up +1 year*, one decision arrives from health, spiritual, relationships, money, work or mind, or a stage-appropriate temptation (40%). You get four actions a year: prayer, Bible, church, fasting, repentance, sharing Jesus, serving, exercise, diet, GP checks, study, work, a car, dating and family time.
+- **Health is earned:** health settles towards a level set by your exercise, diet, smoking, drinking and age. Missed checkups let illness go undetected. In 500-life simulations, the median lifespan is about 91 for careful players, 66 for players who take no precautions and 60 for reckless players. Few reach 85 without precautions.
+- **Drift:** a year with no prayer, Bible or church cools your walk and raises drift. *Repent and return* restores it at any age.
+- **Follow-up:** met → messaged → called → invited → pick-up (needs a car) → came to church → trusted Christ → discipled. Contacts you neglect go cold.
+- **Sunday service, 2pm:** an attendance of 180–420, guests you collected, an announcement, a big scripture screen (live KJV via `/api/scripture/:book/:chapter`) and a **one-minute** David Antwi excerpt from the PlayMessages sermon catalogue via the privacy-enhanced YouTube embed.
+- **Plant a branch** in another UK city once your walk, witness, fruit and savings are high enough.
+- **Judgement:** heaven rests on having trusted Christ. A life that professed faith but stayed fallen away, or a life that never trusted Him, ends in the hell screen with Scripture and a real-life invitation (Romans 10:13). Late repentance still saves. Church attendance without faith does not.
+
+All events, jobs and text are original. No code or content from BitLife (a commercial Candywriter game) is used; only the general genre idea of a yearly life sim.
+
+Rules: `public/life-engine.mjs` (pure, seeded). UI: `public/life.mjs`, `public/life.css`. Tests: `node --test life.test.mjs` and `BASE=http://127.0.0.1:4173 node tests/life-browser.mjs`.
