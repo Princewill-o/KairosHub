@@ -47,9 +47,9 @@ export function useKairosLife(_playerId: string) {
   }, []);
   const begin = useCallback((next: Life) => { root().setItem("life-current", L.serialise(next)); root().setItem("life-fresh", "1"); reloadWorld(); }, []);
   const setMode = useCallback((m: PlayMode) => { root().setItem("life-mode", m); reloadWorld(); }, []);
-  const credit = useCallback((kind: string) => {
+  const credit = useCallback((kind: string, info?: { name?: string; warm?: boolean }) => {
     if (mode !== "offline") return;
-    update((l) => L.credit(l, kind, rng) as Life);
+    update((l) => L.credit(l, kind, rng, info ?? {}) as Life);
   }, [mode, update]);
   // Real actions in the world feed the life.
   useEffect(() => {
@@ -64,10 +64,14 @@ export function useKairosLife(_playerId: string) {
         return (kind === "pray" ? L.credit(next, "pray", rng) : next) as Life;
       });
     };
+    const onApps = (e: Event) => { const d = (e as CustomEvent).detail; update((l) => L.phoneChanged(l, d, rng) as Life); };
+    const onOffer = (e: Event) => { const d = (e as CustomEvent<{ app: string; label: string; life: Record<string, unknown> }>).detail; update((l) => L.encountered(l, { who: d.app, choice: d.label, effect: d.life }, rng) as Life); };
+    window.addEventListener("kairos-apps-changed", onApps);
+    window.addEventListener("kairos-app-offer", onOffer);
     window.addEventListener("kairos-life:family-call", onFamily);
     window.addEventListener("illuminated:needs", onNeed);
     window.addEventListener("kairos-ministry-updated", onMinistry);
-    return () => { window.removeEventListener("illuminated:needs", onNeed); window.removeEventListener("kairos-life:family-call", onFamily); window.removeEventListener("kairos-ministry-updated", onMinistry); };
+    return () => { window.removeEventListener("kairos-apps-changed", onApps); window.removeEventListener("kairos-app-offer", onOffer); window.removeEventListener("illuminated:needs", onNeed); window.removeEventListener("kairos-life:family-call", onFamily); window.removeEventListener("kairos-ministry-updated", onMinistry); };
   }, [mode, credit, update]);
   return { mode, setMode, life, update, begin, credit };
 }

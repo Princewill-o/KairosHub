@@ -17,10 +17,11 @@ import { readVisualQuality, type VisualQuality } from "@/game/core/visual-qualit
 import { LowPolyIcon, LowPolyWallpaper } from "./lowpoly-icons";
 import { FriendsChatApp } from "./friends-app";
 import { LIFE_WORLD } from "@/game/core/life-world";
+import { STORE, appById, install, readApps, remove, spiritualReading, writeApps, type PhoneApps, type StoreApp } from "@/game/core/app-store";
 
 type AppId =
   | "phone" | "messages" | "prayer" | "bible" | "tv" | "maps" | "friends" | "grace"
-  | "games" | "stories" | "wardrobe" | "season" | "camera" | "settings" | "followups" | "messagesPlay" | "chat";
+  | "games" | "stories" | "wardrobe" | "season" | "camera" | "settings" | "followups" | "messagesPlay" | "chat" | "store" | "storeApp";
 
 /** Low Poly Icon Sampler art where a matching icon exists; drawn glyphs elsewhere. */
 const ICON = (n: string) => `/world-ui/icons/${n}.png`;
@@ -38,8 +39,25 @@ const APPS: { id: AppId; name: string; glyph: string; color: string; image?: str
   { id: "season", name: "Season", glyph: "calendar", color: "#f2c84b", image: ICON("star") },
   { id: "wardrobe", name: "Wardrobe", glyph: "shirt", color: "#d26aa8", image: ICON("gift_box") },
   { id: "camera", name: "Camera", glyph: "camera", color: "#5d6673" },
+  { id: "store", name: "App Store", glyph: "store", color: "#2b5fd9" },
   { id: "settings", name: "Settings", glyph: "gear", color: "#8a929c", image: ICON("gear") },
 ];
+/** Built-in apps that can be deleted (and reinstalled from the App Store). */
+const DELETABLE: Partial<Record<AppId, string>> = { bible: "bible", prayer: "prayer", tv: "tv" };
+
+function usePhoneApps() {
+  const [apps, setApps] = useState<PhoneApps>(() => readApps(typeof localStorage === "undefined" ? null : localStorage, "phone"));
+  const change = useCallback((id: string, action: "install" | "delete") => {
+    setApps((cur) => {
+      const next = action === "install" ? install(cur, id) : remove(cur, id);
+      if (next === cur) return cur;
+      writeApps(localStorage, "phone", next);
+      window.dispatchEvent(new CustomEvent("kairos-apps-changed", { detail: { apps: next.installed, id, action } }));
+      return next;
+    });
+  }, []);
+  return [apps, change] as const;
+}
 const DOCK: { id: AppId; name: string; glyph: string; color: string; image?: string }[] = [
   { id: "phone", name: "Phone", glyph: "phone", color: "#3fbf5a" },
   { id: "grace", name: "Grace", glyph: "compass", color: "#2f7de1" },
@@ -83,6 +101,11 @@ function Ring({ value, label, accent }: { value: number; label: string; accent: 
 
 export function KairosPhone(props: PhoneActions) {
   const [app, setApp] = useState<AppId | null>(null);
+  const [apps, changeApp] = usePhoneApps();
+  const [editing, setEditing] = useState(false);
+  const [storeApp, setStoreApp] = useState<StoreApp | null>(null);
+  const has = (id: AppId) => !DELETABLE[id] || apps.installed.includes(DELETABLE[id]!);
+  const extra = apps.installed.map(appById).filter((a): a is StoreApp => !!a && !a.builtIn);
   const [save, update] = useMinistry();
   const season = useMemo(() => seasonFor(), []);
   const readiness = currentReadiness(save.prayer);
@@ -90,12 +113,13 @@ export function KairosPhone(props: PhoneActions) {
   const badge: Partial<Record<AppId, number>> = { followups: due.length, messages: due.filter((d) => d.n?.step.channel === "message").length, phone: due.filter((d) => d.n?.step.channel === "call").length };
 
   useEffect(() => {
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); if (app) setApp(null); else props.onClose(); } };
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); if (editing) setEditing(false); else if (app) setApp(null); else props.onClose(); } };
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
-  }, [app, props]);
+  }, [app, props, editing]);
 
   const open = (id: AppId) => {
+    if (editing) return;
     if (id === "bible") return props.onBible();
     if (id === "maps") return props.onMap();
     if (id === "grace") return props.onGrace("home");
@@ -132,17 +156,32 @@ export function KairosPhone(props: PhoneActions) {
               </button>
             </div>
             <div className="kp-grid">
-              {APPS.filter((a) => !((globalThis as { __kairosOffline?: boolean }).__kairosOffline && a.id === "chat")).map((a) => (
-                <button key={a.id} className="kp-app" onClick={() => open(a.id)} aria-label={a.name + (badge[a.id] ? `, ${badge[a.id]} waiting` : "")}>
-                  <LowPolyIcon name={a.name} glyph={a.glyph} color={a.color} image={a.image} />
-                  {badge[a.id] ? <i className="kp-badge">{badge[a.id]}</i> : null}
-                  <span>{a.name}</span>
-                </button>
+              {APPS.filter((a) => has(a.id) && !((globalThis as { __kairosOffline?: boolean }).__kairosOffline && a.id === "chat")).map((a) => (
+                <span key={a.id} className={editing && DELETABLE[a.id] ? "kp-app-wrap kp-jiggle" : "kp-app-wrap"}>
+                  <button className="kp-app" onClick={() => open(a.id)} aria-label={a.name + (badge[a.id] ? `, ${badge[a.id]} waiting` : "")}>
+                    <LowPolyIcon name={a.name} glyph={a.glyph} color={a.color} image={a.image} />
+                    {badge[a.id] ? <i className="kp-badge">{badge[a.id]}</i> : null}
+                    <span>{a.name}</span>
+                  </button>
+                  {editing && DELETABLE[a.id] && <button className="kp-delete" aria-label={`Delete ${a.name}`} onClick={() => changeApp(DELETABLE[a.id]!, "delete")}>×</button>}
+                </span>
+              ))}
+              {extra.map((a) => (
+                <span key={a.id} className={editing ? "kp-app-wrap kp-jiggle" : "kp-app-wrap"}>
+                  <button className="kp-app" data-app={a.id} onClick={() => { if (editing) return; setStoreApp(a); setApp("storeApp"); }} aria-label={a.name}>
+                    <LowPolyIcon name={a.name} glyph={a.glyph} color={a.color} />
+                    <span>{a.name}</span>
+                  </button>
+                  {editing && <button className="kp-delete" aria-label={`Delete ${a.name}`} onClick={() => changeApp(a.id, "delete")}>×</button>}
+                </span>
               ))}
             </div>
-            <div className="kp-search" aria-hidden="true">⌕ Search</div>
+            <div className="kp-search-row">
+              <div className="kp-search" aria-hidden="true">⌕ Search</div>
+              <button className="kp-edit" onClick={() => setEditing((e) => !e)} aria-pressed={editing}>{editing ? "Done" : "Edit apps"}</button>
+            </div>
             <nav className="kp-dock" aria-label="Dock">
-              {DOCK.map((a) => (
+              {DOCK.filter((a) => has(a.id)).map((a) => (
                 <button key={a.id} className="kp-app" onClick={() => open(a.id)} aria-label={a.name + (badge[a.id] ? `, ${badge[a.id]} waiting` : "")}>
                   <LowPolyIcon name={a.name} glyph={a.glyph} color={a.color} image={a.image} />
                   {badge[a.id] ? <i className="kp-badge">{badge[a.id]}</i> : null}
@@ -154,7 +193,7 @@ export function KairosPhone(props: PhoneActions) {
           <div className="kp-appview">
             <header className="kp-apphead">
               <button onClick={() => setApp(null)} aria-label="Back to home screen" className="kp-back"><img src="/world-ui/cartoon/Arrow_Left.png" alt="" /> Home</button>
-              <h2>{[...APPS, ...DOCK].find((a) => a.id === app)?.name}</h2>
+              <h2>{app === "storeApp" ? storeApp?.name : [...APPS, ...DOCK].find((a) => a.id === app)?.name}</h2>
               <span />
             </header>
             <div className="kp-appbody">
@@ -166,11 +205,69 @@ export function KairosPhone(props: PhoneActions) {
               {app === "chat" && <FriendsChatApp />}
               {app === "season" && <SeasonApp />}
               {app === "settings" && <SettingsApp />}
+              {app === "store" && <AppStore apps={apps} change={changeApp} onOpen={(a) => { setStoreApp(a); setApp("storeApp"); }} />}
+              {app === "storeApp" && storeApp && <StoreAppScreen app={storeApp} onDelete={() => { changeApp(storeApp.id, "delete"); setApp(null); }} />}
             </div>
           </div>
         )}
         <button className="kp-homebar" aria-label={app ? "Go to home screen" : "Close phone"} onClick={() => (app ? setApp(null) : props.onClose())} />
       </section>
+    </div>
+  );
+}
+
+/* ── App Store ─────────────────────────────────────────────────────────── */
+const KIND_LABEL = { good: "Grow", neutral: "Everyday", bad: "Time sinks", trouble: "Risky" } as const;
+function AppStore({ apps, change, onOpen }: { apps: PhoneApps; change: (id: string, a: "install" | "delete") => void; onOpen: (a: StoreApp) => void }) {
+  const reading = spiritualReading(apps);
+  const [tab, setTab] = useState<"all" | keyof typeof KIND_LABEL>("all");
+  // The store shows bad and risky apps as attractively as everyone else's store would.
+  const list = STORE.filter((a) => tab === "all" || a.kind === tab).sort((a, b) => b.rating - a.rating);
+  return (
+    <div className="kp-store">
+      <section className="kp-reading" style={{ ["--tone" as string]: reading.tone }} data-reading={reading.id}>
+        <small>Where you are</small>
+        <b>{reading.title}</b>
+        <p>{reading.text}</p>
+        <em>{reading.verse}</em>
+      </section>
+      <nav className="kp-store-tabs" aria-label="App categories">
+        {(["all", "good", "neutral", "bad", "trouble"] as const).map((t) => <button key={t} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === "all" ? "Top charts" : KIND_LABEL[t]}</button>)}
+      </nav>
+      <ul className="kp-store-list">
+        {list.map((a) => {
+          const got = apps.installed.includes(a.id);
+          return (
+            <li key={a.id} data-kind={a.kind}>
+              <LowPolyIcon name={a.name} glyph={a.glyph} color={a.color} size={48} />
+              <span><b>{a.name}</b><small>{a.maker} · ★ {a.rating.toFixed(1)}</small><small>{a.blurb}</small></span>
+              {got ? (
+                <span className="kp-store-actions">
+                  {!a.builtIn && <button onClick={() => onOpen(a)}>Open</button>}
+                  <button className="kp-store-del" onClick={() => change(a.id, "delete")}>Delete</button>
+                </span>
+              ) : <button className="kp-get" onClick={() => change(a.id, "install")}>Get</button>}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+function StoreAppScreen({ app, onDelete }: { app: StoreApp; onDelete: () => void }) {
+  const [said, setSaid] = useState<string | null>(null);
+  return (
+    <div className="kp-storeapp" data-kind={app.kind} style={{ ["--app" as string]: app.color }}>
+      <LowPolyIcon name={app.name} glyph={app.glyph} color={app.color} size={72} />
+      {app.screen.map((line) => <p key={line} className="kp-storeapp-line">{line}</p>)}
+      {app.offer && !said && (
+        <button className="kp-storeapp-offer" onClick={() => {
+          setSaid(app.offer!.reply);
+          window.dispatchEvent(new CustomEvent("kairos-app-offer", { detail: { app: app.name, label: app.offer!.label, life: app.offer!.life } }));
+        }}>{app.offer.label}</button>
+      )}
+      {said && <p className="kp-storeapp-reply">{said}</p>}
+      <button className="kp-storeapp-delete" onClick={onDelete}>Delete {app.name}</button>
     </div>
   );
 }

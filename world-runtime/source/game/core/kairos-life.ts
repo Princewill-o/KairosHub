@@ -1,3 +1,6 @@
+import { TROUBLE_EVENTS, appById, lifeEffect } from "./app-store";
+import { SUNDAY_EXCUSES } from "./npc-encounters";
+export { SUNDAY_EXCUSES };
 // Kairos Life — the offline life mode of Kairos World. Pure rules, no DOM.
 // The world drives it: one in-game day is one year, and real world actions (preaching,
 // prayer, eating, hiking, church) credit the life through credit().
@@ -171,6 +174,7 @@ export const TEMPTATIONS = [
   ev("t-smoke-adult", "temptation", GROWN, "Stressful week", "You think about smoking again.", [o("Go for a run instead", { health: 3, habit: { exercise: 1 } }), o("Buy a pack", { health: -8, habit: { smoking: 1 } })]),
 ];
 
+
 /** Prison years: the choices you face inside (only while serving a sentence). */
 const INSIDE = (s) => (s.prisonUntil || 0) > s.age;
 export const PRISON_EVENTS = [
@@ -211,6 +215,59 @@ export const ISSUES = [
 ];
 
 // ---------- follow-up & ministry ----------
+// ---------- more of life: decisions, temptations and issues ----------
+EVENTS.push(
+  ev("e-volunteer", "relationships", GROWN, "Food bank", "The food bank is short of drivers on Saturdays.", [o("Sign up for a monthly shift", { fruit: 4, happiness: 3, served: true }), o("Donate a few tins instead", { fruit: 1 }), o("Not my problem", { fruit: -2 })]),
+  ev("e-neighbour", "relationships", ALLUP, "New neighbours", "A family has just moved in next door. They look overwhelmed.", [o("Take round something you baked", { fruit: 3, happiness: 2, contact: true }), o("Wave from the window", {}), o("Complain about their van", { fruit: -3 })]),
+  ev("e-housing", "money", GROWN, "Rent rise", "Your landlord puts the rent up by a lot.", [o("Budget carefully and pray", { money: -800, walk: 2 }), o("Move somewhere cheaper further out", { money: 400, happiness: -2 }), o("Put it on a credit card", { money: 0, happiness: -4, debt: 2000 })]),
+  ev("e-side-hustle", "work", GROWN, "Side hustle", "A friend says you could earn extra on weekends.", [o("Start a small business, keep Sundays free", { money: 2500, smarts: 2 }), o("Work every weekend, church included", { money: 4000, walk: -5, drift: 1 })]),
+  ev("e-uni", "school", ["teen", "young-adult"], "After school", "Results day. What next?", [o("University", { smarts: 8, money: -3000, education: "degree" }), o("An apprenticeship", { smarts: 4, money: 1500, job: "find" }), o("Take a gap year serving with a mission", { walk: 8, fruit: 4, witness: 2 })], (s) => s.age >= 17 && s.age <= 19 && s.education !== "degree"),
+  ev("e-wedding", "relationships", GROWN, "The question", "You've been together a long time. Is it time?", [o("Propose (and do premarital counselling)", { partner: "marry", happiness: 10, walk: 3 }), o("Move in together without marrying", { walk: -6, drift: 1, happiness: 2 }), o("Wait and pray", { walk: 2 })], (s) => s.partner && !s.partner.married),
+  ev("e-baby", "family", ["young-adult", "adult"], "A family?", "You and your spouse talk about children.", [o("Start a family", { child: true, happiness: 8, money: -2000 }), o("Not yet", {})], (s) => s.partner?.married),
+  ev("e-friend-crisis", "relationships", ALLUP.filter((x) => x !== "child"), "3am call", "A friend rings you in tears at 3am.", [o("Go round, listen and pray with them", { fruit: 5, health: -1, contact: true }), o("Text 'you'll be fine'", { fruit: -1 })]),
+  ev("e-promotion-lie", "work", GROWN, "Credit", "Your manager credits you for a colleague's idea.", [o("Tell them it wasn't yours", { fruit: 4, walk: 3 }), o("Take the credit", { money: 1500, walk: -5, drift: 1 })], (s) => s.job),
+  ev("e-hobby", "mind", ALLUP, "Something new", "There's a beginners' class starting at the community centre.", [o("Learn the guitar", { happiness: 5, smarts: 2 }), o("Take up running", { health: 5, habit: { exercise: 1 } }), o("Not for me", {})]),
+  ev("e-loan", "money", GROWN, "Lend me some?", "A relative asks to borrow £1,000.", [o("Give it as a gift, no strings", { money: -1000, fruit: 5 }), o("Lend it with a plan", { money: -1000, happiness: -1 }), o("Say no kindly", {})]),
+  ev("e-moving", "relationships", GROWN, "A job in another city", "You're offered a job far from your church family.", [o("Move, and find a Kharis church there first", { money: 3000, walk: 1 }), o("Stay where you're planted", { happiness: 2, fruit: 2 })], (s) => s.job),
+  ev("e-elder-church", "spiritual", OLD, "Still useful?", "You wonder if you're too old to serve.", [o("Start a prayer group for the young people", { walk: 6, fruit: 5 }), o("Sit at the back and let others do it", { fruit: -2 })]),
+  ev("e-school-preach", "spiritual", TEEN, "RE lesson", "Your teacher asks the class what they believe about Jesus.", [o("Say honestly that you follow Him", { walk: 4, contact: true }), o("Say 'I don't know'", { walk: -2 })], (s) => s.saved),
+  ev("e-online-fame", "mind", ["teen", "young-adult"], "Going viral", "One of your videos blows up overnight.", [o("Use it to post about your faith", { contact: true, happiness: 3, walk: 2 }), o("Chase more likes, whatever it takes", { happiness: -3, walk: -4, drift: 1 })]),
+  ev("e-sabbath", "spiritual", GROWN, "Always busy", "You haven't had a day off in months.", [o("Keep the Lord's day properly", { health: 4, walk: 4, happiness: 3 }), o("Rest is for the weak", { health: -4, happiness: -3 })]),
+);
+TEMPTATIONS.push(
+  ev("t-revenge", "temptation", ["teen", "young-adult", "adult"], "Payback", "Someone spread lies about you. You know a secret that would ruin them.", [o("Leave it with God", { walk: 6, fruit: 3 }), o("Post it", { walk: -6, fruit: -4, drift: 1 })]),
+  ev("t-drugs", "temptation", ["teen", "young-adult"], "Just once", "At a friend's flat someone passes round pills.", [o("Leave and text a friend from church", { walk: 5, health: 2 }), o("Take one", { health: -10, walk: -7, drift: 2, risk: 0.015, crime: { charge: "Possession", stars: 1, caught: 0.15 } })]),
+  ev("t-county", "temptation", ["teen", "young-adult"], "Easy money", "An older lad offers £300 to carry a bag across town. No questions.", [o("Walk away and tell a youth leader", { walk: 5, fruit: 3 }), o("Carry the bag", { money: 300, walk: -8, drift: 2, crime: { charge: "Possession with intent to supply", stars: 4, caught: 0.5 } })]),
+  ev("t-envy", "temptation", GROWN, "Their new car", "Your friend got a promotion and a new car. You feel sick with envy.", [o("Thank God for what you have, congratulate them", { walk: 5, happiness: 3 }), o("Run them down behind their back", { walk: -5, fruit: -3 })]),
+  ev("t-lust-media", "temptation", ["teen", "young-adult", "adult"], "The series everyone's watching", "The show everyone's talking about is full of things you know feed the wrong desires.", [o("Skip it", { walk: 4 }), o("Binge the lot", { walk: -5, drift: 1 })]),
+  ev("t-skip-church", "temptation", ALLUP.filter((x) => x !== "child"), "Sunday lie-in", "It's raining and church is at 2. Your bed is warm.", [o("Get up and go", { walk: 4, happiness: 2 }), o("Watch it online in bed instead, just this once", { walk: -2, drift: 1 }), o("Skip it altogether", { walk: -5, drift: 1 })]),
+  ev("t-anger", "temptation", ["teen", "young-adult", "adult"], "Road rage", "Someone cuts you up and makes a rude gesture.", [o("Breathe and pray for them", { walk: 4 }), o("Chase them and shout", { walk: -4, health: -1, risk: 0.005 })]),
+  ev("t-tax", "temptation", ["adult"], "Cash in hand", "A client offers to pay cash so you can skip the tax.", [o("Declare it all", { walk: 4, fruit: 2 }), o("Keep it quiet", { money: 1800, walk: -6, drift: 1, crime: { charge: "Tax evasion", stars: 2, caught: 0.25 } })]),
+  ev("t-occult", "temptation", ["teen", "young-adult", "adult"], "Your stars", "A friend wants to read your tarot cards 'just for fun'.", [o("Politely say no and explain why", { walk: 5, contact: true }), o("Go along with it", { walk: -6, drift: 1 })]),
+  ev("t-laziness", "temptation", GROWN, "Coasting", "You've been doing the bare minimum at work for weeks.", [o("Work as unto the Lord", { money: 800, walk: 3, smarts: 2 }), o("Nobody notices anyway", { walk: -3, job: "lose" })], (s) => s.job),
+  ev("t-lottery", "temptation", GROWN, "Rollover", "The jackpot is £100 million this week.", [o("Give the money to someone in need instead", { fruit: 3, money: -10 }), o("Buy twenty tickets", { money: -40, drift: 1 })]),
+  ev("t-compromise", "temptation", ["young-adult", "adult"], "Off the record", "Your boss asks you to tell a client the product is ready when it isn't.", [o("Refuse respectfully", { walk: 6, fruit: 3, happiness: -1 }), o("Say what they want", { walk: -6, drift: 1, money: 500 })], (s) => s.job),
+);
+ISSUES.push(
+  ev("i-debt", "money", GROWN, "Final demand", "Letters are piling up. You owe more than you earn.", [o("Get free debt advice and a budget", { happiness: 4, money: 500, debt: -1500 }), o("Hide the letters", { happiness: -8, health: -2 }), o("Borrow from a loan shark", { money: 2000, happiness: -10, debt: 5000, risk: 0.005 })]),
+  ev("i-homeless-friend", "relationships", GROWN, "Nowhere to go", "A friend from church has been evicted.", [o("Let them stay on your sofa", { fruit: 6, happiness: -1 }), o("Help them find a hostel", { fruit: 3 }), o("Stay out of it", { fruit: -3 })]),
+  ev("i-infertility", "family", ["young-adult", "adult"], "Waiting", "You and your spouse have been trying for a baby for years.", [o("Keep praying together and lean on church", { walk: 5, happiness: -2 }), o("Blame each other", { happiness: -8 })], (s) => s.partner?.married),
+  ev("i-cancer-parent", "family", GROWN, "Bad news", "Your parent has been diagnosed with a serious illness.", [o("Be there at every appointment", { fruit: 5, happiness: -4, money: -500 }), o("Bury yourself in work", { happiness: -6, money: 1000 })]),
+  ev("i-cyberbully", "mind", TEEN, "Anonymous messages", "Someone keeps sending you cruel messages online.", [o("Screenshot, block and tell an adult", { happiness: 3, walk: 2 }), o("Reply with worse", { walk: -4, happiness: -4 })]),
+  ev("i-exam-fail", "school", ["teen", "young-adult"], "Results", "You failed an important exam.", [o("Resit and get a tutor", { smarts: 6, happiness: -1 }), o("Give up on it", { smarts: -3, happiness: -5 })]),
+  ev("i-church-hurt", "spiritual", GROWN, "Hurt by church", "Someone at church treated you badly.", [o("Talk to them and a pastor, and forgive", { walk: 6, fruit: 3 }), o("Leave church altogether", { walk: -10, drift: 3 })], (s) => s.saved),
+  ev("i-redundant-mid", "work", ["adult"], "Starting over", "At 50, you have to change careers.", [o("Retrain, trusting God", { smarts: 6, job: "find" }), o("Sink into despair", { happiness: -10, job: "lose" })], (s) => s.job && s.age >= 45 && s.age <= 58),
+  ev("i-scam", "money", ["adult", "elder"], "Your bank calling", "Someone claiming to be your bank asks you to move your savings.", [o("Hang up and ring the bank yourself", { smarts: 2 }), o("Do what they say", { money: -6000, happiness: -10 })]),
+  ev("i-lonely-old", "mind", OLD, "Quiet house", "Days go by without speaking to anyone.", [o("Join the church lunch club", { happiness: 8, health: 2 }), o("Keep the curtains closed", { happiness: -8, health: -3 })]),
+  ev("i-addiction-friend", "relationships", GROWN, "They need help", "A friend admits their drinking is out of control.", [o("Go with them to a recovery group", { fruit: 6, contact: true }), o("Tell them to sort it out", { fruit: -2 })]),
+);
+
+/** The closer you walk with God, the harder you're pushed: temptations come more often. */
+export const temptPressure = (s) => Math.min(0.75, 0.2 + Math.max(0, s.faith?.walk ?? 0) / 180);
+
+
+
+
 export const FOLLOW_UP = [
   { id: "met", label: "Met", hint: "You shared Jesus with them." },
   { id: "message", label: "Messaged", hint: "Send a kind follow-up message." },
@@ -252,12 +309,18 @@ const ACTIONS = [
   A("preach", "Share Jesus with someone", "ministry", PREACH_AGE, (s, r) => {
     s.year.faith++;
     if (!s.saved) return "You can't give away what you haven't received. Consider Jesus for yourself first.";
-    s.faith.witness += 3; s.faith.walk += 1;
-    const sex = r() < 0.5 ? "male" : "female";
-    s.contacts.push({ id: id(r), name: `${pick(r, FIRST[sex])} ${pick(r, LAST)}`, stage: "met", warmth: between(r, 30, 70), metAge: s.age });
-    return `You shared the gospel with ${s.contacts.at(-1).name}.`;
+    // Witness comes from real people: go and find someone in the world.
+    s.year.acts--;
+    return "Witness grows through real people. Go out, walk up to someone (press F) and choose “Share your faith”.";
   }),
-  A("serve", "Serve someone", "ministry", 8, (s) => { s.faith.fruit += 4; s.happiness += 2; return "You quietly served someone in need."; }),
+  A("serve", "Serve someone", "ministry", 8, (s, r) => {
+    const people = [...s.family.filter((p) => p.alive && p.relation !== "self"), ...s.contacts.filter((c) => c.stage !== "cooled")];
+    if (!people.length) return "There's nobody in your life to serve yet. Meet people first.";
+    const who = pick(r, people);
+    s.served = (s.served || 0) + 1; s.faith.fruit += 4; s.happiness += 2;
+    if (who.warmth != null) who.warmth += 8; else if (who.closeness != null) who.closeness = clamp(who.closeness + 5);
+    return `You served ${who.name.split(" ")[0]}: ${pick(r, ["cooked them dinner", "helped them move", "fixed their bike", "babysat for them", "took them to an appointment", "cleared their garden"])}.`;
+  }),
   A("plant-branch", "Plant a Kharis branch", "ministry", 21, (s, r) => {
     const f = s.faith;
     if (!s.saved || f.walk < 60 || f.witness < 20 || f.fruit < 25) return "Not yet: a branch needs a strong walk (60), witness (20) and fruit (25).";
@@ -290,9 +353,27 @@ export function availableActions(s) {
     .map((a) => ({ id: a.id, label: a.labelFor ? a.labelFor(s) : a.label, category: a.category, disabled: !s.alive || !!s.pending || s.year.acts >= 4, reason: s.year.acts >= 4 ? "You've used this year's time. Age up." : s.pending ? "Answer this year's decision first." : "" }));
 }
 
+/**
+ * Witness and fruit come from real people, not buttons: witness is capped by
+ * how many people you've actually shared Jesus with, and fruit by the people
+ * you've helped, served and brought along.
+ */
+export function outreachCaps(s) {
+  const contacts = s.contacts || [];
+  const reached = contacts.length;
+  const brought = contacts.filter((c) => ["attended", "believer", "discipled"].includes(c.stage)).length;
+  const saved = contacts.filter((c) => ["believer", "discipled"].includes(c.stage)).length;
+  return { reached, brought, witness: reached * 6 + brought * 4, fruit: reached * 3 + brought * 6 + saved * 6 + (s.served || 0) * 3 };
+}
 const fix = (s) => {
   for (const k of ["health", "happiness", "smarts"]) s[k] = clamp(s[k]);
   for (const k of ["walk", "witness", "fruit"]) s.faith[k] = clamp(s.faith[k]);
+  const cap = outreachCaps(s);
+  for (const k of ["witness", "fruit"]) if (s.faith[k] > cap[k]) {
+    s.faith[k] = cap[k];
+    const hint = k === "witness" ? "Witness only grows through people you've actually shared Jesus with. Go and talk to someone." : "Fruit grows from real people: serving them, following them up, bringing them to church.";
+    if (s.log && !s.log.some((x) => x.age === s.age && x.text === hint)) s.log.push({ age: s.age, kind: "hint", text: hint });
+  }
   s.faith.drift = clamp(s.faith.drift, 0, 20);
   for (const k of Object.keys(s.habits)) s.habits[k] = clamp(s.habits[k], 0, 5);
   s.money = Math.round(s.money);
@@ -341,6 +422,16 @@ function applyEffect(s, e, r) {
     s.case = { charge: e.crime.charge, stars: e.crime.stars, age: s.age };
     say(s, `You were seen. The police are looking for you over ${e.crime.charge.toLowerCase()}.`, "crime");
   }
+  if (e.served) s.served = (s.served || 0) + 1;
+  if (e.debt) s.debt = Math.max(0, (s.debt || 0) + e.debt);
+  if (e.excuse) {
+    const c = s.contacts.find((x) => x.id === e.excuse);
+    if (c) { c.warmth += e.warmthGain || 0; if (e.advance && c.stage === "invite") { c.stage = s.car ? "pickup" : "attended"; if (c.stage === "attended") { c.warmth += 10; say(s, `${c.name} came to church on Sunday.`, "milestone"); } } if (e.cool) { c.warmth -= 20; if (c.warmth <= 0) c.stage = "cooled"; } }
+  }
+  if (e.martyr != null) {
+    if (r() < e.martyr) { s.martyr = true; die(s, "persecution for the name of Jesus"); }
+    else { s.faith.walk += 15; s.faith.witness += 6; s.happiness -= 6; s.health -= 15; say(s, "You were beaten and thrown out, but you did not deny Him.", "milestone"); }
+  }
   if (e.risk && r() < e.risk) die(s, "an accident that precautions could have prevented");
 }
 
@@ -362,10 +453,28 @@ export function sentenced(s0, { charge, verdict, months }) {
 }
 export const inPrison = (s) => (s.prisonUntil || 0) > s.age;
 
+const toPendingApp = (e, s) => ({ id: e.id, title: e.title, text: `${e.text} (It started on your phone.)`, category: e.category, options: e.options.map((x) => ({ label: x.label, effect: x.effect })) });
+
+/** You installed or deleted an app on your phone. */
+export function phoneChanged(s0, { apps, id: appId, action }, r = Math.random) {
+  if (!s0.alive) return s0;
+  const s = clone(s0);
+  s.apps = [...apps];
+  const a = appById(appId);
+  if (a) {
+    applyEffect(s, lifeEffect(appId, action), r);
+    say(s, action === "install" ? `You installed ${a.name}.` : `You deleted ${a.name}.${a.kind === "bad" || a.kind === "trouble" ? " Good riddance." : ""}`, "phone");
+  }
+  return fix(s);
+}
+
 /** Something that happened in the world with another person (a conversation, a kindness, a dare). */
 export function encountered(s0, { who, choice, effect }, r = Math.random) {
   const s = clone(s0);
   say(s, `${who}: ${choice}.`, "encounter");
+  // A real person in front of you: kindness to them counts as fruit, sharing Jesus as witness.
+  if (effect && (effect.fruit || 0) > 0) s.served = (s.served || 0) + 1;
+  if (effect && (effect.witness || 0) > 0 && s.saved && !s.contacts.some((c) => c.name === who)) s.contacts.push({ id: id(r), name: who, stage: "met", warmth: 50, metAge: s.age });
   if (effect) applyEffect(s, effect, r);
   return fix(s);
 }
@@ -499,9 +608,46 @@ export function ageUp(s0, r = Math.random, opts = {}) {
   if (s.health <= 0 && r() < 0.35) die(s, "poor health");
   else if (s.age >= 120 || r() < mortality(s)) die(s, s.illness && !s.illness.treated ? "an illness that was never checked" : s.age >= 80 ? "old age" : "a sudden illness");
   if (!s.alive) return s;
+  // Debt: interest bites, repayments come out of your money.
+  if (s.debt > 0) { const pay = Math.min(s.debt, 1500); s.money -= pay; s.debt = Math.round((s.debt - pay) * 1.12); if (s.debt > 0) say(s, `You still owe £${s.debt.toLocaleString("en-GB")}.`, "warning"); }
+  // Rare: persecution for the gospel. The more openly you witness, the more it can cost.
+  const exposed = s.saved && s.age >= 16 && s.age <= 75 && s.faith.witness >= 12;
+  if (exposed && !inPrison(s) && r() < 0.0025 + (s.branch ? 0.002 : 0) + s.faith.witness / 40000) {
+    const place = pick(r, [
+      ["On a mission trip", "You're preaching in a village where following Jesus is forbidden. Men with sticks surround you and demand you curse His name."],
+      ["Street preaching", "A crowd turns ugly while you preach in the square. Someone shouts that they'll kill you if you don't stop."],
+      ["The underground church", "Police raid the house church you've been leading abroad. An officer says you can walk free if you sign a paper denying Christ."],
+      ["Visiting believers", "You're bringing Bibles to persecuted Christians when your group is stopped at a checkpoint."],
+    ]);
+    s.pending = { id: "persecution", title: place[0], text: place[1], category: "spiritual", options: [
+      { label: "Stand firm for Jesus, whatever it costs", effect: { martyr: 0.55, walk: 10 } },
+      { label: "Flee to the next town (Matthew 10:23)", effect: { walk: 3, money: -2500, happiness: -4 } },
+      { label: "Deny Him to save yourself", effect: { walk: -30, drift: 5, happiness: -12 } },
+    ] };
+    s.recent = [...s.recent, "persecution"].slice(-10);
+    return withContext(s);
+  }
+  // The apps you keep come back to meet you.
+  const troubleIds = (s.apps || []).map((a) => TROUBLE_EVENTS[a]).filter(Boolean);
+  if (troubleIds.length && r() < 0.35) {
+    const all = [...EVENTS, ...TEMPTATIONS, ...ISSUES];
+    const e = all.find((x) => x.id === pick(r, troubleIds) && x.stages.includes(stageFor(s.age).id));
+    if (e) { s.pending = toPendingApp(e, s); s.recent = [...s.recent, e.id].slice(-10); return withContext(s); }
+  }
+  // Someone you invited makes an excuse about Sunday.
+  const invited = s.contacts.filter((c) => c.stage === "invite");
+  if (invited.length && r() < 0.45) {
+    const c = pick(r, invited), x = pick(r, SUNDAY_EXCUSES);
+    s.pending = { id: "excuse", title: `${c.name.split(" ")[0]} and Sunday`, text: `You invited ${c.name} to church. ${x.line}`, category: "evangelism", options: [
+      { label: x.answer, effect: { excuse: c.id, warmthGain: 12, advance: true, walk: 1 } },
+      { label: "Pray for them and ask again next month", effect: { excuse: c.id, warmthGain: 4, walk: 2 } },
+      { label: "Give up on them", effect: { excuse: c.id, cool: true, fruit: -2 } },
+    ] };
+    return withContext(s);
+  }
   // Growing older with the age circle brings one challenge. What you neglected last
   // year is most likely to come back to meet you.
-  const toPending = (e) => ({ id: e.id, title: e.title, text: e.text, category: e.category, options: e.options.map((x) => ({ label: x.label, effect: x.effect })) });
+  const toPending = (e) => ({ id: e.id, title: e.title, text: e.category === "temptation" && s.faith.walk >= 60 ? `${e.text} The closer you walk with God, the harder the pull.` : e.text, category: e.category, options: e.options.map((x) => ({ label: x.label, effect: x.effect })) });
   if (opts.issue) {
     const st = now.id;
     const okNow = (e) => e.stages.includes(st) && (!e.when || e.when(s));
@@ -521,7 +667,8 @@ export function ageUp(s0, r = Math.random, opts = {}) {
     let from;
     if (preferred.length && r() < 0.75) from = preferred;
     else if (issues.length && (s.age < 3 || r() < 0.5)) from = issues;
-    else from = temptations.length && r() < 0.4 ? temptations : events.length ? events : issues;
+    else from = temptations.length && r() < temptPressure(s) ? temptations : events.length ? events : issues;
+    if (from !== temptations && temptations.length && s.faith.walk >= 60 && r() < (s.faith.walk - 50) / 120) from = temptations;
     if (from.length) {
       const e = pick(r, from); s.pending = toPending(e); s.recent = [...s.recent, e.id].slice(-10);
       return withContext(s);
@@ -532,7 +679,7 @@ export function ageUp(s0, r = Math.random, opts = {}) {
     const st = now.id;
     const ok = (e) => e.stages.includes(st) && (!e.when || e.when(s)) && !s.recent.includes(e.id);
     const temptations = TEMPTATIONS.filter(ok), events = EVENTS.filter(ok);
-    const pool = temptations.length && r() < 0.4 ? temptations : events.length ? events : temptations;
+    const pool = temptations.length && r() < temptPressure(s) ? temptations : events.length ? events : temptations;
     if (pool.length) {
       const e = pick(r, pool);
       s.pending = toPending(e);
@@ -599,6 +746,13 @@ export function judge(s) {
   const fellAway = s.saved && f.drift >= 10 && f.walk < 15;
   const heaven = s.saved && !fellAway;
   const people = (s.contacts || []).filter((c) => ["believer", "discipled"].includes(c.stage)).length;
+  if (s.martyr) return {
+    destination: "heaven",
+    title: "Faithful unto death",
+    text: `You would not deny Jesus, and it cost you your life at ${s.age}. ${people ? `${people} ${people === 1 ? "person" : "people"} came to faith through you. ` : ""}You receive the crown of life.`,
+    verses: ["Revelation 2:10", "Matthew 5:10–12", "Hebrews 11:36–38"],
+    rewards: { witness: f.witness, fruit: f.fruit, people, branch: s.branch ? cityName(s.branch.city) : null, martyr: true },
+  };
   if (heaven) {
     const faithful = f.fruit + f.witness >= 60;
     return {
@@ -645,12 +799,19 @@ export const CREDITS = {
   eat: { year: "diet", text: "You ate properly." },
   checkup: { year: "checkup", text: "You looked after your health." },
 };
-export function credit(s0, kind, r = Math.random) {
+export function credit(s0, kind, r = Math.random, info = {}) {
   if (kind === "church") return attendService(s0, null, r);
   const c = CREDITS[kind];
   if (!c || !s0.alive) return s0;
   const s = clone(s0);
   tally(s, kind);
+  // A real person in the world: they become someone you're following up.
+  if (info.name && (kind === "preach" || kind === "followup") && s.saved) {
+    let p = s.contacts.find((x) => x.name === info.name);
+    if (!p && kind === "preach") { p = { id: id(r), name: info.name, stage: "met", warmth: info.warm ? 65 : 45, metAge: s.age }; s.contacts.push(p); }
+    else if (p && kind === "followup") { const i = stageIndex(p.stage); if (i >= 0 && i < 3 && p.stage !== "cooled") p.stage = FOLLOW_UP[i + 1].id; p.warmth += 10; }
+  }
+  if (info.name && kind === "serve") s.served = (s.served || 0) + 1;
   if (c.walk) s.faith.walk += c.walk;
   if (c.witness) s.faith.witness += c.witness;
   if (c.fruit) s.faith.fruit += c.fruit;

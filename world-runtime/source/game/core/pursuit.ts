@@ -180,50 +180,24 @@ export function tickPursuit(
     stage: caught ? "tased" : "chasing",
   };
 }
+/** What the officer asks to see if you'll get off with a warning: Bible questions only. */
 export const POLICE_QUESTIONS = [
-  {
-    prompt: "Which of these numbers is prime?",
-    options: ["121", "143", "137", "169"],
-    answer: 2,
-    explain: "137 has no divisors other than 1 and itself.",
-  },
-  {
-    prompt:
-      "A price rises by 20%, then falls by 20%. What is the overall change?",
-    options: ["No change", "4% decrease", "4% increase", "2% decrease"],
-    answer: 1,
-    explain: "1.2 × 0.8 = 0.96: a 4% decrease.",
-  },
-  {
-    prompt: "Which particle has a negative electric charge?",
-    options: ["Proton", "Neutron", "Electron", "Photon"],
-    answer: 2,
-    explain: "Electrons carry negative charge; protons carry positive charge.",
-  },
-  {
-    prompt:
-      "Which treaty was signed with Germany in 1919 after the First World War?",
-    options: [
-      "Treaty of Paris (1783)",
-      "Treaty of Versailles",
-      "Treaty of Rome",
-      "Treaty of Maastricht",
-    ],
-    answer: 1,
-    explain: "The Treaty of Versailles was signed on 28 June 1919.",
-  },
-  {
-    prompt: "What is the sum of the interior angles of a hexagon?",
-    options: ["540°", "600°", "720°", "900°"],
-    answer: 2,
-    explain: "(6 − 2) × 180° = 720°.",
-  },
-  {
-    prompt: "Which organelle is the main site of aerobic respiration?",
-    options: ["Ribosome", "Nucleus", "Mitochondrion", "Chloroplast"],
-    answer: 2,
-    explain: "Mitochondria are the main site of aerobic respiration in cells.",
-  },
+  { prompt: "Who was swallowed by a great fish after running from God?", options: ["Jonah", "Elijah", "Peter", "Noah"], answer: 0, explain: "Jonah 1:17 — the LORD prepared a great fish to swallow Jonah." },
+  { prompt: "Which commandment says “Thou shalt not steal”?", options: ["The fourth", "The sixth", "The eighth", "The tenth"], answer: 2, explain: "Exodus 20:15 — the eighth commandment." },
+  { prompt: "Who denied Jesus three times before the rooster crowed?", options: ["Judas", "Peter", "Thomas", "John"], answer: 1, explain: "Luke 22:61 — Peter remembered the word of the Lord." },
+  { prompt: "What did Zacchaeus promise to do with what he had taken by fraud?", options: ["Keep it", "Give it to the temple", "Restore it fourfold", "Pay half back"], answer: 2, explain: "Luke 19:8 — “I restore him fourfold.”" },
+  { prompt: "Which criminal on the cross was promised paradise?", options: ["The one who mocked Jesus", "The one who asked Jesus to remember him", "Barabbas", "Neither"], answer: 1, explain: "Luke 23:42–43 — “To day shalt thou be with me in paradise.”" },
+  { prompt: "Who was released instead of Jesus?", options: ["Barabbas", "Lazarus", "Silas", "Herod"], answer: 0, explain: "Matthew 27:26 — Pilate released Barabbas." },
+  { prompt: "Romans 13 says rulers and authorities are…", options: ["Enemies of the church", "Ministers of God for good", "To be ignored", "Above God"], answer: 1, explain: "Romans 13:4 — “he is the minister of God to thee for good.”" },
+  { prompt: "Which two were singing hymns in prison at midnight?", options: ["Peter and John", "Paul and Silas", "David and Jonathan", "Moses and Aaron"], answer: 1, explain: "Acts 16:25 — Paul and Silas prayed and sang praises unto God." },
+  { prompt: "What did Joseph do when Potiphar’s wife tempted him?", options: ["Lied about it", "Fled", "Gave in", "Told Pharaoh"], answer: 1, explain: "Genesis 39:12 — he left his garment and fled." },
+  { prompt: "“The wages of sin is death; but the gift of God is…”", options: ["Riches", "Eternal life", "Forgiveness for some", "A second chance"], answer: 1, explain: "Romans 6:23 — eternal life through Jesus Christ our Lord." },
+  { prompt: "Who was thrown into the lions’ den for praying?", options: ["Daniel", "Shadrach", "Ezekiel", "Samuel"], answer: 0, explain: "Daniel 6:16 — Daniel was cast into the den of lions." },
+  { prompt: "How many times did Jesus say to forgive your brother?", options: ["Seven times", "Seventy times seven", "Three times", "Once"], answer: 1, explain: "Matthew 18:22 — until seventy times seven." },
+  { prompt: "Which disciple betrayed Jesus for thirty pieces of silver?", options: ["Judas Iscariot", "Thomas", "Matthew", "Andrew"], answer: 0, explain: "Matthew 26:15 — they covenanted with him for thirty pieces of silver." },
+  { prompt: "Who was the persecutor who became the apostle Paul?", options: ["Saul of Tarsus", "Simon of Cyrene", "Stephen", "Silas"], answer: 0, explain: "Acts 9 — Saul met Jesus on the road to Damascus." },
+  { prompt: "“Be sure your sin will…”", options: ["Be forgotten", "Find you out", "Go unpunished", "Stay hidden"], answer: 1, explain: "Numbers 32:23 — “be sure your sin will find you out.”" },
+  { prompt: "In the parable, what did the prodigal son’s father do when he saw him coming?", options: ["Locked the door", "Ran and embraced him", "Sent him away", "Made him a servant"], answer: 1, explain: "Luke 15:20 — he ran, fell on his neck, and kissed him." },
 ] as const;
 
 export function prisonGuardPositions(seconds: number) {

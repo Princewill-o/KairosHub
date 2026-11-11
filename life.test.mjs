@@ -166,7 +166,7 @@ test("health precautions make old age far more reachable", () => {
 test("follow-up walks a contact from first meeting to church", () => {
   const r = seeded(31);
   let s = { ...L.newLife({ random: true }, r), age: 24, saved: true, faith: { walk: 70, witness: 0, fruit: 10, drift: 0 } };
-  s = L.act(s, "preach", r);
+  s = L.credit(s, "preach", r, { name: "Jo Banks" }); // a real person in the world
   assert.equal(s.contacts.length, 1);
   const id = s.contacts[0].id;
   assert.equal(L.FOLLOW_UP[0].id, "met");
@@ -205,7 +205,12 @@ test("real world actions credit the life without using yearly choices", () => {
   s = L.credit(s, "pray", r); s = L.credit(s, "preach", r); s = L.credit(s, "eat", r); s = L.credit(s, "exercise", r);
   assert.equal(s.year.acts, 0);
   assert.equal(s.year.diet, 1); assert.equal(s.year.exercise, 1);
+  // Pressing a button with nobody there doesn't build witness...
+  assert.equal(s.faith.witness, 0);
+  // ...sharing Jesus with a real person does, and they become someone to follow up.
+  s = L.credit(s, "preach", r, { name: "Sam Okafor" });
   assert.ok(s.faith.witness >= 3);
+  assert.ok(s.contacts.some((c) => c.name === "Sam Okafor"));
   s = L.credit(s, "church", r);
   assert.equal(s.servicesThisYear, 1);
 });
@@ -319,4 +324,48 @@ test("life crimes can be caught: the case follows you, a sentence puts you insid
   assert.ok(inside.pending && inside.pending.id.startsWith("p-"), "a year inside brings a prison choice");
   const freed = L.sentenced(L.newLife({ first: "Bo", last: "Day", sex: "male", city: "london" }, L.makeRng(2)), { charge: "Theft", verdict: "acquitted", months: 0 });
   assert.equal((freed.record || []).length, 0);
+});
+
+test("the closer the walk, the more the temptation", () => {
+  assert.ok(L.temptPressure({ faith: { walk: 90 } }) > L.temptPressure({ faith: { walk: 10 } }));
+  let hi = 0, lo = 0;
+  for (let i = 0; i < 300; i++) {
+    const r = seeded(500 + i);
+    const base = { ...L.newLife({ random: true }, r), age: 24, saved: true };
+    const a = L.ageUp({ ...base, faith: { ...base.faith, walk: 95 } }, r, { issue: true });
+    const b = L.ageUp({ ...base, faith: { ...base.faith, walk: 5 } }, seeded(500 + i), { issue: true });
+    if (a.pending?.category === "temptation") hi++;
+    if (b.pending?.category === "temptation") lo++;
+  }
+  assert.ok(hi > lo, `${hi} vs ${lo}`);
+});
+
+test("witness and fruit can't outgrow the real people in your life", () => {
+  const r = seeded(9);
+  let s = { ...L.newLife({ random: true }, r), age: 30, saved: true, contacts: [] };
+  s = L.encountered(s, { who: "Nobody", choice: "x", effect: { witness: 40 } });
+  // the person in front of you counts, but only as one person
+  assert.ok(s.faith.witness <= L.outreachCaps(s).witness);
+  assert.equal(L.outreachCaps(s).reached, 1);
+});
+
+test("invited people make Sunday excuses you can answer", () => {
+  let found = null;
+  for (let i = 0; i < 60 && !found; i++) {
+    const r = seeded(800 + i);
+    const s = { ...L.newLife({ random: true }, r), age: 30, saved: true, contacts: [{ id: "c1", name: "Priya Shah", stage: "invite", warmth: 60, metAge: 29 }] };
+    const n = L.ageUp(s, r, { issue: true });
+    if (n.pending?.id === "excuse") found = n;
+  }
+  assert.ok(found, "an excuse came up");
+  const after = L.choose(found, 0, seeded(1));
+  assert.notEqual(after.contacts[0].stage, "invite");
+});
+
+test("rarely, standing firm under persecution costs your life, and heaven says so", () => {
+  const r = seeded(3);
+  const s = { ...L.newLife({ random: true }, r), age: 35, saved: true, pending: { id: "persecution", title: "x", text: "x", category: "spiritual", options: [{ label: "Stand firm", effect: { martyr: 1 } }] } };
+  const d = L.choose(s, 0, r);
+  assert.equal(d.alive, false);
+  assert.equal(d.ending.title, "Faithful unto death");
 });

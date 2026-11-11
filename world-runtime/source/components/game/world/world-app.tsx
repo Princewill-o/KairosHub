@@ -27,7 +27,7 @@ import { PoliceChallenge } from "./law-dialogs";
 import { ArrestOverlay, PrisonHud, ShopDialog, WantedStars } from "./life";
 import { JusticeDialog } from "./justice-dialog";
 import { NpcDialog } from "./npc-dialog";
-import { type Choice, type Encounter, type Story, encounter, roleFor } from "@/game/core/npc-encounters";
+import { type Choice, type Encounter, type Story, encounter, excuseEncounter, roleFor } from "@/game/core/npc-encounters";
 import { ARREST_SCENE } from "@/game/core/pursuit";
 import { conductOf, fullSentence } from "@/game/core/justice";
 import { LevelBadge, LifeHud, type Quest } from "./life-hud";
@@ -874,16 +874,31 @@ export function WorldApp({
   useEffect(() => {
     if (!nearPerson || chat || preaching || jailed && map.kind !== "prison") { if (!nearPerson) setApproach(false); return; }
     if (Date.now() < nextApproach.current) return;
-    nextApproach.current = Date.now() + 45_000 + Math.random() * 45_000;
+    nextApproach.current = Date.now() + 30_000 + Math.random() * 40_000;
     setApproach(true);
+    // They walk up to you and start talking: you stop where you are.
+    const t = setTimeout(() => chatRef.current?.(), 1100);
+    return () => clearTimeout(t);
   }, [nearPerson, nearPersonIndex, chat, preaching, jailed, map.kind]);
+  const taughtRef = useRef<string[]>([]);
+  const teach = useCallback((category: string, delay = 0) => {
+    const seen = [...taughtRef.current, ...(((kl.life as { seenLessons?: string[] } | null)?.seenLessons) ?? [])];
+    const l = lessonAfter(category, seen);
+    if (!l) return;
+    taughtRef.current = [...taughtRef.current, l.id];
+    if (offline && kl.life) kl.update(() => ({ ...kl.life!, seenLessons: [...(((kl.life as { seenLessons?: string[] }).seenLessons) ?? []), l.id] }) as typeof kl.life);
+    setTimeout(() => setLesson(l), delay);
+  }, [kl, offline]);
   const chooseChat = useCallback((c: Choice) => {
     if (!chat) return;
+    const lessonCat = { need: "need", officer: "crime", guard: "prison", inmate: "prison", teen: "crime", elder: "neighbour", tourist: "neighbour", seeker: "evangelism" }[chat.who.role as string];
+    if (lessonCat && c.life) teach(lessonCat, 2200);
     if (offline && kl.life && c.life) kl.update(() => KL.encountered(kl.life!, { who: chat.who.name, choice: c.label, effect: c.life }) as typeof kl.life);
     if (c.world === "hand-in") setTimeout(() => { setChat(null); updateLife((l) => ({ ...clearWanted(l), hearing: { stars: Math.max(1, l.stars - 1), charge: wantedCharge(l) } })); }, 1800);
     if (c.world === "flee") updateLife((l) => addStar(l, Date.now(), "Fleeing the police"));
     if (c.world === "preach") setTimeout(() => { setChat(null); setPreaching(true); }, 1400);
-  }, [chat, offline, kl, updateLife]);
+    if (c.world === "invite") { const w = chat.who; setTimeout(() => setChat(excuseEncounter(w, Math.floor(Math.random() * 1000))), 1300); }
+  }, [chat, offline, kl, updateLife, teach]);
   const talk = useCallback(() => {
     const person = personaFor(nearPersonIndex).name;
     // A conversation first; preaching is one of the things you can do in it.
@@ -1002,7 +1017,7 @@ export function WorldApp({
       } />
       {!(building && mapId === "home") && <WorldView
         key={`${mapId}:${server}:${trip}`}
- paused={lifeOverlay || Boolean(crashed) || Boolean(mallDept) || graceOpen || Boolean(challenge) || wardrobe || preaching || Boolean(followUp) || bibleOpen || miniGamesOpen || Boolean(bus || tube || tutorial || mapOpen || dock || dealer || fading || phone || inmate || shop || homeAction || bankOpen || life.hearing) || arrest || policeTransport || pursuit?.stage === "challenge" || pursuit?.stage === "tased"}
+ paused={lifeOverlay || Boolean(chat) || approach || Boolean(crashed) || Boolean(mallDept) || graceOpen || Boolean(challenge) || wardrobe || preaching || Boolean(followUp) || bibleOpen || miniGamesOpen || Boolean(bus || tube || tutorial || mapOpen || dock || dealer || fading || phone || inmate || shop || homeAction || bankOpen || life.hearing) || arrest || policeTransport || pursuit?.stage === "challenge" || pursuit?.stage === "tased"}
         homeAction={homeAction}
         police={pursuit}
         map={map}
@@ -1111,12 +1126,12 @@ export function WorldApp({
       <button type="button" data-hud="bible" data-tone="ink" onClick={() => setBibleOpen(true)} className="absolute left-3 bottom-24 z-[100001] flex min-h-11 items-center gap-2 rounded-full border border-[#f2d15b]/50 bg-[#171221] px-4 py-2 text-sm font-black text-[#f2d15b] shadow-lg"><BookOpen className="size-4"/> Bible</button>
       {preaching && <MinistryDialog persona={personaFor(nearPersonIndex)} onClose={() => setPreaching(false)} onDone={message => {
         void recordKairosActivity("outreach_conversation");
-        kl.credit("preach");
+        kl.credit("preach", { name: personaFor(nearPersonIndex).name });
         say(message, true);
       }} />}
       {followUp && <GraceWorldPanel address="outreach/follow-up" onClose={()=>setFollowUp(null)}><FollowUpDialog person={followUp} onClose={() => setFollowUp(null)} onComplete={() => {
         void recordKairosActivity("outreach_followup");
-        kl.credit("followup");
+        kl.credit("followup", { name: followUp ?? undefined });
         try {
           const key = `kairos-outreach:${me.id}`;
           const records = JSON.parse(localStorage.getItem(key) ?? "[]") as { name: string; outcome: string; followedUp?: boolean }[];
@@ -1157,6 +1172,7 @@ export function WorldApp({
           const ms = Math.max(15_000, sentenceMs(c.stars) * full / Math.max(1, c.stars) * o.fraction);
           updateLife((l) => ({ ...l, hearing: null, record: o.verdict === "guilty" ? [...(l.record ?? []), h.charge] : l.record ?? [], jailUntil: served ? Date.now() + ms : l.jailUntil }));
           if (offline && kl.life) kl.update(() => KL.sentenced(kl.life!, { charge: h.charge, verdict: o.verdict, months: o.verdict === "guilty" ? (o.deal === "caution" ? 0 : o.deal === "community" ? 0 : Math.max(1, Math.round(full * o.fraction * 6))) : 0 }) as typeof kl.life);
+          teach(o.verdict === "guilty" ? "court" : "crime", 600);
           if (!served) {
             say(o.verdict === "acquitted" ? "Not guilty. You're free to go." : o.deal === "community" ? "Community service: you'll help at the food bank. It stays on your record." : "A formal caution. Don't let it happen again.", true);
             goTo("city", "London", courtSteps);

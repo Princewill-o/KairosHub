@@ -21,6 +21,14 @@ export const LESSONS = [
   { id: "word", kicker: "Lesson · The Word", title: "A lamp for every step", ref: "Psalm 119:105", verse: "Thy word is a lamp unto my feet, and a light unto my path.", emblem: "book", categories: ["school"], sermon: sermon("WjWDkhQvZtM", 954, "How To Study The Bible") },
   { id: "worship", kicker: "Lesson · Worship", title: "Worship in spirit and truth", ref: "John 4:24", verse: "God is a Spirit: and they that worship him must worship him in spirit and in truth.", emblem: "flame", categories: ["church"], sermon: sermon("IHoQutb7FHg", 1731, "The True Worshipper") },
   { id: "follow-up", kicker: "Lesson · Follow-up", title: "Go back and see how they are", ref: "Acts 15:36", verse: "Let us go again and visit our brethren in every city where we have preached the word.", emblem: "heart", categories: ["relationships", "evangelism", "friends"], sermon: sermon("IW6HGtwJliU", 524, "What Makes You A Better Christian") },
+  { id: "redemption", kicker: "Lesson · Second chances", title: "Anyone can be made new", ref: "2 Corinthians 5:17", verse: "Therefore if any man be in Christ, he is a new creature: old things are passed away; behold, all things are become new.", emblem: "key", categories: ["court", "prison"], sermon: sermon("hjhIW911Z44", 600, "Life In Christ") },
+  { id: "justice", kicker: "Lesson · Doing right", title: "Do justly, love mercy", ref: "Micah 6:8", verse: "What doth the LORD require of thee, but to do justly, and to love mercy, and to walk humbly with thy God?", emblem: "scales", categories: ["crime"], sermon: sermon("Ql6DuJReaC4", 2100, "Living According To God") },
+  { id: "honesty", kicker: "Lesson · Honesty", title: "Truth is never wasted", ref: "Proverbs 12:22", verse: "Lying lips are abomination to the LORD: but they that deal truly are his delight.", emblem: "shield", categories: ["honesty"], sermon: sermon("eEQyhPZPpxU", 500, "Overcoming Guilt From Sin") },
+  { id: "kindness", kicker: "Lesson · Kindness", title: "What you give to the poor, you lend to God", ref: "Proverbs 19:17", verse: "He that hath pity upon the poor lendeth unto the LORD; and that which he hath given will he pay him again.", emblem: "heart", categories: ["need"], sermon: sermon("IW6HGtwJliU", 600, "What Makes You A Better Christian") },
+  { id: "forgiveness", kicker: "Lesson · Forgiveness", title: "Forgive as you were forgiven", ref: "Colossians 3:13", verse: "Forbearing one another, and forgiving one another: even as Christ forgave you, so also do ye.", emblem: "cross", categories: ["forgive"], sermon: sermon("eEQyhPZPpxU", 560, "Overcoming Guilt From Sin") },
+  { id: "contentment", kicker: "Lesson · Money", title: "Enough is a gift", ref: "Hebrews 13:5", verse: "Let your conversation be without covetousness; and be content with such things as ye have.", emblem: "coin", categories: ["greed"], sermon: sermon("06xvxw5ePKs", 2620, "The Best Use Of Your Time") },
+  { id: "courage", kicker: "Lesson · Courage", title: "Be strong and of a good courage", ref: "Joshua 1:9", verse: "Be strong and of a good courage; be not afraid, neither be thou dismayed: for the LORD thy God is with thee.", emblem: "shield", categories: ["courage"], sermon: sermon("IRl718MrEOg", 2020, "How Christians Should Handle Suffering") },
+  { id: "neighbour", kicker: "Lesson · Your neighbour", title: "Love your neighbour as yourself", ref: "Mark 12:31", verse: "Thou shalt love thy neighbour as thyself. There is none other commandment greater than these.", emblem: "sun", categories: ["neighbour"], sermon: sermon("Ql6DuJReaC4", 2160, "Living According To God") },
 ];
 
 export const lessonById = (id) => LESSONS.find((l) => l.id === id) ?? null;
@@ -59,6 +67,11 @@ const EMBLEMS = {
   hourglass: [rect(-0.46, -0.64, 0.92, 0.12), [[-0.36, -0.52], [0.36, -0.52], [0, 0]], [[0, 0], [0.36, 0.52], [-0.36, 0.52]], rect(-0.46, 0.52, 0.92, 0.12)],
   book: [[[-0.64, -0.38], [-0.04, -0.28], [-0.04, 0.52], [-0.64, 0.42]], [[0.04, -0.28], [0.64, -0.38], [0.64, 0.42], [0.04, 0.52]]],
   heart: [circle(-0.26, -0.2, 0.3), circle(0.26, -0.2, 0.3), [[-0.54, -0.08], [0.54, -0.08], [0, 0.58]]],
+  scales: [rect(-0.04, -0.6, 0.08, 1.1), rect(-0.6, -0.42, 1.2, 0.08), [[-0.62, 0.0], [-0.22, 0.0], [-0.42, 0.18]], [[0.22, 0.0], [0.62, 0.0], [0.42, 0.18]], rect(-0.3, 0.5, 0.6, 0.12)],
+  key: [circle(-0.32, -0.3, 0.26), rect(-0.1, -0.36, 0.72, 0.13), rect(0.38, -0.23, 0.1, 0.22), rect(0.52, -0.23, 0.1, 0.16)],
+  coin: [circle(0, 0, 0.56, 10), circle(0, 0, 0.34, 8)],
+  shield: [[[0, -0.62], [0.5, -0.42], [0.46, 0.12], [0, 0.62], [-0.46, 0.12], [-0.5, -0.42]]],
+  sun: [circle(0, 0, 0.3, 8), ...Array.from({ length: 8 }, (_, i) => { const a = (i / 8) * Math.PI * 2; return [[Math.cos(a) * 0.38, Math.sin(a) * 0.38], [Math.cos(a + 0.18) * 0.62, Math.sin(a + 0.18) * 0.62], [Math.cos(a - 0.18) * 0.62, Math.sin(a - 0.18) * 0.62]]; })],
 };
 function facets(name) {
   const tris = [];

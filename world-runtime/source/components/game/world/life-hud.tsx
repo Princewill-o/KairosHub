@@ -8,7 +8,7 @@ import { Check, ChevronDown, ChevronUp, Cloud, CloudDrizzle, CloudRain, MapPin, 
 
 import { useNeeds } from "./use-needs";
 
-import { AvatarFigure } from "@/components/game/avatar";
+import { SkinBust } from "../skin-bust";
 import type { Avatar } from "@/game/core/cosmetics";
 import { gameDateAt } from "@/game/core/game-clock";
 import { ACTIVITIES, NEEDS, moodWord, nextHint, weatherAt, weatherForecast } from "@/game/core/needs";
@@ -131,10 +131,8 @@ export function LifeHud({ avatar, name, quests, onLocate }: { avatar: Avatar; na
 
       {/* You and your needs */}
       <div data-hud="life" data-tone="paper" className={cn(card, "absolute bottom-16 left-3 z-[50] hidden max-w-[240px] items-center gap-2 py-1.5 pr-2.5 pl-1.5 lg:flex xl:max-w-[280px] [@media(max-height:650px)]:!hidden")}>
-        <div className="flex size-12 shrink-0 justify-center overflow-hidden rounded-full border-4 border-white bg-[#8fb4ff]">
-          <div className="-mt-1 shrink-0">
-            <AvatarFigure avatar={avatar} size={76} showPet={false} />
-          </div>
+        <div className="grid size-14 shrink-0 place-items-end overflow-hidden rounded-[10px] border-[3px] border-[#203b38] bg-[linear-gradient(#8fb4ff,#c9dcff)] shadow-[inset_0_-6px_0_rgba(0,0,0,0.12)]">
+          <SkinBust avatar={avatar} size={52} />
         </div>
         <div>
           <p className="text-sm font-black">
@@ -144,8 +142,11 @@ export function LifeHud({ avatar, name, quests, onLocate }: { avatar: Avatar; na
             {NEEDS.map((d) => (
               <div key={d.id} className="contents">
                 <span className="text-[10px] font-black">{d.label}</span>
-                <span className="h-2 overflow-hidden rounded-full bg-[#e6dccb]" role="meter" aria-label={d.label} aria-valuenow={Math.round(needs[d.id])} aria-valuemin={0} aria-valuemax={100}>
-                  <span className="block h-full rounded-full transition-[width] duration-500" style={{ width: `${needs[d.id]}%`, background: d.colour }} />
+                <span className="flex h-2.5 gap-[2px]" role="meter" aria-label={d.label} aria-valuenow={Math.round(needs[d.id])} aria-valuemin={0} aria-valuemax={100}>
+                  {Array.from({ length: 10 }, (_, i) => {
+                    const fill = Math.max(0, Math.min(1, needs[d.id] / 10 - i));
+                    return <span key={i} className="relative flex-1 border border-[#203b38]/70 bg-[#e6dccb]"><span className="absolute inset-y-0 left-0 shadow-[inset_0_-2px_0_rgba(0,0,0,0.25)]" style={{ width: `${fill * 100}%`, background: d.colour }} /></span>;
+                  })}
                 </span>
               </div>
             ))}

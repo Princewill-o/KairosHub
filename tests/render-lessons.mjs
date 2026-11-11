@@ -13,7 +13,8 @@ const page = await browser.newPage({ viewport: { width: W, height: H } });
 await page.goto(`${BASE}/index.html#landing`);
 await page.evaluate(async () => { await document.fonts.load('800 40px Outfit'); await document.fonts.load('500 20px "DM Sans"'); });
 const ids = await page.evaluate(async () => { const m = await import('/motion-lessons.mjs'); window.__ml = m; const c = document.createElement('canvas'); c.width = 960; c.height = 600; window.__c = c; return m.LESSONS.map((l) => l.id); });
-for (const id of ids) {
+const only = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+for (const id of ids.filter((x) => !only.length || only.includes(x))) {
   const times = sheetOnly ? [0.5, 1.6, 2.6, 4.5, 7, 9.5, 11.3, 11.8] : Array.from({ length: 12 * FPS }, (_, i) => i / FPS);
   const dir = `/tmp/lesson-${id}`; rmSync(dir, { recursive: true, force: true }); mkdirSync(dir, { recursive: true });
   for (let i = 0; i < times.length; i += 24) {

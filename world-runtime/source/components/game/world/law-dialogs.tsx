@@ -21,7 +21,7 @@ export function PoliceChallenge({
       <section
         role="dialog"
         aria-modal="true"
-        aria-label="Police knowledge challenge"
+        aria-label="Police Bible challenge"
         className="w-full max-w-lg rounded-3xl bg-[#f7f1e6] p-6 text-[#13203a] [color-scheme:light]"
       >
         <Siren className="size-9 text-[#2b5fd9]" />
@@ -29,8 +29,9 @@ export function PoliceChallenge({
           One chance to talk your way out
         </h2>
         <p className="mt-2 text-sm text-[#5a6272]">
-          The officers caught up. Answer correctly for a warning; a wrong answer
-          sends you to a court hearing. This is a fictional game rule.
+          The officer is a believer. “Answer me one from the Bible,” he says.
+          Get it right for a warning; get it wrong and you go before the court.
+          This is a fictional game rule.
         </p>
         <p className="mt-5 text-xl font-black">{question.prompt}</p>
         <div className="mt-4 grid gap-2">

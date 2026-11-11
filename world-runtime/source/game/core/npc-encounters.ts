@@ -18,7 +18,7 @@ export interface Choice {
   /** Kairos Life effect (same shape as life decisions). */
   life?: Record<string, unknown>;
   /** What happens in the world. */
-  world?: "hand-in" | "flee" | "preach" | "direction" | "none";
+  world?: "hand-in" | "flee" | "preach" | "direction" | "invite" | "none";
 }
 export interface Encounter { who: Who; line: string; choices: Choice[] }
 
@@ -32,7 +32,32 @@ export function roleFor(index: number, mapKind: string, london: boolean): Role {
   return r[(index * 5 + 3) % r.length];
 }
 
+/** Why someone can't come on Sunday, and what you could say. */
+export const SUNDAY_EXCUSES = [
+  { line: "“I work Sundays, sorry.”", answer: "Tell them the service is at 2pm, after most shifts" },
+  { line: "“Sunday's my only lie-in.”", answer: "“It's at two. Lie in, then I'll grab you.”" },
+  { line: "“I've got the kids all weekend.”", answer: "Tell them about the children's church" },
+  { line: "“I wouldn't know anyone.”", answer: "“You'll know me. I'll sit with you.”" },
+  { line: "“Church people judge.”", answer: "Share how you were welcomed when you were broken" },
+  { line: "“I'm not religious.”", answer: "“Neither was I. It's about Jesus, not religion.”" },
+  { line: "“Football's on.”", answer: "“It's 2pm. Come, then we'll catch the second half.”" },
+  { line: "“I've got no way of getting there.”", answer: "Offer to pick them up" },
+  { line: "“Maybe next week.”", answer: "Fix a date and text them the night before" },
+  { line: "“I've done too much wrong to walk in there.”", answer: "Tell them Jesus came for sinners, not the righteous" },
+];
+
 const pick = <T,>(list: T[], seed: number) => list[Math.abs(seed) % list.length];
+
+/** You invited them to church; they give a reason they can't come. */
+export function excuseEncounter(who: Who, seed = 0): Encounter {
+  const x = pick(SUNDAY_EXCUSES as { line: string; answer: string }[], seed);
+  return { who, line: `${who.name}: ${x.line}`, choices: [
+    { label: x.answer, reply: pick(["“…Alright. Two o'clock, yeah? Text me.”", "“Huh. I didn't think of it like that. Maybe I will.”", "“Go on then. Just this once.”"], seed + 1), life: { witness: 2, walk: 1 } },
+    { label: "“No pressure. I'll pray for you.”", reply: "“Thanks… actually, that means a lot.”", life: { walk: 2 } },
+    { label: "“Your loss.”", reply: "They roll their eyes and walk off.", life: { fruit: -2 } },
+  ] };
+}
+const invite: Choice = { label: "Invite them to church on Sunday", reply: "“Church? On a Sunday?”", world: "invite" };
 
 export function encounter(who: Who, s: Story, seed = 0): Encounter {
   const child = s.age !== null && s.age < 13, teen = s.age !== null && s.age >= 13 && s.age < 18;
@@ -76,7 +101,23 @@ export function encounter(who: Who, s: Story, seed = 0): Encounter {
   if (who.role === "teen" && (teen || (s.age ?? 30) < 25)) return say(pick([
     `${who.name} holds out a vape: “Go on, everyone's doing it.”`,
     `${who.name}: “We're nicking stuff from the corner shop later. You in?”`,
-  ], seed), seed % 2 === 0 ? [
+    `${who.name}: “We're tagging the bridge tonight. Bring a can.”`,
+    `${who.name}: “Bunk off tomorrow with us. Nobody checks.”`,
+    `${who.name} flashes a bottle: “My brother got us vodka. Park, nine o'clock.”`,
+    `${who.name}: “That kid owes my mate money. We're gonna sort him out. Coming?”`,
+  ], seed), seed % 6 === 2 ? [
+    { label: "“Nah, I'm good.”", reply: "“Suit yourself, saint.”", life: { walk: 3 } },
+    { label: "Bring a can", reply: "Your name's on the wall now. So is the CCTV.", life: { walk: -4, drift: 1, crime: { charge: "Criminal damage", stars: 1, caught: 0.45 } } },
+  ] : seed % 6 === 3 ? [
+    { label: "“I'm going in.”", reply: "Your teacher actually smiles at you.", life: { smarts: 3 } },
+    { label: "Bunk off", reply: "It's fun until the school rings home.", life: { smarts: -3, happiness: -2 } },
+  ] : seed % 6 === 4 ? [
+    { label: "“Not for me.”", reply: "You go home and sleep fine.", life: { health: 2, walk: 2 } },
+    { label: "Meet them in the park", reply: "You don't remember getting home.", life: { health: -6, habit: { drinking: 1 }, walk: -4, drift: 1, risk: 0.005 } },
+  ] : seed % 6 === 5 ? [
+    { label: "Talk them out of it", reply: "One of them backs down. Then another.", life: { fruit: 5, walk: 3 } },
+    { label: "Go along", reply: "It goes too far. Someone's filming.", life: { walk: -7, drift: 2, crime: { charge: "Assault", stars: 3, caught: 0.6 } } },
+  ] : seed % 2 === 0 ? [
     { label: "“No thanks.”", reply: "They shrug. You feel lighter walking away.", life: { health: 2, walk: 1 } },
     { label: "Try it", reply: "It burns. You cough, and want another.", life: { health: -5, habit: { smoking: 1 }, drift: 1 } },
   ] : [
@@ -90,11 +131,35 @@ export function encounter(who: Who, s: Story, seed = 0): Encounter {
   ]);
   if (who.role === "seeker") return say(s.saved ? `${who.name}: “You go to church, don't you? Can I ask… why?”` : `${who.name}: “Do you ever wonder what it's all for?”`, s.saved && (s.age ?? 30) >= 13 ? [
     { label: "Share what Jesus has done for you", reply: "They listen closely.", world: "preach" },
-    { label: "Invite them to church on Sunday", reply: "“Maybe I will. What time?” “Two o'clock.”", life: { witness: 3 } },
+    invite,
     { label: "Change the subject", reply: "The moment passes.", life: { walk: -1 } },
   ] : [
     { label: "“All the time.”", reply: "“There's a church near the square. Sunday at two. My friend goes.”", life: { walk: 2 } },
     { label: "“Not really.”", reply: "“Fair enough.” They smile and move on." },
+  ]);
+  if (who.role === "church" && s.offline && !s.saved && (s.age ?? 30) >= 6) return say(`${who.name} stops you gently: “Can I tell you why Jesus matters to me? He died for our sins and rose again, and He changed my life.”`, [
+    { label: "“I want to trust Him too.”", reply: "They pray with you, right there on the pavement. Something lifts.", life: { save: true, walk: 15, happiness: 6 } },
+    { label: "“Tell me more.”", reply: "They tell you their story and invite you on Sunday at two.", life: { walk: 4 } },
+    { label: "“Not interested.”", reply: "“That's okay. God bless you.”", life: { walk: -1 } },
+  ]);
+  if (who.role === "neighbour") return say(pick([
+    `${who.name}: “Sorry, I'm all over the place. My husband's moved out and I don't know how to tell the kids.”`,
+    `${who.name}: “I've just been laid off. Twenty years at that place.”`,
+    `${who.name}: “My mum's in hospital. They don't think she'll make it.”`,
+    `${who.name}: “I can't make rent this month. Don't suppose you know anyone hiring?”`,
+    `${who.name}: “Did you hear what they're saying about the pastor? Juicy stuff.”`,
+    `${who.name}: “I'm selling these phones cheap. Don't ask where they came from.”`,
+  ], seed), seed % 6 === 4 ? [
+    { label: "“I'd rather not hear it.”", reply: "“Fair. You're a good one.”", life: { fruit: 3 } },
+    { label: "“Go on then…”", reply: "You feel grubby walking away.", life: { fruit: -4, walk: -3 } },
+  ] : seed % 6 === 5 ? [
+    { label: "“No thanks.”", reply: "They shrug and slip off.", life: { walk: 2 } },
+    { label: "Buy one", reply: "It's a bargain. It's also stolen.", life: { money: -60, walk: -5, drift: 1, crime: { charge: "Handling stolen goods", stars: 2, caught: 0.3 } } },
+  ] : [
+    { label: "Ask if you can pray for them, right now", reply: "Their eyes fill up. “Nobody's ever done that for me.”", life: s.saved ? { witness: 3, fruit: 3, walk: 2 } : { fruit: 3 } },
+    { label: "Offer practical help", reply: "You swap numbers. You'll drop round a meal this week.", life: { fruit: 4, money: -15 } },
+    ...(s.saved && (s.age ?? 30) >= 13 ? [invite] : []),
+    { label: "“That's rough.” Keep walking", reply: "They nod and look away." },
   ]);
   if (who.role === "church") return say(s.sunday ? `${who.name}: “Great to see you! Coming to the service at two?”` : `${who.name}: “We've got a small group on Wednesdays. You'd be so welcome.”`, [
     { label: s.sunday ? "“I'll be there.”" : "Join the small group", reply: "“Brilliant. I'll save you a seat.”", life: { walk: 4, happiness: 2 } },
@@ -117,6 +182,7 @@ export function encounter(who: Who, s: Story, seed = 0): Encounter {
   ]);
   return say(`${who.name}: “Morning! Lovely day for it.”`, [
     { label: "Stop and chat", reply: "Turns out you went to the same school.", life: { happiness: 2 } },
+    ...(s.saved && (s.age ?? 30) >= 13 ? [invite] : []),
     { label: "Nod and keep walking", reply: "They nod back." },
   ]);
 }
