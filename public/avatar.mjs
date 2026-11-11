@@ -61,6 +61,14 @@ export const avatarOptions = {
     ["tunic", "Long tunic"],
     ["tshirt", "T-shirt"],
     ["overalls", "Overalls"],
+    ["suit", "Suit and tie"],
+    ["scrubs", "Scrubs"],
+    ["hivis", "Hi-vis workwear"],
+    ["uniform", "Uniform shirt"],
+    ["labcoat", "Lab coat"],
+    ["dress", "Dress"],
+    ["skirt", "Long skirt"],
+    ["abaya", "Abaya"],
   ]),
   top: colors([
     ["#6b3fa0", "Kairos purple"],
@@ -105,6 +113,10 @@ export const avatarOptions = {
     ["none", "No hat"],
     ["cap", "Cap"],
     ["beanie", "Beanie"],
+    ["hijab", "Hijab"],
+    ["hardhat", "Hard hat"],
+    ["scrubcap", "Scrub cap"],
+    ["police", "Peaked cap"],
   ]),
 };
 export const avatarDefaults = {
@@ -281,6 +293,15 @@ export function avatarSvg(
     body +=
       poly("81,129 87,129 95,167 115,167 123,129 130,129 132,200 78,200", leg) +
       poly("91,151 120,151 125,197 86,197", shade(leg, 14));
+  const longHem = { dress: [214, 248, 66, 144], skirt: [196, 270, 60, 150], abaya: [128, 272, 58, 152] }[a.outfit];
+  if (a.outfit === "suit")
+    body += poly("97,126 106,140 114,126 116,199 98,199", "#f4f4f1") + poly("102,132 109,132 111,182 106,190 100,182", "#3a3550") + poly("83,127 102,146 92,166 79,140", dark) + poly("125,127 110,146 120,166 132,140", dark);
+  if (a.outfit === "scrubs") body += poly("94,124 106,146 117,124", skin) + poly("118,150 132,150 132,162 118,162", dark);
+  if (a.outfit === "hivis")
+    body += poly(`78,128 132,128 139,${y} 70,${y}`, "#d7e51f") + poly("70,168 139,168 140,176 69,176", "#c9cdd4") + poly("85,128 92,128 92,168 85,168", "#c9cdd4") + poly("117,128 124,128 124,168 117,168", "#c9cdd4");
+  if (a.outfit === "uniform") body += poly("82,146 96,146 96,160 82,160", dark) + poly("112,146 126,146 126,160 112,160", dark) + poly("85,137 93,137 93,145 85,145", "#e0b25a") + poly("66,190 143,190 143,199 66,199", "#1d2638");
+  if (a.outfit === "labcoat") body += poly("72,124 100,140 98,236 64,232", "#f4f4f1") + poly("110,140 133,124 146,232 112,236", "#e6e6e2");
+  if (longHem) body += poly(`${longHem[2] + 12},${longHem[0]} ${longHem[3] - 12},${longHem[0]} ${longHem[3]},${longHem[1]} ${longHem[2]},${longHem[1]}`, a.outfit === "skirt" ? leg : a.outfit === "abaya" ? shade(top, -10) : top) + poly(`${longHem[2] + 30},${longHem[0]} ${longHem[2] + 50},${longHem[0]} ${longHem[2] + 40},${longHem[1]} ${longHem[2] + 14},${longHem[1]}`, a.outfit === "skirt" ? shade(leg, -14) : dark);
   const back = a.backpack
     ? poly("65,133 78,124 137,136 148,190 132,207 67,196", shade(a.top, -55))
     : "";
@@ -407,7 +428,15 @@ export function avatarSvg(
   }
   if (a.glasses)
     head += `<g fill="none" stroke="#302a34" stroke-width="3"><path d="M73 68h25v20H73z M107 68h25v20h-25z M98 75h9"/></g>`;
-  if (a.hat !== "none")
+  const workHat = {
+    hijab: poly("60,60 72,24 104,12 136,24 150,60 152,140 128,150 128,84 80,84 80,150 56,140", shade(top, -35)) + poly("78,84 128,84 126,58 80,58", shade(top, -20)),
+    hardhat: poly("62,58 70,30 92,14 118,14 140,30 148,58", "#f2b51d") + poly("54,58 156,58 156,66 54,66", "#d99c12") + poly("101,14 109,14 110,58 100,58", "#d99c12"),
+    scrubcap: poly("64,58 68,30 92,16 120,18 140,34 144,60", top) + path("M66 56H142", shade(top, -25), 3),
+    police: poly("62,52 68,28 104,18 140,28 146,52", "#1d2638") + poly("60,52 148,52 146,62 62,62", "#111") + poly("64,58 104,64 140,58 132,72 76,72", "#111") + poly("98,30 110,30 110,42 98,42", "#e0b25a"),
+  }[a.hat];
+  if (workHat) {
+    if (a.hat === "hijab") { hairBack = workHat; hairFront = ""; } else hairFront += workHat;
+  } else if (a.hat !== "none")
     hairFront +=
       poly(
         a.hat === "cap"

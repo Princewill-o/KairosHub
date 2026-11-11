@@ -20,7 +20,7 @@ let asset: ReturnType<GLTFLoader["loadAsync"]> | null = null;
 const load = () =>
   asset ??
   (asset = new GLTFLoader()
-    .loadAsync("/world3d/kairos-citizen-v3.glb")
+    .loadAsync("/world3d/kairos-citizen-v4.glb")
     .catch((error) => {
       asset = null;
       throw error;
@@ -45,6 +45,9 @@ export async function buildCharacter(
     bottom: custom?.legs ?? c.bottom,
     shoes: custom?.shoe ?? c.shoes,
   };
+  // Scrubs are a matching set; a hijab takes a soft shade of the top.
+  if ((custom as { outfit?: string } | null)?.outfit === "scrubs") colours.bottom = colours.top;
+  colours.veil = "#" + new THREE.Color(colours.top).lerp(new THREE.Color("#1e1d22"), 0.35).getHexString();
   // Kairos Life: the same rig at every age, from baby to elder.
   const lifeAge = (input as Avatar & { lifeAge?: number }).lifeAge;
   const ageBody = bodyForAge(typeof lifeAge === "number" ? lifeAge : null);
@@ -88,11 +91,15 @@ export async function buildCharacter(
               : "tshirt");
   // Masculine or feminine frame: each has its own body, head and fitted clothing.
   const frame = (custom as { frame?: string } | null)?.frame === "fem" ? "fem" : "masc";
+  const coveredHair = custom?.hat === "hijab" || custom?.hat === "scrubcap";
+  const longHem = ["dress", "skirt", "abaya"].includes(String((custom as { outfit?: string } | null)?.outfit));
   model.traverse((node) => {
     const base = node.name.replace(/\.?\d{3}$/, "");
     if (node.name.startsWith("frame_")) node.visible = node.name.startsWith("frame_" + frame);
     if (node.name.startsWith("hair_"))
-      node.visible = node.name === "hair_" + selectedHair;
+      node.visible = node.name === "hair_" + selectedHair && !coveredHair;
+    // Dresses, long skirts and abayas replace the trousers: show the legs/robe instead.
+    if (longHem && /^(trouser_|waist|belt_line|sewn_crease)/.test(node.name) && !node.name.startsWith("trouser_cargo")) node.visible = false;
     // Long sleeves live under each arm as outfit_<name>001 / 002.
     if (node.name.startsWith("outfit_"))
       node.visible = base === "outfit_" + outfit;
@@ -108,6 +115,7 @@ export async function buildCharacter(
       node.visible = custom?.hat === "cap" || a.hat === "hat-cap";
     if (base === "extras_beanie")
       node.visible = custom?.hat === "beanie" || a.hat === "hat-beanie";
+    for (const h of ["hijab", "hardhat", "scrubcap", "police"]) if (base === "extras_" + h) node.visible = custom?.hat === h;
     if (base === "extras_freckles")
       node.visible = custom?.face === "freckles";
     if (base === "extras_beard") node.visible = custom?.face === "beard";
@@ -118,6 +126,8 @@ export async function buildCharacter(
       if (!material) {
         const m = src.clone();
         m.roughness = 0.83;
+        // Coats, skirts and robes are open shells: show their inside too.
+        if (src.name !== "ink") m.side = THREE.DoubleSide;
         m.metalness = 0;
         if (colours[src.name]) m.color.set(colours[src.name]);
         if (src.name === "lips") m.color.set(colours.skin).lerp(new THREE.Color(frame === "fem" ? "#9a3448" : "#4a2626"), frame === "fem" ? 0.45 : 0.3);
