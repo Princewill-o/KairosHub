@@ -192,6 +192,38 @@ const STATUS: Record<Connection, { text: string; dot: string }> = {
   solo: { text: "Just you", dot: "#8fb4ff" },
 };
 
+
+/** How long you must stand in an LTBS portal before it takes you. */
+export const PHASE_MS = 3000;
+const PHASE_SHADES = ["#22005e", "#2d0072", "#3a0a8a", "#4b0ea3", "#5a17b5", "#6a22c4", "#7c34cf", "#8d48d6"];
+let phaseTick = 0, phaseSeed = 1;
+/**
+ * The portal shimmer: a coarse grid of purple squares that reshuffles a few
+ * times a second (like standing in a nether portal), fading in with `level`
+ * and swirling at the edges first.
+ */
+function drawPhase(c: HTMLCanvasElement | null, level: number, now: number, reduced: boolean) {
+  if (!c) return;
+  c.style.opacity = String(Math.min(0.92, level ** 1.4 * 0.95));
+  if (level < 0.01) return;
+  const step = reduced ? 400 : 110;
+  if (now - phaseTick < step) return;
+  phaseTick = now; phaseSeed = (phaseSeed * 9301 + 49297) % 233280;
+  const cols = 16, rows = 10;
+  if (c.width !== cols || c.height !== rows) { c.width = cols; c.height = rows; }
+  const ctx = c.getContext("2d")!;
+  let r = phaseSeed;
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    r = (r * 9301 + 49297) % 233280;
+    const edge = Math.max(Math.abs(x - cols / 2 + 0.5) / (cols / 2), Math.abs(y - rows / 2 + 0.5) / (rows / 2));
+    const lift = Math.max(0, Math.min(1, level * 1.6 - (1 - edge) * 0.9)); // edges fill first, then the middle
+    const shade = Math.min(PHASE_SHADES.length - 1, Math.floor((r / 233280) * 5 + lift * 3));
+    ctx.globalAlpha = 0.35 + lift * 0.65;
+    ctx.fillStyle = PHASE_SHADES[shade];
+    ctx.clearRect(x, y, 1, 1); ctx.fillRect(x, y, 1, 1);
+  }
+}
+
 export function WorldView({
   map,
   serverId,
@@ -286,6 +318,9 @@ export function WorldView({
   pausedRef.current = paused;
   const getChat3d = useCallback(() => myChat.current, []);
   const nearRef = useRef<Portal | null>(null);
+  const portalPhase = useRef<{ id: string | null; start: number }>({ id: null, start: 0 });
+  const phaseLevel = useRef(0);
+  const phaseCanvas = useRef<HTMLCanvasElement>(null);
   const roomRef = useRef<string | null>(null);
   const { players, reportMove, stopped } = world;
   const fxCanvas = useRef<HTMLCanvasElement>(null);
@@ -594,6 +629,19 @@ export function WorldView({
       }
 
       const portal = portalAt(map, p.x, p.y);
+      // LTBS portals: stand in one and the world starts to phase out in purple;
+      // stay three seconds to cross, step out before then and nothing happens.
+      const phases = !!portal && (portal.to.kind === "story-enter" || portal.to.kind === "scripture-challenge") && !pausedRef.current;
+      if (phases && portalPhase.current.id !== portal!.id) portalPhase.current = { id: portal!.id, start: now };
+      if (!phases && portalPhase.current.id) portalPhase.current = { id: null, start: 0 };
+      const phase = phases ? Math.min(1, (now - portalPhase.current.start) / PHASE_MS) : 0;
+      phaseLevel.current += (phase - phaseLevel.current) * (phases ? 1 : 1 - Math.exp(-dt * 6));
+      drawPhase(phaseCanvas.current, phaseLevel.current, now, reduced);
+      if (phases && phase >= 1) {
+        portalPhase.current = { id: null, start: 0 }; phaseLevel.current = 0;
+        target.current = null; keys.current.clear(); stick.current = { x: 0, y: 0 };
+        portalCallback.current(portal!);
+      }
       // Aboard: once the doors are open, walking out through them puts you on the platform.
       if (!pausedRef.current && moved && dy < 0 && map.kind === "train" && portal?.to.kind === "alight" && RIDE.current &&
           rideFrame(now - advanceRide(RIDE.current, now).at).canAlight) {
@@ -643,6 +691,7 @@ export function WorldView({
       ref={viewport}
       className="relative h-full w-full touch-none overflow-hidden bg-[#0d1726] select-none"
     >
+      <canvas ref={phaseCanvas} data-hud="portal-phase" aria-hidden className="pointer-events-none absolute inset-0 z-[99990] h-full w-full" style={{ opacity: 0, imageRendering: "pixelated" }} />
       <details data-hud="settings" data-tone="ink" aria-label="Graphics settings" className="absolute bottom-14 left-3 z-[100000] flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-white/20 bg-[#13203a]/95 px-3 py-2 text-xs text-white" onPointerDown={e=>e.stopPropagation()}>
         <summary className="cursor-pointer py-1 font-bold">Settings</summary>
         <label>Graphics <select aria-label="3D graphics quality" value={quality} onChange={e=>{const next=readVisualQuality(e.target.value);setQuality(next);try{localStorage.setItem("world-graphics",next);}catch{/* Optional. */}}} className="ml-1 min-h-9 rounded bg-[#243c4b] px-1 font-bold text-white"><option value="auto">Balanced</option><option value="cinematic">Cinematic · more GPU</option><option value="low">Performance</option></select></label>

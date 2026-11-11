@@ -62,3 +62,17 @@ test("LTBS: each story portal sits on its own side of the island inside a themed
   for (let i = 0; i < gates.length; i++) for (let j = i + 1; j < gates.length; j++) assert.ok(Math.hypot(gates[i][0] - gates[j][0], gates[i][1] - gates[j][1]) >= 3, "challenge gates have room");
   for (const p of [...stories]) for (let y = p.rect.y / 32; y < (p.rect.y + p.rect.h) / 32; y++) for (let x = p.rect.x / 32; x < (p.rect.x + p.rect.w) / 32; x++) assert.notEqual(m.tiles[y][x], "X");
 });
+
+test("LTBS challenge gates are spread across the island, apart and off the biomes", async () => {
+  const out3 = await build({ entryPoints: ["./world-runtime/source/game/core/islands.ts"], bundle: true, write: false, format: "esm", platform: "node", logLevel: "silent" });
+  const f3 = `/tmp/kairos-islands-g-${process.pid}.mjs`; await fs.writeFile(f3, out3.outputFiles[0].text);
+  const map = (await import(pathToFileURL(f3).href)).islandMap("scripture-island");
+  assert.ok(map, "scripture island map");
+  const gates = map.portals.filter((p) => p.to.kind === "scripture-challenge");
+  assert.ok(gates.length >= 6);
+  const pts = gates.map((p) => [p.rect.x / W.TILE, p.rect.y / W.TILE]);
+  for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) assert.ok(Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]) >= 4, "gates at least four tiles apart");
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  assert.ok(Math.max(...xs) - Math.min(...xs) >= 26, "gates span the island's width");
+  assert.ok(Math.max(...ys) - Math.min(...ys) >= 14, "and its depth");
+});

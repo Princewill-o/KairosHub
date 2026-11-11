@@ -90,7 +90,22 @@ export function islandMap(id: string): WorldMap | null {
     // Story biomes are cleared after the island's trees are planted; their props are 3D.
     for (const biome of STORY_BIOMES) fill(biome.x, biome.y, biome.w, biome.h, biome.theme === "palace" || biome.theme === "den" ? "_" : "g");
     // The twelve Scripture challenge gates stand in a ring around the central plaza.
-    portals.filter(p=>p.to.kind==='scripture-challenge').forEach((p,i,all)=>{const a=(i/all.length)*Math.PI*2-Math.PI/2;p.rect=rect(Math.round(26+Math.cos(a)*8)-1,Math.round(23+Math.sin(a)*7.5),2,1);});
+    // The Scripture challenge gates are spread right across the island on a wide
+    // ellipse, each on open ground, clear of the story biomes and each other.
+    const gates = portals.filter(p=>p.to.kind==='scripture-challenge');
+    const placed: [number, number][] = [];
+    const inBiome = (x: number, y: number) => STORY_BIOMES.some(b => x >= b.x - 1 && x < b.x + b.w + 1 && y >= b.y - 1 && y < b.y + b.h + 1);
+    const open = (x: number, y: number) => [0, 1].every(dx => { const t = tiles[y]?.[x + dx]; return t !== undefined && !"XTwB=".includes(t); }) && !inBiome(x, y) && !inBiome(x + 1, y);
+    gates.forEach((p, i, all) => {
+      for (let tries = 0; tries < 40; tries++) {
+        const a = ((i + tries * 0.13) / all.length) * Math.PI * 2 - Math.PI / 2;
+        for (const scale of [1, 0.85, 0.7, 0.55]) {
+          const x = Math.round(26 + Math.cos(a) * 19 * scale) - 1, y = Math.round(24 + Math.sin(a) * 13 * scale);
+          if (open(x, y) && placed.every(([px, py]) => Math.hypot(px - x, py - y) >= 4.5)) { p.rect = rect(x, y, 2, 1); placed.push([x, y]); return; }
+        }
+      }
+      const a=(i/all.length)*Math.PI*2-Math.PI/2; p.rect=rect(Math.round(26+Math.cos(a)*8)-1,Math.round(23+Math.sin(a)*7.5),2,1);
+    });
     for(const game of gameBuildings) {
       fill(game.x,game.y,game.w,game.h,'X');
       structures.push({x:game.x,y:game.y,w:game.w,h:game.h,label:game.name,accent:game.colour,door:'bottom',game:game.id,grace:game.route});
