@@ -130,7 +130,7 @@ export function NewLife({ onBorn, onOnline }: { onBorn: (l: Life) => void; onOnl
       onBorn({ ...(L.newLife({ ...d, first: d.first.trim(), last: d.last.trim(), city: "london" }, rng) as Life), lastDay: null, pickups: [] });
     }}>
       <p className="ks-eyebrow">Offline · Kairos Life</p>
-      <img className="kl-logo" src="/brand/kairos-life-logo.svg" alt="Kairos Life" width={380} height={150} />
+      <img className="kl-logo" src="/brand/kairos-life-wordmark-game.svg" alt="Kairos Life" width={380} height={90} />
       <h2 id="kl-new">A new life begins in London</h2>
       <div className="kl-grid">
         <label>First name<input value={d.first} maxLength={20} onChange={(e) => { setErr(""); setD({ ...d, first: e.target.value }); }} /></label>

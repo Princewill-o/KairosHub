@@ -86,7 +86,7 @@ export function KairosMenu({ onPick, initial = "online" }: { onPick: (m: Mode) =
       </svg>
       <header className="km-head">
         <h1 className="km-title">{tab === "offline"
-          ? <img className="km-life-logo" src="/brand/kairos-life-logo.svg" alt="Kairos Life" />
+          ? <img className="km-life-logo" src="/brand/kairos-life-wordmark-game.svg" alt="Kairos Life" />
           : <span className="km-glass-text" data-text="KAIROS WORLD">KAIROS WORLD</span>}</h1>
         <nav className="km-tabs" role="tablist" aria-label="Game mode">
           <kbd>Q</kbd>
