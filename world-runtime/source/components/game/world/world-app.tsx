@@ -27,7 +27,7 @@ import { PoliceChallenge } from "./law-dialogs";
 import { ArrestOverlay, PrisonHud, ShopDialog, WantedStars } from "./life";
 import { JusticeDialog } from "./justice-dialog";
 import { NpcDialog } from "./npc-dialog";
-import { type Choice, type Encounter, type Story, encounter, excuseEncounter, roleFor } from "@/game/core/npc-encounters";
+import { type Choice, type Encounter, type Story, encounter, excuseEncounter, familyEncounter, roleFor } from "@/game/core/npc-encounters";
 import { ARREST_SCENE } from "@/game/core/pursuit";
 import { conductOf, fullSentence } from "@/game/core/justice";
 import { LevelBadge, LifeHud, type Quest } from "./life-hud";
@@ -949,6 +949,22 @@ export function WorldApp({
     const t = setTimeout(() => chatRef.current?.(), 1100);
     return () => clearTimeout(t);
   }, [nearPerson, nearPersonIndex, chat, preaching, jailed, map.kind]);
+  // Your family: talk to whoever's near you, and they come to you sometimes.
+  const [nearFamily, setNearFamily] = useState<typeof LIFE_WORLD.near>(null);
+  useEffect(() => {
+    const t = setInterval(() => {
+      setNearFamily((cur) => (cur?.name === LIFE_WORLD.near?.name ? cur : LIFE_WORLD.near));
+      const a = LIFE_WORLD.approach;
+      if (a) { LIFE_WORLD.approach = null; if (!chatRef2.current) talkFamily(a); }
+    }, 400);
+    return () => clearInterval(t);
+  });
+  const chatRef2 = useRef(false);
+  chatRef2.current = Boolean(chat);
+  const talkFamily = (m: NonNullable<typeof LIFE_WORLD.near>) => {
+    setChat(familyEncounter(m, { saved: kl.life?.saved, age: kl.life?.age }, Math.floor(Math.random() * 1000)));
+    window.dispatchEvent(new CustomEvent("kairos-life:family-call", { detail: { name: m.name, kind: "talk" } }));
+  };
   const taughtRef = useRef<string[]>([]);
   const teach = useCallback((category: string, delay = 0) => {
     const seen = [...taughtRef.current, ...(((kl.life as { seenLessons?: string[] } | null)?.seenLessons) ?? [])];
@@ -1366,6 +1382,11 @@ export function WorldApp({
         say(`${o.title}: ${o.text}`, true);
       }} />}
       <NowPlaying />
+      {nearFamily && !chat && (
+        <button type="button" className="kw-family-talk" data-hud="family-talk" onClick={() => talkFamily(nearFamily)}>
+          Talk to {nearFamily.name.split(" ")[0]} <small>({nearFamily.relation})</small>
+        </button>
+      )}
       {mapId === "train-carriage" && <NextStationBoard ride={RIDE} />}
       {lifeHub && <LifeHub
         // Offline it's your life's pounds; online, Grace coins convert at £20 each so the online economy doesn't inflate.

@@ -2926,19 +2926,39 @@ export function World3D({
       }));
     }
     // Kairos Life: your family, at home and outside your house on London Square.
-    const family: { b: Body; label: HTMLElement; x: number; z: number; phase: number }[] = [];
-    const familyHome = map.kind === "home" ? { x: map.spawn.x / TILE, z: map.spawn.y / TILE - 2 } : map.id === "city" ? { x: 35, z: 41.5 } : null;
-    if (familyHome) LIFE_WORLD.family.slice(0, 8).forEach((m, i) => {
-      const look = { ...npcLook(familySeed(m.name)), lifeAge: m.age } as Avatar;
-      const b = makeBody(look, null, false);
-      const a = (i / Math.max(1, LIFE_WORLD.family.length)) * Math.PI * 2;
-      const x = familyHome.x + Math.cos(a) * 1.6, z = familyHome.z + Math.sin(a) * 1.2;
-      b.root.position.set(x, 0, z);
-      scene.add(b.root);
-      const label = makeNameplate(`${m.name.split(" ")[0]} · ${m.relation}`, null);
-      el.appendChild(label);
-      family.push({ b, label, x, z, phase: i * 1.7 });
-    });
+    type FamilyBody = { m: typeof LIFE_WORLD.family[number]; b: Body; label: HTMLElement; bubble: HTMLElement; x: number; z: number; phase: number; sayUntil: number; nextSay: number; walkTo: { x: number; z: number } | null };
+    const family: FamilyBody[] = [];
+    // At home, and in London around wherever you arrive, so you actually meet them.
+    const familyHome = map.kind === "home" ? { x: map.spawn.x / TILE, z: map.spawn.y / TILE - 2 } : map.id === "city" ? { x: map.spawn.x / TILE + 2.5, z: map.spawn.y / TILE + 1.5 } : null;
+    let familyKey = "";
+    let nextFamilyApproach = performance.now() + 25000 + Math.random() * 20000;
+    const FAMILY_CHAT: Record<string, string[]> = {
+      mother: ["Dinner in ten!", "Did you pray today?", "Take a coat, it's cold."], father: ["Turn that music down!", "Who left the lights on?", "Proud of you."],
+      sibling: ["That's MY hoodie.", "Race you!", "Mum, they started it!"], child: ["Watch this!", "Can I have a snack?", "Look what I drew!"],
+      spouse: ["Love you.", "Shall we pray tonight?", "Long day?"], partner: ["Miss you already.", "Movie later?"], grandparent: ["In my day…", "God is faithful.", "Come, sit."],
+    };
+    const syncFamily = () => {
+      const key = familyHome ? LIFE_WORLD.family.map((m) => `${m.name}:${m.age}`).join("|") : "";
+      if (key === familyKey) return;
+      familyKey = key;
+      for (const f of family.splice(0)) { f.b.dispose(); f.label.remove(); f.bubble.remove(); }
+      if (!familyHome) return;
+      LIFE_WORLD.family.slice(0, 8).forEach((m, i) => {
+        const look = { ...npcLook(familySeed(m.name)), lifeAge: m.age } as Avatar;
+        const b = makeBody(look, null, false);
+        const a = (i / Math.max(1, LIFE_WORLD.family.length)) * Math.PI * 2;
+        const x = familyHome.x + Math.cos(a) * 1.6, z = familyHome.z + Math.sin(a) * 1.2;
+        b.root.position.set(x, 0, z);
+        world.add(b.root);
+        const label = makeNameplate(`${m.name.split(" ")[0]} · ${m.relation}`, null);
+        el.appendChild(label);
+        const bubble = document.createElement("div");
+        bubble.className = "kw-family-say"; bubble.style.visibility = "hidden";
+        el.appendChild(bubble);
+        family.push({ m, b, label, bubble, x, z, phase: i * 1.7, sayUntil: 0, nextSay: performance.now() + 4000 + i * 3500, walkTo: null });
+      });
+    };
+    syncFamily();
     const drawChurchScreen = () => {
       if (!churchScreen) return;
       const { ctx, tex } = churchScreen, W = 1280, H = 720;
@@ -4007,19 +4027,53 @@ export function World3D({
         }
         g.motes.geometry.attributes.position.needsUpdate = true;
       }
+      if (Math.floor(secs * 2) !== Math.floor((secs - dt) * 2)) syncFamily();
+      const meX = PLAYER.x / TILE, meZ = PLAYER.y / TILE;
+      let nearest: FamilyBody | null = null, nearestD = 2.4;
+      const nowMs = performance.now();
+      // Every so often someone in your family comes over to talk.
+      if (family.length && nowMs > nextFamilyApproach && !LIFE_WORLD.approach) {
+        nextFamilyApproach = nowMs + 40000 + Math.random() * 40000;
+        const f = family[Math.floor(Math.random() * family.length)];
+        if (Math.hypot(f.b.root.position.x - meX, f.b.root.position.z - meZ) < 14) f.walkTo = { x: meX, z: meZ };
+      }
       for (const f of family) {
-        // Family pottering about: a few steps, a pause, a turn.
-        const t = secs * 0.4 + f.phase, step = Math.sin(t) * 0.6;
-        const nx = f.x + step, nz = f.z + Math.cos(t * 0.7) * 0.3;
-        const moving = Math.abs(Math.cos(t)) > 0.35;
-        if (moving) f.b.root.rotation.y = Math.atan2(nx - f.b.root.position.x, nz - f.b.root.position.z);
+        let nx: number, nz: number, moving: boolean;
+        if (f.walkTo) {
+          f.walkTo = { x: meX, z: meZ };
+          const dx = meX - f.b.root.position.x, dz = meZ - f.b.root.position.z, d = Math.hypot(dx, dz);
+          if (d < 1.3) { f.walkTo = null; LIFE_WORLD.approach = f.m; f.x = f.b.root.position.x; f.z = f.b.root.position.z; nx = f.x; nz = f.z; moving = false; f.b.root.rotation.y = Math.atan2(dx, dz); }
+          else { nx = f.b.root.position.x + (dx / d) * dt * 1.6; nz = f.b.root.position.z + (dz / d) * dt * 1.6; moving = true; f.b.root.rotation.y = Math.atan2(dx, dz); }
+        } else {
+          // Family pottering about: a few steps, a pause, a turn.
+          const t = secs * 0.4 + f.phase, step = Math.sin(t) * 0.6;
+          nx = f.x + step; nz = f.z + Math.cos(t * 0.7) * 0.3;
+          moving = Math.abs(Math.cos(t)) > 0.35;
+          const dMe = Math.hypot(meX - nx, meZ - nz);
+          if (dMe < 2.4) { moving = false; nx = f.b.root.position.x; nz = f.b.root.position.z; f.b.root.rotation.y = Math.atan2(meX - nx, meZ - nz); }
+          else if (moving) f.b.root.rotation.y = Math.atan2(nx - f.b.root.position.x, nz - f.b.root.position.z);
+        }
         f.b.root.position.set(nx, 0, nz);
         setWalking(f.b, moving);
+        const d = Math.hypot(meX - nx, meZ - nz);
+        if (d < nearestD) { nearestD = d; nearest = f; }
+        // They chat among themselves (and to you).
+        if (nowMs > f.nextSay) {
+          const rel = f.m.relation === "parent" ? (f.m.sex === "female" ? "mother" : "father") : f.m.relation;
+          const pool = FAMILY_CHAT[rel] ?? ["Alright?"];
+          f.bubble.textContent = pool[Math.floor(Math.random() * pool.length)];
+          f.sayUntil = nowMs + 3200; f.nextSay = nowMs + 9000 + Math.random() * 12000;
+          if (f.b.char && Math.random() < 0.5) f.b.char.play("wave");
+        }
         const lp = projectedPoint.set(nx, 1.5, nz).project(camera);
         const lx = (lp.x + 1) * viewportWidth / 2, ly = (1 - lp.y) * viewportHeight / 2;
+        const onScreen = lp.z < 1 && lx > 0 && lx < viewportWidth && ly > 0 && ly < viewportHeight && !overview;
         f.label.style.left = `${lx}px`; f.label.style.top = `${ly}px`;
-        f.label.style.visibility = lp.z < 1 && lx > 0 && lx < viewportWidth && ly > 0 && ly < viewportHeight && !overview ? "visible" : "hidden";
+        f.label.style.visibility = onScreen ? "visible" : "hidden";
+        f.bubble.style.left = `${lx}px`; f.bubble.style.top = `${ly - 30}px`;
+        f.bubble.style.visibility = onScreen && nowMs < f.sayUntil ? "visible" : "hidden";
       }
+      LIFE_WORLD.near = nearest ? nearest.m : null;
       if (airliner) {
         // Every 70 s: wait at the gate, taxi to the runway, roll and climb away, then a new jet arrives.
         const t = (now / 1000) % 70;
@@ -4195,7 +4249,8 @@ export function World3D({
       host.current?.removeEventListener("pointerdown", dragDown); window.removeEventListener("pointermove", dragMove); window.removeEventListener("pointerup", dragUp);
       disposed = true;
       for (const body of bodies) body.dispose();
-      for (const f of family) f.label.remove();
+      for (const f of family) { f.label.remove(); f.bubble.remove(); }
+      LIFE_WORLD.near = null;
       carriage?.dispose();
       if (delivery) { delivery.group.removeFromParent(); delivery.driver.dispose(); }
       storyScene?.dispose();

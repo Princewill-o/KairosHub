@@ -6,7 +6,7 @@
  * where you are. Choices feed back into Kairos Life (faith, kindness, money,
  * happiness, health) or the world (handing yourself in, sharing your faith).
  */
-export type Role = "officer" | "child" | "teen" | "elder" | "worker" | "need" | "seeker" | "church" | "neighbour" | "inmate" | "guard" | "tourist";
+export type Role = "officer" | "child" | "teen" | "elder" | "worker" | "need" | "seeker" | "church" | "neighbour" | "inmate" | "guard" | "tourist" | "family";
 export interface Who { index: number; name: string; role: Role }
 export interface Story {
   offline: boolean; age: number | null; saved: boolean; stars: number; record: number;
@@ -185,4 +185,32 @@ export function encounter(who: Who, s: Story, seed = 0): Encounter {
     ...(s.saved && (s.age ?? 30) >= 13 ? [invite] : []),
     { label: "Nod and keep walking", reply: "They nod back." },
   ]);
+}
+
+/** Talking to someone in your family: what they say depends on who they are to you. */
+export function familyEncounter(m: { name: string; relation: string; age: number; sex?: string }, story: { saved?: boolean; age?: number }, seed = 0): Encounter {
+  const first = m.name.split(" ")[0];
+  const who: Who = { index: -1, name: m.name, role: "family" };
+  const r = m.relation === "parent" ? (m.sex === "female" ? "mother" : "father") : m.relation;
+  const lines: Record<string, string[]> = {
+    mother: [`${first}: “Have you eaten? There's jollof in the pot.”`, `${first}: “Are you still going to church every Sunday?”`, `${first}: “I worry about you, you know.”`],
+    father: [`${first}: “Sit down a minute. How's work treating you?”`, `${first}: “When I was your age, I had two jobs.”`, `${first}: “I'm proud of you. I don't say it enough.”`],
+    sibling: [`${first}: “You took my charger again, didn't you.”`, `${first}: “Cover for me tonight? I'll owe you.”`, `${first}: “Mum's asking about you. Ring her.”`],
+    child: [`${first}: “Can you help me with my homework?”`, `${first}: “Can we go to the park? Please?”`, `${first}: “Why do we pray before dinner?”`],
+    spouse: [`${first}: “Date night this Friday? Just us.”`, `${first}: “I had a long day. Can we talk?”`, `${first}: “I've been praying about us moving.”`],
+    partner: [`${first}: “Where is this going, us?”`, `${first}: “Come to my friend's party Saturday?”`],
+    grandparent: [`${first}: “Sit with me. Let me tell you about when I first came to London.”`, `${first}: “Read me a psalm, my eyes are tired.”`],
+  };
+  const pool = lines[r] ?? lines[r.replace(/^(step|half)-?/, "")] ?? [`${first}: “Alright? Good to see you.”`];
+  const line = pool[Math.abs(seed) % pool.length];
+  const choices: Choice[] = [
+    { label: "Ask how they're really doing", reply: `${first} opens up more than you expected. You listen.`, life: { happiness: 2 } },
+    { label: "Pray together", reply: "You hold hands and pray. The room feels lighter.", life: { walk: 3 } },
+  ];
+  if (r === "child") choices.push({ label: "Help with homework / play", reply: `${first} grins. “You're the best.”`, life: { happiness: 3, fruit: 1 } });
+  if (r === "mother" || r === "father" || r === "grandparent") choices.push({ label: "Help around the house", reply: "You fix the shelf and do the washing up.", life: { fruit: 2 } });
+  if (r === "spouse" || r === "partner") choices.push({ label: "Plan a date night", reply: "Friday, 7pm. They're smiling all evening.", life: { happiness: 4 } });
+  if (story.saved && (story.age ?? 30) >= 10) choices.push({ label: "Talk about Jesus", reply: `${first} goes quiet, then asks a question. A good one.`, life: { witness: 1, walk: 1 } });
+  choices.push({ label: "Snap at them", reply: `${first} looks hurt and walks off.`, life: { happiness: -3, walk: -1 } });
+  return { who, line, choices };
 }

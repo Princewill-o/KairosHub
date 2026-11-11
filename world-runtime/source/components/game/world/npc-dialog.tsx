@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Choice, Encounter } from "@/game/core/npc-encounters";
 
-const ROLE: Record<string, string> = { officer: "Police officer", child: "Local kid", teen: "Teenager", elder: "Neighbour", worker: "Local worker", need: "Someone in need", seeker: "Passer-by", church: "From Kharis Church", neighbour: "Neighbour", inmate: "Inmate", guard: "Prison officer", tourist: "Visitor" };
+const ROLE: Record<string, string> = { family: "Family", officer: "Police officer", child: "Local kid", teen: "Teenager", elder: "Neighbour", worker: "Local worker", need: "Someone in need", seeker: "Passer-by", church: "From Kharis Church", neighbour: "Neighbour", inmate: "Inmate", guard: "Prison officer", tourist: "Visitor" };
 
 export function NpcDialog({ e, onChoose, onClose }: { e: Encounter; onChoose: (c: Choice) => void; onClose: () => void }) {
   const [shown, setShown] = useState(0);
