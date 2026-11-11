@@ -2648,7 +2648,7 @@ export function World3D({
     if (map.id === "church") {
       const seats: { x: number; z: number }[] = [];
       for (let z = 7.7; z < 18.6; z += 1.2) for (const x0 of [3.5, 15.5]) for (let x = x0; x < x0 + 6.5; x += 1.05) seats.push({ x, z });
-      const limit = Math.min(seats.length, Math.max(30, budget.residents * 3));
+      const limit = Math.min(seats.length, Math.max(70, budget.residents * 5)); // packed, front to back
       seats.filter((_, i) => (i * 7) % 10 < 9).slice(0, limit).forEach((seat, i) => {
         const b = makeBody(npcLook(i + 140), null, true);
         b.root.position.set(seat.x, 0.18, seat.z);
