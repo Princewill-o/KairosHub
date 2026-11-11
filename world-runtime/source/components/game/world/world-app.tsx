@@ -59,6 +59,7 @@ import { FollowUpDialog } from "./preach-dialog";
 import { KairosPhone } from "./kairos-phone";
 import { LuckyBlock } from "./lucky-block";
 import { GameShow } from "./game-show";
+import { LifeHub } from "./life-hub";
 import { FIND_CHANCE, TIERS, rollTier, type Tier } from "@/game/core/lucky-blocks";
 import { MinistryDialog } from "./ministry-dialog";
 import { personaFor } from "@/game/core/ministry";
@@ -242,14 +243,18 @@ export function WorldApp({
   const [luckySpotted, setLuckySpotted] = useState<Tier | null>(null);
   const [luckyOpen, setLuckyOpen] = useState<Tier | null>(null);
   const [gameShow, setGameShow] = useState(false);
+  const [lifeHub, setLifeHub] = useState(false);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     const t = q.get("lucky"); if (t && TIERS.some((x) => x.id === t)) setLuckyOpen(t as Tier); else if (t) setLuckySpotted(rollTier());
     if (q.get("gameshow") === "1") setGameShow(true);
     const open = () => { setPhone(false); setGameShow(true); };
     window.addEventListener("kairos-open-gameshow", open);
+    const hub = () => { setPhone(false); setLifeHub(true); };
+    window.addEventListener("kairos-open-lifehub", hub);
+    if (q.get("lifehub") === "1") setLifeHub(true);
     const search = setInterval(() => { if (!document.hidden && Math.random() < FIND_CHANCE) setLuckySpotted((cur) => cur ?? rollTier()); }, 60_000);
-    return () => { clearInterval(search); window.removeEventListener("kairos-open-gameshow", open); };
+    return () => { clearInterval(search); window.removeEventListener("kairos-open-gameshow", open); window.removeEventListener("kairos-open-lifehub", hub); };
   }, []);
   const [miniGamesOpen, setMiniGamesOpen] = useState(false);
   const [nativeChallenge,setNativeChallenge] = useState<string|null>(null);
@@ -1338,6 +1343,11 @@ export function WorldApp({
         else setWallet((w) => Math.max(0, w + o.coins));
         say(`${o.title}: ${o.text}`, true);
       }} />}
+      {lifeHub && <LifeHub
+        // Offline it's your life's pounds; online, Grace coins convert at £20 each so the online economy doesn't inflate.
+        wallet={offline ? wallet : wallet * 20}
+        setWallet={offline ? setWallet : (f) => setWallet((w) => Math.max(0, w + Math.round((f(w * 20) - w * 20) / 20)))}
+        onClose={() => setLifeHub(false)} />}
       {gameShow && <GameShow avatar={lifeAvatar} onDone={(won) => {
         setGameShow(false);
         if (won > 0) {
