@@ -36,7 +36,13 @@ def F(w=50):
     return w, [[(0, 0), (w, 0), (w, T - 2), (T, T - 2), (T, 40), (w - 6, 40), (w - 6, 60), (T, 60), (T, H), (0, H)]]
 def E(w=50):
     return w, [[(0, 0), (w, 0), (w, T - 2), (T, T - 2), (T, 39), (w - 5, 39), (w - 5, 60), (T, 60), (T, H - T + 2), (w, H - T + 2), (w, H), (0, H)]]
-GLYPH = {"K": K, "A": A, "I": I, "R": R, "O": O, "S": S, "L": L, "F": F, "E": E}
+def W(w=82):
+    return w, [[(0, 0), (T - 2, 0), (T + 6, H - 40), (w / 2 - 8, 18), (w / 2 + 8, 18), (w - T - 6, H - 40), (w - T + 2, 0), (w, 0), (w - 14, H), (w - T - 12, H), (w / 2, 46), (T + 12, H), (14, H)]]
+def D(w=58):
+    k = 20
+    return w, [[(0, 0), (w - k, 0), (w, k), (w, H - k), (w - k, H), (0, H)],
+               [(T, T), (w - T - 6, T), (w - T, T + 8), (w - T, H - T - 8), (w - T - 6, H - T), (T, H - T)]]
+GLYPH = {"W": W, "D": D, "K": K, "A": A, "I": I, "R": R, "O": O, "S": S, "L": L, "F": F, "E": E}
 
 def layout(word, seed=7):
     rnd = random.Random(seed)
@@ -84,7 +90,17 @@ def build(word, seed=7):
     vb_w, vb_h = width + pad * 2, bottom - top + pad * 2
     return path_d(letters, pad, pad - top), vb_w, vb_h, width, top, bottom, pad
 
+def write_game(word, name):
+    d, w, h, width, top, bottom, pad = build(word)
+    open(f"public/brand/{name}.svg", "w").write(
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w:.0f} {h + 12:.0f}" role="img" aria-label="{word.title()}">'
+        f'<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#d9e4ff"/><stop offset="1" stop-color="#9fb6ff"/></linearGradient></defs>'
+        f'<path d="{d}" transform="translate(0 12)" fill="#2b5fd9" stroke="#2b5fd9" stroke-width="34" stroke-linejoin="miter" fill-rule="evenodd"/>'
+        f'<path d="{d}" fill="#120c18" stroke="#120c18" stroke-width="34" stroke-linejoin="miter" fill-rule="evenodd"/>'
+        f'<path d="{d}" fill="url(#g)" fill-rule="evenodd"/></svg>\n')
+
 def write():
+    write_game("KAIROS WORLD", "kairos-world-wordmark-game")
     d, w, h, width, top, bottom, pad = build("KAIROS LIFE")
     # 1) Solid black wordmark
     open("public/brand/kairos-life-wordmark.svg", "w").write(
