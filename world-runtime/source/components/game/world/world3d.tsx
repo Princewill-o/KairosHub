@@ -3741,7 +3741,7 @@ export function World3D({
       playerLabel.style.top = `${Math.max(120, Math.min(viewportHeight - 170, sy))}px`;
       playerLabel.style.transform = "translate(-50%, -100%)";
       updateNameplateSpeech(playerLabel, getChat?.());
-      playerLabel.style.visibility = overview || getHomeAction?.() ? "hidden" : "visible";
+      playerLabel.style.visibility = overview || getHomeAction?.() || CAMERA_VIEW.mode === "first" ? "hidden" : "visible"; // no floating name in your own eyes
       sun.position.set(focus.x - 10, 22, focus.z + 12);
       sun.target.position.copy(focus);
 
@@ -4355,7 +4355,7 @@ export function World3D({
       <button type="button" aria-label="Zoom in" disabled={zoom>=2.4} onClick={()=>setZoom(value=>Math.min(2.4,value+.15))} className="grid size-11 place-items-center rounded-full text-xl hover:bg-white/15 disabled:opacity-30">+</button>
     </div>}
     {!overview && <button type="button" data-hud="camera-view" aria-label={`Camera view: ${CAMERA_LABEL[view]}. Press V to change.`} onClick={(e) => { CAMERA_VIEW.mode = nextMode(CAMERA_VIEW.mode); window.dispatchEvent(new CustomEvent("kairos-camera-view", { detail: CAMERA_VIEW.mode })); e.currentTarget.blur(); }} className="absolute right-3 top-[290px] z-[100001] min-h-11 rounded-full border border-white/20 bg-[#21152e]/95 px-3 text-xs font-black text-white shadow-lg hover:bg-[#33204a]">View · {CAMERA_LABEL[view]} <span className="opacity-60">V</span></button>}
-    {!overview && view === "first" && <p data-hud="camera-hint" className="pointer-events-none absolute bottom-24 left-1/2 z-[100001] -translate-x-1/2 rounded-full bg-black/45 px-3 py-1 text-xs font-bold text-white">W/S walk · A/D or drag to turn · F punch · V change view</p>}
+    {!overview && view === "first" && <p data-hud="camera-hint" className="pointer-events-none absolute bottom-[120px] left-1/2 z-[100001] -translate-x-1/2 rounded-full bg-black/45 px-3 py-1 text-xs font-bold text-white">W/S walk · A/D or drag to turn · F punch · V change view</p>}
     {!overview && map.art === "london" && <CityBroadcast {...news} />}
   </>;
 }
