@@ -40,3 +40,25 @@ test("the flight cabin has an aisle to walk and seats either side", () => {
   assert.ok(aisle.slice(1, -1).split("").every((c) => c === "."));
   assert.ok(f.tiles[1].includes("s") && f.tiles[4].includes("s"));
 });
+
+test("LTBS: each story portal sits on its own side of the island inside a themed biome, with a description", async () => {
+  const out2 = await build({ entryPoints: ["./world-runtime/source/game/core/islands.ts"], bundle: true, write: false, format: "esm", platform: "node", logLevel: "silent" });
+  const f2 = `/tmp/kairos-islands-${process.pid}.mjs`; await fs.writeFile(f2, out2.outputFiles[0].text);
+  const I = await import(pathToFileURL(f2).href);
+  const m = I.islandMap("scripture-island");
+  const stories = m.portals.filter((p) => p.to.kind === "story-enter");
+  assert.equal(stories.length, 4);
+  const sides = new Set();
+  for (const b of I.STORY_BIOMES) {
+    const p = stories.find((q) => q.to.story === b.story);
+    const px = p.rect.x / 32, py = p.rect.y / 32;
+    assert.ok(px >= b.x && px + 2 <= b.x + b.w && py >= b.y && py + 2 <= b.y + b.h, `${b.story} portal inside its biome`);
+    assert.ok(b.blurb.length > 30 && b.ref, b.story);
+    sides.add(`${px < 26 ? "w" : "e"}${py < 30 ? "n" : "s"}`);
+  }
+  assert.equal(sides.size, 4, "one story on each side");
+  const gates = m.portals.filter((p) => p.to.kind === "scripture-challenge").map((p) => [p.rect.x / 32 + 1, p.rect.y / 32]);
+  assert.equal(gates.length, 12);
+  for (let i = 0; i < gates.length; i++) for (let j = i + 1; j < gates.length; j++) assert.ok(Math.hypot(gates[i][0] - gates[j][0], gates[i][1] - gates[j][1]) >= 3, "challenge gates have room");
+  for (const p of [...stories]) for (let y = p.rect.y / 32; y < (p.rect.y + p.rect.h) / 32; y++) for (let x = p.rect.x / 32; x < (p.rect.x + p.rect.w) / 32; x++) assert.notEqual(m.tiles[y][x], "X");
+});

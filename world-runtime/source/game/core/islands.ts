@@ -10,6 +10,17 @@ export const ISLANDS = [
   { id: "orchard-island", station: "orchard-retreat", name: "Orchard Retreat", subtitle: "Prayer walks & gathering circles", colour: "#bfcb77", x: 643, y: 115 },
 ] as const;
 
+/**
+ * LTBS story biomes: each Bible story has its own corner of the island, a little
+ * world in its style around a walk-in portal, and a board describing the story.
+ */
+export const STORY_BIOMES = [
+  { story: "david", name: "David", theme: "pasture", x: 3, y: 21, w: 13, h: 6, portal: [8, 22], ref: "1 Samuel 16–17", blurb: "A shepherd boy who trusts God more than his sling. He faces Goliath when grown soldiers won't, and God makes him king." },
+  { story: "esther", name: "Esther", theme: "palace", x: 36, y: 21, w: 13, h: 6, portal: [41, 22], ref: "Esther 4–7", blurb: "A young queen in a Persian palace risks her life to speak for her people: perhaps she was made queen for such a time as this." },
+  { story: "ruth", name: "Ruth", theme: "field", x: 3, y: 37, w: 16, h: 6, portal: [10, 38], ref: "Ruth 1–4", blurb: "A widow from Moab refuses to leave Naomi, gleans barley in Boaz's field, and finds a home among God's people." },
+  { story: "daniel", name: "Daniel", theme: "den", x: 31, y: 37, w: 17, h: 6, portal: [39, 38], ref: "Daniel 6", blurb: "Daniel keeps praying three times a day when it is forbidden. Thrown to the lions, he is kept safe by the God he serves." },
+] as const;
+
 export const islandForStation = (id: string) => ISLANDS.find(island => island.station === id);
 export const islandStations = () => ISLANDS.map(island => ({ id: island.station as string, name: island.name, lines: ["grace"], exit: { x: 24, y: 37 }, exitPx: { x: 24.5 * 32, y: 37.5 * 32 } }));
 
@@ -62,7 +73,10 @@ export function islandMap(id: string): WorldMap | null {
       structures.push({ x:17,y:6,w:18,h:6,label:"LTBS · Bible Story Worlds",accent:"#a78a47",door:"bottom" });
       fill(23, 12, 4, 8, "-");
       portals.push({ id: "scripture-games", rect: rect(23, 14, 4, 2), label: "LTBS · walk in for stories and Scripture games", to: { kind: "map", mapId: `lobby-ltbs@${id}`, label: "LTBS" } }, { id: "bible-garden", rect: rect(11, 22), label: "Read Scripture in the garden", to: { kind: "act", activity: "study" } });
-      for (const [index,x] of [8,18,31,41].entries()) portals.push({id:`story-${index}`,rect:rect(x,23,2,2),label:["Enter David’s story","Enter Ruth’s story","Enter Esther’s story","Enter Daniel’s story"][index],to:{kind:"story-enter",story:(["david","ruth","esther","daniel"] as const)[index]}});
+      for (const biome of STORY_BIOMES) {
+        fill(biome.x, biome.y, biome.w, biome.h, biome.theme === "palace" || biome.theme === "den" ? "_" : "g");
+        portals.push({ id: `story-${biome.story}`, rect: rect(biome.portal[0], biome.portal[1], 2, 2), label: `Enter ${biome.name}’s story`, to: { kind: "story-enter", story: biome.story } });
+      }
       SCRIPTURE_CHALLENGES.forEach((game,index) => {
         const x=[6,12,18,32,38,44][index%6],y=index<6?17:28;
         portals.push({id:`challenge-${game.id}`,rect:rect(x,y,2,1),label:game.title,to:{kind:"scripture-challenge",challenge:game.id}});
@@ -73,7 +87,10 @@ export function islandMap(id: string): WorldMap | null {
   }
   if(id === 'scripture-island') {
     // Keep the original story and challenge entrances in the open central precinct.
-    portals.filter(p=>p.to.kind==='scripture-challenge').forEach((p,i)=>{p.rect=rect(18+(i%4)*4,25+Math.floor(i/4)*2,2,1);});
+    // Story biomes are cleared after the island's trees are planted; their props are 3D.
+    for (const biome of STORY_BIOMES) fill(biome.x, biome.y, biome.w, biome.h, biome.theme === "palace" || biome.theme === "den" ? "_" : "g");
+    // The twelve Scripture challenge gates stand in a ring around the central plaza.
+    portals.filter(p=>p.to.kind==='scripture-challenge').forEach((p,i,all)=>{const a=(i/all.length)*Math.PI*2-Math.PI/2;p.rect=rect(Math.round(26+Math.cos(a)*8)-1,Math.round(23+Math.sin(a)*7.5),2,1);});
     for(const game of gameBuildings) {
       fill(game.x,game.y,game.w,game.h,'X');
       structures.push({x:game.x,y:game.y,w:game.w,h:game.h,label:game.name,accent:game.colour,door:'bottom',game:game.id,grace:game.route});

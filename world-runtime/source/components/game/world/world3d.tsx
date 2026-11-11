@@ -59,6 +59,7 @@ import { curvedVertexShader, immersiveMotion, physicalSurface, visualProfile, ty
 import { STATION_PLATFORM_Y } from "@/game/core/world";
 import { AIRPORT, TILE, blocked, roadEnds, type Portal, type WorldMap } from "@/game/core/world";
 import { CHURCH_SCREEN, wrapLines } from "@/game/core/church-service";
+import { STORY_BIOMES } from "@/game/core/islands";
 import { LIFE_WORLD, familySeed, flightAltitude } from "@/game/core/life-world";
 
 /**
@@ -2029,6 +2030,7 @@ export function World3D({
     const highland = map.art === "highlands";
     const london = map.art === "london";
     const portalGates: { swirl: THREE.Mesh; motes: THREE.Points; pos: Float32Array; seed: Float32Array; pool: THREE.Mesh }[] = [];
+    const biomeMovers: ((t: number) => void)[] = [];
     const outdoors = map.kind === "campus" || map.kind === "woodland";
     const indoors = !london && !highland && !outdoors;
     const station = map.kind === "station";
@@ -2378,6 +2380,80 @@ export function World3D({
         tag.position.set(0, 4.15, 0.05); gate.add(tag);
         portalGates.push({ swirl, motes, pos, seed, pool });
       };
+      // LTBS story biomes: each story's corner of the island is a little world of its own,
+      // with a board that tells you what the story is about.
+      const storyBoard = (b: (typeof STORY_BIOMES)[number]) => {
+        const c = document.createElement("canvas"); c.width = 640; c.height = 400;
+        const x = c.getContext("2d")!;
+        x.fillStyle = "#fff8ec"; x.fillRect(0, 0, 640, 400);
+        x.strokeStyle = "#120c18"; x.lineWidth = 16; x.strokeRect(8, 8, 624, 384);
+        x.fillStyle = "#6b3fa0"; x.fillRect(16, 16, 608, 92);
+        x.fillStyle = "#f5b83d"; x.font = "900 54px system-ui, sans-serif"; x.textBaseline = "middle"; x.fillText(`${b.name}`, 40, 64);
+        x.fillStyle = "#fff8ec"; x.font = "800 26px system-ui, sans-serif"; x.textAlign = "right"; x.fillText(b.ref, 600, 64); x.textAlign = "left";
+        x.fillStyle = "#120c18"; x.font = "700 30px system-ui, sans-serif";
+        wrapLines(b.blurb, 560, (t) => x.measureText(t).width).slice(0, 6).forEach((l, i) => x.fillText(l, 40, 150 + i * 40));
+        const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+        const g = new THREE.Group();
+        box(g, "#120c18", -1.62, 0.95, -0.08, 1.62, 3.05, 0.02);
+        const face = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 1.94), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })); face.position.set(0, 2, 0.03); g.add(face);
+        box(g, "#6b4a2b", -1.3, 0, -0.1, -1.1, 1.0, 0.1); box(g, "#6b4a2b", 1.1, 0, -0.1, 1.3, 1.0, 0.1);
+        g.position.set(b.portal[0] + 5, 0, b.portal[1] + 2.4); world.add(g);
+      };
+      const storyBiome = (b: (typeof STORY_BIOMES)[number]) => {
+        const [px, pz] = b.portal, cx = px + 1, x0 = b.x, x1 = b.x + b.w, z0 = b.y, z1 = b.y + b.h;
+        const rnd = (i: number) => Math.abs(Math.sin(i * 12.9898 + b.x * 78.233)) % 1;
+        if (b.theme === "pasture") {
+          for (let i = 0; i < 4; i++) { const hill = new THREE.Mesh(new THREE.ConeGeometry(1.4 + rnd(i) * 0.8, 1.2 + rnd(i + 9), 6), mat(i % 2 ? "#6fae55" : "#5d9a49")); hill.position.set(x0 + 1 + i * 3.2, 0.6, z0 + 0.6); world.add(hill); }
+          box(world, "#46a6cf", x0, 0.01, z1 - 1.3, x1, 0.05, z1 - 0.7);                                   // the brook (five smooth stones)
+          for (let i = 0; i < 5; i++) { const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.13, 0), mat("#d6d2c8")); st.position.set(x0 + 2 + i * 0.4, 0.08, z1 - 1); world.add(st); }
+          for (let i = 0; i < 5; i++) {
+            const sheep = new THREE.Group();
+            box(sheep, "#f6f2ea", -0.3, 0.22, -0.2, 0.3, 0.62, 0.2); box(sheep, "#2a2230", 0.28, 0.42, -0.12, 0.5, 0.64, 0.12);
+            for (const [lx, lz] of [[-0.2, -0.12], [0.2, -0.12], [-0.2, 0.12], [0.2, 0.12]]) box(sheep, "#2a2230", lx - 0.04, 0, lz - 0.04, lx + 0.04, 0.24, lz + 0.04);
+            const hx = x0 + 1.5 + rnd(i + 20) * (b.w - 3), hz = z0 + 2 + rnd(i + 30) * (b.h - 3.5);
+            sheep.position.set(hx, 0, hz); world.add(sheep);
+            biomeMovers.push((t) => { const a = t * 0.25 + i * 1.3; sheep.position.set(hx + Math.cos(a) * 0.6, Math.abs(Math.sin(t * 3 + i)) * 0.03, hz + Math.sin(a) * 0.3); sheep.rotation.y = -a; });
+          }
+          cyl(world, "#6b4a2b", x0 + 1.2, z0 + 3, 0, 1.4, 0.05, 6); cyl(world, "#6b4a2b", x0 + 1.2, z0 + 3, 1.3, 1.36, 0.25, 6);        // shepherd's crook post
+        } else if (b.theme === "field") {
+          for (let zz = z0 + 0.5; zz < z1 - 0.3; zz += 0.55) for (let xx = x0 + 0.4; xx < x1 - 0.3; xx += 0.45) {
+            if (Math.abs(xx - cx) < 2.2 && zz < pz + 3) continue;
+            const stalk = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.55 + rnd(xx * 3 + zz) * 0.25, 4), mat(rnd(xx + zz * 7) > 0.5 ? "#e6c25a" : "#d4a93f"));
+            stalk.position.set(xx + (rnd(xx * zz) - 0.5) * 0.15, 0.3, zz); world.add(stalk);
+            biomeMovers.push((t) => { stalk.rotation.z = Math.sin(t * 1.6 + xx * 0.7) * 0.12; });
+          }
+          for (const [sx, sz] of [[x1 - 2.4, z1 - 1.2], [x1 - 3.6, z1 - 0.8]]) { cyl(world, "#d9b04a", sx, sz, 0, 0.8, 0.22, 7, 0.12); cyl(world, "#a77f2d", sx, sz, 0.35, 0.45, 0.24, 7); }
+          cyl(world, "#a6a2a8", x0 + 1.6, z1 - 1.4, 0, 0.6, 0.55, 8); cyl(world, "#46a6cf", x0 + 1.6, z1 - 1.4, 0.55, 0.6, 0.42, 8);   // well
+        } else if (b.theme === "palace") {
+          box(world, "#6b3fa0", cx - 0.8, 0.01, pz + 2, cx + 0.8, 0.04, z1);                                      // royal carpet
+          box(world, "#f5b83d", cx - 0.85, 0.01, pz + 2, cx - 0.75, 0.045, z1); box(world, "#f5b83d", cx + 0.75, 0.01, pz + 2, cx + 0.85, 0.045, z1);
+          for (const side of [-1, 1]) for (let i = 0; i < 3; i++) {
+            const colX = cx + side * (2.6 + i * 1.6), colZ = pz + 1.5 + i * 0.5;
+            cyl(world, "#efe6d2", colX, colZ, 0, 2.6, 0.24, 8); box(world, "#f5b83d", colX - 0.34, 2.6, colZ - 0.34, colX + 0.34, 2.85, colZ + 0.34);
+          }
+          const sceptre = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshStandardMaterial({ color: "#f5b83d", emissive: "#8a5a00", flatShading: true }));
+          sceptre.position.set(cx + 3.2, 1.6, z1 - 1.4); world.add(sceptre); cyl(world, "#f5b83d", cx + 3.2, z1 - 1.4, 0, 1.4, 0.05, 6);
+          biomeMovers.push((t) => { sceptre.rotation.y = t; sceptre.position.y = 1.6 + Math.sin(t * 2) * 0.06; });
+        } else if (b.theme === "den") {
+          for (let i = 0; i < 7; i++) { const h = 1.2 + rnd(i) * 1.6, xx = x0 + i * (b.w / 7); box(world, i % 2 ? "#c48a4a" : "#b07338", xx, 0, z0, xx + b.w / 7 + 0.1, h, z0 + 1 + rnd(i + 3) * 0.6); }
+          for (let i = 0; i < 3; i++) {
+            const lion = new THREE.Group(), lx = x0 + 2 + i * 5.2 - (i === 1 ? -0.6 : 0), lz = z0 + 3.2 + rnd(i + 7) * 1.4;
+            box(lion, "#d9a441", -0.45, 0.25, -0.22, 0.45, 0.68, 0.22);
+            box(lion, "#8a4f1f", 0.32, 0.38, -0.32, 0.72, 0.98, 0.32); box(lion, "#e2b25a", 0.62, 0.5, -0.17, 0.86, 0.8, 0.17);
+            for (const [ax, az] of [[-0.32, -0.14], [0.3, -0.14], [-0.32, 0.14], [0.3, 0.14]]) box(lion, "#c08f35", ax - 0.06, 0, az - 0.06, ax + 0.06, 0.28, az + 0.06);
+            box(lion, "#d9a441", -0.75, 0.55, -0.03, -0.45, 0.61, 0.03);
+            lion.position.set(lx, 0, lz); lion.rotation.y = i === 1 ? Math.PI : i * 0.6 - 0.3; world.add(lion);
+            biomeMovers.push((t) => { lion.scale.y = 1 + Math.sin(t * 1.4 + i) * 0.03; });
+          }
+          for (const tx of [cx - 2.4, cx + 2.4]) {
+            cyl(world, "#5a3d2a", tx, pz + 1.6, 0, 1.5, 0.07, 6);
+            const flame = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 5), new THREE.MeshBasicMaterial({ color: "#ffb347", toneMapped: false }));
+            flame.position.set(tx, 1.72, pz + 1.6); world.add(flame);
+            biomeMovers.push((t) => { flame.scale.set(1, 0.85 + Math.abs(Math.sin(t * 9 + tx)) * 0.35, 1); });
+          }
+        }
+        storyBoard(b);
+      };
       if (map.island) {
         for (const portal of map.portals.filter(portal => ["games","act","story-enter","scripture-challenge"].includes(portal.to.kind))) {
           if (map.id === "scripture-island" && (portal.to.kind === "story-enter" || portal.to.kind === "scripture-challenge")) { storyPortal(portal); continue; }
@@ -2385,6 +2461,7 @@ export function World3D({
           marker.position.set(portal.rect.x/TILE+1,1.6,portal.rect.y/TILE-.3);world.add(marker);
           cyl(world,"#d8cdb8",portal.rect.x/TILE+1,portal.rect.y/TILE-.3,0,1.4,.065,8);
         }
+        if (map.id === "scripture-island") for (const b of STORY_BIOMES) storyBiome(b);
         if (map.id === "city") {
           const events=sign("KHARIS · SUNDAY WORSHIP · PRAYER · FELLOWSHIP",{bg:"#38214e",fg:"#f8dfa1",w:8,h:.8});events.position.set(34,4.4,21.2);world.add(events);
         }
@@ -3687,6 +3764,7 @@ export function World3D({
       updateCrash(now);
       updateDelivery(now);
       storyScene?.update(secs, { x: me.root.position.x, z: me.root.position.z }, STORY_FOUND.found);
+      for (const m of biomeMovers) m(secs);
       for (const g of portalGates) {
         (g.swirl.material as THREE.ShaderMaterial).uniforms.uTime.value = secs;
         (g.pool.material as THREE.MeshBasicMaterial).opacity = 0.22 + Math.sin(secs * 2.2) * 0.08;
