@@ -10,10 +10,12 @@ const L = await import(pathToFileURL(file).href);
 
 const seeded = (seed) => L.makeRng(seed);
 
-test("a random life starts at birth with parents and a home city", () => {
+test("a random life starts at age 7 with parents and a home city", () => {
   const s = L.newLife({ random: true }, seeded(7));
-  assert.equal(s.age, 0);
+  assert.equal(s.age, 7);
+  assert.equal(L.START_AGE, 7);
   assert.equal(L.stageFor(0).id, "baby");
+  assert.ok(s.family.filter((p) => p.relation === "parent").every((p) => p.age >= 29));
   assert.ok(s.name.first && s.name.last);
   assert.ok(s.family.filter((p) => p.relation === "parent").length >= 1);
   assert.ok(L.CITIES.some((c) => c.id === s.city));
@@ -45,9 +47,9 @@ test("ageing one year moves age, family ages and produces events", () => {
   let s = L.newLife({ random: true }, r);
   const parentAge = s.family[0].age;
   s = L.ageUp(s, r);
-  assert.equal(s.age, 1);
+  assert.equal(s.age, 8);
   assert.equal(s.family[0].age, parentAge + 1);
-  assert.ok(s.log.some((e) => e.age === 1));
+  assert.ok(s.log.some((e) => e.age === 8));
 });
 
 test("every event and temptation has options that resolve", () => {
@@ -135,7 +137,7 @@ test("growing up is marked at each new life stage", () => {
   let s = L.newLife({ random: true }, r);
   for (let i = 0; i < 19 && s.alive; i++) s = L.ageUp(s.pending ? L.choose(s, 0, r) : s, r);
   const kinds = s.log.filter((e) => e.kind === "milestone").map((e) => e.age);
-  for (const a of [3, 13, 18]) assert.ok(kinds.includes(a), `milestone at ${a}`);
+  for (const a of [13, 18]) assert.ok(kinds.includes(a), `milestone at ${a}`);
 });
 
 function lifespan(seed, careful) {
@@ -377,4 +379,15 @@ test("crashes hurt your health; a serious one ends the life", () => {
   const dead = L.crashed(s, { severity: 1, fatal: true });
   assert.equal(dead.alive, false);
   assert.match(dead.cause, /crash/);
+});
+
+test("accidents fit your age and the story you're in", () => {
+  const child = L.accidentProfile(8, "bike"), elder = L.accidentProfile(78, "car");
+  assert.equal(child.band, "child"); assert.match(child.serious, /bike/);
+  assert.ok(child.fatal > elder.fatal && elder.heal > child.heal);
+  let s = L.newLife({ random: true }, seeded(5));
+  s = L.crashed(s, { severity: 0.7, fatal: false, vehicle: "car" });
+  assert.match(s.log.at(-1).text, /children's ward|knocked you down/);
+  assert.match(L.storyHurt("chest-pain", 50).die, /heart attack/);
+  assert.match(L.storyHurt("unknown", 9).die, /playing/);
 });

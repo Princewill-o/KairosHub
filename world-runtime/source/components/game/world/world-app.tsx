@@ -68,6 +68,7 @@ import { InPersonGame } from "./in-person-game";
 import { KharisHub, readKharisTag, type KharisTag } from "./kharis-hub";
 import { isChurchMap, ukCityMap, branchChurchMap, mapForCity, cityById, cityForMap, type TravelMode } from "@/game/core/uk";
 import { UkTravel, UkJourney } from "./uk-travel";
+import { BibleBook } from "./bible-book";
 import { nameTagLabel } from "../../../../../public/kharis-data.mjs";
 import { PoliceVan } from "./police-van";
 import { FIND_CHANCE, TIERS, rollTier, type Tier } from "@/game/core/lucky-blocks";
@@ -431,7 +432,13 @@ export function WorldApp({
     }
   }, [offline, kl.life, cut]);
   // Your family appears in the world (set before the scene for a map is built).
-  setWorldFamily(offline && kl.life?.alive ? [
+  // Online (no life sim) you still have a family: a stable one generated from your id.
+  const onlineFamily = useMemo(() => {
+    let h = 2166136261; for (const c of me.id) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+    const rng = () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0) / 4294967296);
+    return (KL.newLife({}, rng).family as { name: string; relation: string; age: number; sex: string; alive: boolean }[]).filter((p) => p.alive).map((p) => ({ name: p.name, relation: p.relation, age: p.age, sex: p.sex }));
+  }, [me.id]);
+  setWorldFamily(!offline ? onlineFamily : kl.life?.alive ? [
     ...kl.life.family.filter((p) => p.alive).map((p) => ({ name: p.name, relation: p.relation, age: p.age, sex: p.sex })),
     ...(kl.life.partner ? [{ name: kl.life.partner.name, relation: kl.life.partner.married ? "spouse" : "partner", age: kl.life.age, sex: kl.life.partner.sex }] : []),
   ] : []);
@@ -686,7 +693,7 @@ export function WorldApp({
   useEffect(()=>{parent.postMessage({type:'kairos-world:location',mapId:map.id,name:map.name,world:map.id==='scripture-island'||map.id.startsWith('lobby-ltbs')||map.story?'ltbs':'kairos'},location.origin);},[map.id,map.name,map.story]);
   useEffect(()=>{if(mapOpen){setMapOpen(false);openGrace('atlas');}},[mapOpen,openGrace]);
   useEffect(()=>{if(wardrobe){setWardrobe(false);openGrace('character');}},[wardrobe,openGrace]);
-  useEffect(()=>{if(bibleOpen){setBibleOpen(false);openGrace('scripture');}},[bibleOpen,openGrace]);
+
   useEffect(()=>{if(miniGamesOpen){setMiniGamesOpen(false);openGrace('adventures');}},[miniGamesOpen,openGrace]);
   const [photoMode, setPhotoMode] = useState(false);
   useEffect(() => { const k = (e: KeyboardEvent) => { if (photoMode && (e.key === "Escape" || e.key.toLowerCase() === "p")) { setPhotoMode(false); return; } if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLElement && e.target.closest("input, textarea, [role=dialog]"))) setPhone(v => !v); }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [photoMode]);
@@ -736,6 +743,7 @@ export function WorldApp({
   const [crashed, setCrashed] = useState<"car" | "bike" | null>(null);
   const [injury, setInjury] = useState(() => activeInjury());
   useEffect(() => { if (!injury) return; const t = setInterval(() => { const i = activeInjury(); if (!i) { setInjury(null); say("You've recovered. Back on your feet!", true); } }, 5000); return () => clearInterval(t); }, [injury, say]);
+  useEffect(() => { if (offline && driving && (kl.life?.age ?? 30) < 17) { setDriving(null); say("You're too young to drive. Ride a bike, take the bus, or ask a grown-up for a lift.", true); } }, [offline, driving, kl.life?.age, say]);
   useEffect(() => { if (injury && (driving || bike)) { setDriving(null); setBike(null); say(injury.kind === "wheelchair" ? "You can't drive or ride while you're in a wheelchair." : "Not on crutches. Wait till your leg heals.", true); } }, [injury, driving, bike, say]);
   const crash = useCallback((vehicle: "car" | "bike") => {
     if (CRASH.current) return;
@@ -749,18 +757,20 @@ export function WorldApp({
       setCrashed(null);
       // How bad: speed, and luck. Offline, your health takes the hit, and a serious crash can end your life.
       const severity = Math.min(1, (vehicle === "car" ? 0.25 : 0.1) + Math.random() * 0.75);
+      // What happens depends on how old you are (offline life; online counts as an adult).
+      const acc = KL.accidentProfile(offline && kl.life ? kl.life.age : 30, vehicle);
       if (offline && kl.life?.alive) {
-        const serious = severity > 0.92 || (severity > 0.8 && kl.life.health < 35);
-        if (serious) { kl.update((l) => KL.crashed(l, { severity, fatal: true }) as typeof l); say("It was a serious crash. You didn't survive.", true); return; }
-        kl.update((l) => KL.crashed(l, { severity, fatal: false }) as typeof l);
+        const serious = severity > acc.fatal || (severity > acc.fatal - 0.12 && kl.life.health < 35);
+        if (serious) { kl.update((l) => KL.crashed(l, { severity, fatal: true, vehicle }) as typeof l); say(acc.band === "child" ? "It was a terrible accident. You didn't survive." : "It was a serious crash. You didn't survive.", true); return; }
+        kl.update((l) => KL.crashed(l, { severity, fatal: false, vehicle }) as typeof l);
       }
       goTo("hospital", "St Thomas' Hospital");
       // Real consequences: serious crashes leave you in a wheelchair, moderate ones on crutches.
       // Offline, recovery runs on the life's clock (a few game days); online, a few minutes.
       const day = 24 * GAME_HOUR_MS;
-      if (severity > 0.6) { injure("wheelchair", offline ? 3 * day : 6 * 60_000, "a serious car crash"); setInjury(activeInjury()); say("A bad crash: broken bones and a long recovery. You'll be in a wheelchair for a while.", true); return; }
-      if (severity > 0.38) { injure("crutches", offline ? 1.5 * day : 3 * 60_000, "a crash"); setInjury(activeInjury()); say("You hurt your leg in the crash. You're on crutches until it heals.", true); return; }
-      say(vehicle === "bike" ? "The paramedics checked you over after the bike crash: bruises, nothing broken. Wear a helmet and ride carefully!" : "The paramedics brought you in after the crash. You're shaken but OK. Slow down and keep your distance.", true);
+      if (severity > 0.6) { injure("wheelchair", (offline ? 3 * day : 6 * 60_000) * acc.heal, acc.cause); setInjury(activeInjury()); say(acc.serious, true); return; }
+      if (severity > 0.38) { injure("crutches", (offline ? 1.5 * day : 3 * 60_000) * acc.heal, acc.cause); setInjury(activeInjury()); say(acc.moderate, true); return; }
+      say(acc.minor, true);
     }, AMBULANCE_LEAVES * 1000);
   }, [mapId, driving, goTo, say, offline, kl]);
   // Growing a year older takes you to where this year's moment happens.
@@ -1628,6 +1638,7 @@ export function WorldApp({
         </button>
       )}
       {mapId === "train-carriage" && <NextStationBoard ride={RIDE} />}
+      {bibleOpen && <BibleBook onClose={() => setBibleOpen(false)} />}
       {ukTravel && <UkTravel here={cityForMap(ukTravel.from === "here" ? mapId : `uk-${ukTravel.from}`) } mode={ukTravel.mode} wallet={wallet} currency={(n) => offline ? `£${n}` : `${n} Grace`} onClose={() => setUkTravel(null)} onGo={(dest, mode, fare, minutes) => {
         const from = cityForMap(ukTravel.from === "here" ? mapId : `uk-${ukTravel.from}`), c = cityById(dest)!;
         setUkTravel(null); setWallet((w) => w - fare);

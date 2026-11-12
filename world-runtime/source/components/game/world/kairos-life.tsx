@@ -112,7 +112,7 @@ export function PlayModePicker({ onPick }: { onPick: (m: PlayMode) => void }) {
       <p className="ks-eyebrow">Kairos World</p>
       <h2 id="kl-mode">How do you want to play?</h2>
       <div className="kl-modes">
-        <button type="button" onClick={() => onPick("offline")}><b>Offline · Kairos Life</b><span>Be born, grow up and grow old in this world. Live each year, then press +1 when you are ready to grow older. Health, faith, family, temptations, ministry. Then eternity.</span></button>
+        <button type="button" onClick={() => onPick("offline")}><b>Offline · Kairos Life</b><span>Start at age 7, grow up and grow old in this world. Live each year, then press +1 when you are ready to grow older. Health, faith, family, temptations, ministry. Then eternity.</span></button>
         <button type="button" onClick={() => onPick("online")}><b>Online · Quick play</b><span>The whole world with friends, chat and calls. No ageing. Jump in and out.</span></button>
       </div>
     </section>
@@ -139,7 +139,7 @@ export function NewLife({ onBorn, onOnline }: { onBorn: (l: Life) => void; onOnl
         <label className="kl-check"><input type="checkbox" checked={d.christianHome} onChange={(e) => setD({ ...d, christianHome: e.target.checked })} /> Christian home</label>
       </div>
       {err && <p role="alert" className="kl-err">{err}</p>}
-      <div className="kl-row"><button type="button" className="kl-ghost" onClick={() => setD(L.randomDetails(rng))}>Random details</button><button className="kl-go">Be born</button></div>
+      <div className="kl-row"><button type="button" className="kl-ghost" onClick={() => setD(L.randomDetails(rng))}>Random details</button><button className="kl-go">Start life at 7</button></div>
       <button type="button" className="kl-link" onClick={onOnline}>Play online quick play instead</button>
     </form>
   );

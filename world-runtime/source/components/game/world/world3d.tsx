@@ -2982,7 +2982,10 @@ export function World3D({
     type FamilyBody = { m: typeof LIFE_WORLD.family[number]; b: Body; label: HTMLElement; bubble: HTMLElement; x: number; z: number; phase: number; sayUntil: number; nextSay: number; walkTo: { x: number; z: number } | null };
     const family: FamilyBody[] = [];
     // At home, and in London around wherever you arrive, so you actually meet them.
-    const familyHome = map.kind === "home" ? { x: map.spawn.x / TILE, z: map.spawn.y / TILE - 2 } : map.id === "city" ? { x: map.spawn.x / TILE + 2.5, z: map.spawn.y / TILE + 1.5 } : null;
+    // Family come out with you: at home, in London, Kharis Forest, Greater London and the UK branch towns.
+    const familyOut = map.id === "city" || map.id === "woodland" || map.id === "greater-london" || map.id.startsWith("uk-");
+    const arrive = { x: (PLAYER.x || map.spawn.x) / TILE, z: (PLAYER.y || map.spawn.y) / TILE };
+    const familyHome = map.kind === "home" ? { x: map.spawn.x / TILE, z: map.spawn.y / TILE - 2 } : familyOut ? { x: arrive.x + 2.2, z: arrive.z + 1.2 } : null;
     let familyKey = "";
     let nextFamilyApproach = performance.now() + 25000 + Math.random() * 20000;
     const FAMILY_CHAT: Record<string, string[]> = {
@@ -4292,6 +4295,11 @@ export function World3D({
           if (d < 1.3) { f.walkTo = null; LIFE_WORLD.approach = f.m; f.x = f.b.root.position.x; f.z = f.b.root.position.z; nx = f.x; nz = f.z; moving = false; f.b.root.rotation.y = Math.atan2(dx, dz); }
           else { nx = f.b.root.position.x + (dx / d) * dt * 1.6; nz = f.b.root.position.z + (dz / d) * dt * 1.6; moving = true; f.b.root.rotation.y = Math.atan2(dx, dz); }
         } else {
+          // Outdoors they keep up with you: if you walk off, they follow and gather near you.
+          if (familyOut) {
+            const fx = meX - f.x, fz = meZ - f.z, fd = Math.hypot(fx, fz);
+            if (fd > 6) { const k = Math.min(1, dt * 1.4 / fd * (fd - 3.5)); f.x += fx * k; f.z += fz * k; }
+          }
           // Family pottering about: a few steps, a pause, a turn.
           const t = secs * 0.4 + f.phase, step = Math.sin(t) * 0.6;
           nx = f.x + step; nz = f.z + Math.cos(t * 0.7) * 0.3;

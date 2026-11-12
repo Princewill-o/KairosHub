@@ -28,7 +28,8 @@ export function roleFor(index: number, mapKind: string, london: boolean): Role {
   if (london && index % 9 === 4) return "officer";
   if (index % 9 === 7) return "teen";
   if (index % 7 === 0) return "elder";
-  const r = ["worker", "need", "seeker", "church", "neighbour", "tourist", "child", "worker"] as const;
+  // Fewer work conversations: one worker in eight passers-by.
+  const r = ["worker", "need", "seeker", "church", "neighbour", "tourist", "child", "neighbour"] as const;
   return r[(index * 5 + 3) % r.length];
 }
 
@@ -169,6 +170,22 @@ export function encounter(who: Who, s: Story, seed = 0): Encounter {
     { label: "Carry the shopping home", reply: "They insist on making you a cup of tea and tell you about the war.", life: { fruit: 3, happiness: 2 } },
     { label: "“Sorry, I'm in a rush.”", reply: "They manage, slowly." },
   ]);
+  // Work talk only makes sense for grown-ups; younger players get chats that fit their age.
+  if (who.role === "worker" && child) return say(pick([
+    `${who.name}, in a hi-vis vest: “Careful crossing here, there's a lot of traffic today. Where are you off to?”`,
+    `${who.name}, sweeping outside the bakery: “Want to see how we make the bread in the morning?”`,
+    `${who.name}: “Shouldn't you be with a grown-up? Is your mum nearby?”`,
+  ], seed), [
+    { label: "“I'm with my family, thank you!”", reply: "“Good. Stay where they can see you.”", life: { happiness: 1 } },
+    { label: "Say thank you and wave", reply: "They wave back with a big smile.", life: { happiness: 2, fruit: 1 } },
+  ]);
+  if (who.role === "worker" && teen) return say(pick([
+    `${who.name}: “Looking for a Saturday job? The café takes on 16-year-olds.”`,
+    `${who.name}: “You doing work experience this year? Our shop's got a space.”`,
+  ], seed), [
+    { label: "Ask about it", reply: "They write the manager's name on a napkin.", life: { happiness: 2, smarts: 1 } },
+    { label: "“School first for now.”", reply: "“Fair enough. Good luck with your exams!”", life: { smarts: 1 } },
+  ]);
   if (who.role === "worker") return say(s.job ? `${who.name}: “You look like you know your stuff. Any chance you could look over my CV?”` : `${who.name}: “We're hiring at the café, you know. They need someone reliable.”`, s.job ? [
     { label: "Help with the CV", reply: "Two weeks later they text: they got the job.", life: { fruit: 3, happiness: 2 } },
     { label: "“Not really my thing.”", reply: "“No worries.”" },
@@ -201,6 +218,14 @@ export function familyEncounter(m: { name: string; relation: string; age: number
     partner: [`${first}: “Where is this going, us?”`, `${first}: “Come to my friend's party Saturday?”`],
     grandparent: [`${first}: “Sit with me. Let me tell you about when I first came to London.”`, `${first}: “Read me a psalm, my eyes are tired.”`],
   };
+  // When you're still young, your parents and siblings talk to a child, not a grown-up.
+  const young = (story.age ?? 30) < 18;
+  if (young) Object.assign(lines, {
+    mother: [`${first}: “Have you done your homework?”`, `${first}: “Wash your hands, dinner's ready!”`, `${first}: “Who did you sit with at lunch today?”`],
+    father: [`${first}: “Want to kick a ball about in the park later?”`, `${first}: “How was school? Tell me one good thing.”`, `${first}: “I'm proud of you, you know.”`],
+    sibling: [`${first}: “Race you to the gate!”`, `${first}: “That's MY game, give it back!”`, `${first}: “Can you help me build this?”`],
+    grandparent: [`${first}: “Come here, let me look at you. You've grown!”`, `${first}: “Shall I tell you a Bible story?”`],
+  });
   const pool = lines[r] ?? lines[r.replace(/^(step|half)-?/, "")] ?? [`${first}: “Alright? Good to see you.”`];
   const line = pool[Math.abs(seed) % pool.length];
   const choices: Choice[] = [
@@ -208,7 +233,7 @@ export function familyEncounter(m: { name: string; relation: string; age: number
     { label: "Pray together", reply: "You hold hands and pray. The room feels lighter.", life: { walk: 3 } },
   ];
   if (r === "child") choices.push({ label: "Help with homework / play", reply: `${first} grins. “You're the best.”`, life: { happiness: 3, fruit: 1 } });
-  if (r === "mother" || r === "father" || r === "grandparent") choices.push({ label: "Help around the house", reply: "You fix the shelf and do the washing up.", life: { fruit: 2 } });
+  if (r === "mother" || r === "father" || r === "grandparent") choices.push(young ? { label: "Help set the table", reply: "You lay out the plates and forks. They give you a big hug.", life: { fruit: 2 } } : { label: "Help around the house", reply: "You fix the shelf and do the washing up.", life: { fruit: 2 } });
   if (r === "spouse" || r === "partner") choices.push({ label: "Plan a date night", reply: "Friday, 7pm. They're smiling all evening.", life: { happiness: 4 } });
   if (story.saved && (story.age ?? 30) >= 10) choices.push({ label: "Talk about Jesus", reply: `${first} goes quiet, then asks a question. A good one.`, life: { witness: 1, walk: 1 } });
   choices.push({ label: "Snap at them", reply: `${first} looks hurt and walks off.`, life: { happiness: -3, walk: -1 } });

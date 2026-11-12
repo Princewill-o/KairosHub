@@ -65,22 +65,25 @@ const person = (r, relation, age, sex, faith, last) => ({
   id: id(r), relation, name: `${pick(r, FIRST[sex])} ${last}`, sex, age, alive: true, faith, closeness: between(r, 50, 90),
 });
 
+/** The age every new life begins at. */
+export const START_AGE = 7;
 export function newLife(opts = {}, r = Math.random) {
   const d = { ...randomDetails(r), ...(opts.random ? {} : Object.fromEntries(Object.entries(opts).filter(([, v]) => v !== undefined && v !== ""))) };
   const home = !!d.christianHome;
   const parentFaith = () => (home ? "christian" : pick(r, ["none", "none", "searching", "other faith"]));
-  const family = [person(r, "parent", between(r, 22, 40), "female", parentFaith(), d.last)];
-  if (r() > 0.2) family.push(person(r, "parent", between(r, 24, 44), "male", parentFaith(), d.last));
-  for (let i = between(r, 0, 2); i > 0; i--) family.push(person(r, "sibling", between(r, 1, 9), r() < 0.5 ? "male" : "female", home ? "christian" : "none", d.last));
+  // Every life starts at age 7: old enough to choose, walk about and talk to people.
+  const family = [person(r, "parent", between(r, 29, 47), "female", parentFaith(), d.last)];
+  if (r() > 0.2) family.push(person(r, "parent", between(r, 31, 51), "male", parentFaith(), d.last));
+  for (let i = between(r, 0, 2); i > 0; i--) family.push(person(r, "sibling", between(r, 3, 15), r() < 0.5 ? "male" : "female", home ? "christian" : "none", d.last));
   return {
     v: 1, id: id(r), name: { first: d.first, last: d.last }, sex: d.sex, city: CITIES.some((c) => c.id === d.city) ? d.city : "london",
-    christianHome: home, age: 0, alive: true,
+    christianHome: home, age: START_AGE, alive: true,
     health: between(r, 72, 96), happiness: between(r, 70, 90), smarts: between(r, 30, 80), money: 0,
     habits: { exercise: 1, diet: 1, checkups: 1, smoking: 0, drinking: 0 },
     faith: { walk: home ? 15 : 0, witness: 0, fruit: 0, drift: 0 },
     saved: false, savedAge: null, churchYears: 0, servicesThisYear: 0,
     family, partner: null, job: null, education: "none", car: null, contacts: [], branch: null, illness: null,
-    log: [{ age: 0, kind: "birth", text: `You were born in ${cityName(d.city)}${home ? " into a Christian home" : ""}.` }],
+    log: [{ age: 0, kind: "birth", text: `You were born in ${cityName(d.city)}${home ? " into a Christian home" : ""}.` }, { age: START_AGE, kind: "event", text: `You're ${START_AGE} now, in primary school${home ? ", and you go to church with your family" : ""}.` }],
     recent: [], queue: [], pending: null, ending: null, notice: null, cause: null,
     year: { acts: 0, faith: 0, exercise: 0, diet: 0, checkup: 0, did: {} },
   };
@@ -447,7 +450,11 @@ function applyEffect(s, e, r) {
     if (r() < e.martyr) { s.martyr = true; die(s, "persecution for the name of Jesus"); }
     else { s.faith.walk += 15; s.faith.witness += 6; s.happiness -= 6; s.health -= 15; say(s, "You were beaten and thrown out, but you did not deny Him.", "milestone"); }
   }
-  if (e.risk && r() < e.risk) die(s, "an accident that precautions could have prevented");
+  if (e.risk) {
+    const roll = r(), story = storyHurt(e.story, s.age);
+    if (roll < e.risk) die(s, story.die);
+    else if (roll < e.risk * 6) { s.health -= 8; say(s, `${story.hurt} (health −8)`, "warning"); }
+  }
 }
 
 /** The court's outcome, written into the life: a record, and prison years if sentenced. */
@@ -470,17 +477,68 @@ export const inPrison = (s) => (s.prisonUntil || 0) > s.age;
 
 const toPendingApp = (e, s) => ({ id: e.id, title: e.title, text: `${e.text} (It started on your phone.)`, category: e.category, options: e.options.map((x) => ({ label: x.label, effect: x.effect })) });
 
-/** A road crash: injuries scale with how bad it was; a serious one is fatal. */
-export function crashed(s0, { severity, fatal }) {
+/**
+ * Accidents fit the person: a 7-year-old falls off a bike or is knocked down crossing
+ * the road; a teenager shows off; an adult crashes the car; an older person takes
+ * longer to heal and is more at risk. Thresholds are on a 0–1 crash severity.
+ */
+export function accidentProfile(age, vehicle = "car") {
+  const band = age < 13 ? "child" : age < 18 ? "teen" : age < 65 ? "adult" : "elder";
+  const car = vehicle === "car";
+  const P = {
+    child: { fatal: 0.985, heal: 0.7, cause: car ? "being knocked down by a car" : "a bad fall from a bike",
+      serious: car ? "A car knocked you down crossing the road. You broke your leg; Mum stayed with you on the children's ward. You'll be in a wheelchair for a few weeks." : "You came off your bike at the bottom of the hill and broke your leg. You'll be in a wheelchair for a few weeks.",
+      moderate: "You twisted your ankle badly. The nurse gives you crutches and a sticker for being brave.",
+      minor: "Grazed knees and a plaster from the nurse. Helmet on next time, and look both ways!" },
+    teen: { fatal: 0.96, heal: 0.85, cause: car ? "a crash while out with friends" : "showing off on a bike",
+      serious: car ? "You were in a friend's car when it crashed. Broken bones and a long recovery in a wheelchair." : "Showing off on your bike, you hit the kerb and broke your leg. Wheelchair for a while.",
+      moderate: "You hurt your knee badly. Crutches for a few weeks, and no football.",
+      minor: "Cuts and bruises. Your friends film it; you'll live it down eventually." },
+    adult: { fatal: 0.92, heal: 1, cause: car ? "injuries from a serious road crash" : "a serious bike crash",
+      serious: "A bad crash: broken bones and a long recovery. You'll be in a wheelchair for a while.",
+      moderate: "You hurt your leg in the crash. You're on crutches until it heals.",
+      minor: car ? "The paramedics brought you in after the crash. You're shaken but OK. Slow down and keep your distance." : "The paramedics checked you over after the bike crash: bruises, nothing broken." },
+    elder: { fatal: 0.84, heal: 1.6, cause: car ? "injuries from a road crash" : "a fall from a bike",
+      serious: "At your age a crash hits hard: a broken hip and a long recovery in a wheelchair.",
+      moderate: "You bruised your hip badly. Crutches, and the doctor wants you to take it slowly.",
+      minor: "Shaken more than hurt. The nurse makes you a cup of tea before you go home." },
+  }[band];
+  return { band, ...P };
+}
+
+/** A road crash: injuries scale with how bad it was (and your age); a serious one is fatal. */
+export function crashed(s0, { severity, fatal, vehicle = "car" }) {
   if (!s0.alive) return s0;
   const s = clone(s0);
-  if (fatal) { die(s, "injuries from a serious road crash"); return s; }
-  const hurt = Math.round(5 + severity * 35);
+  const a = accidentProfile(s.age, vehicle);
+  if (fatal) { die(s, a.cause); return s; }
+  const hurt = Math.round((5 + severity * 35) * (a.band === "elder" ? 1.3 : a.band === "child" ? 0.8 : 1));
   s.health -= hurt; s.happiness -= Math.round(severity * 10);
-  if (s.car && severity > 0.6) { say(s, "Your car was written off.", "warning"); s.car = null; }
-  say(s, severity > 0.6 ? `A bad crash: broken bones and a long recovery (health −${hurt}).` : `A crash left you bruised and shaken (health −${hurt}).`, "warning");
+  if (s.car && severity > 0.6 && vehicle === "car" && a.band !== "child") { say(s, "Your car was written off.", "warning"); s.car = null; }
+  say(s, `${severity > 0.6 ? a.serious : severity > 0.38 ? a.moderate : a.minor} (health −${hurt})`, "warning");
   return fix(s);
 }
+/**
+ * Health accidents follow the story you're in: ignoring chest pain can end in a heart
+ * attack, the fast route without a helmet in a crash. A risky choice can kill (rarely)
+ * or, more often, catch up with you as an injury tied to that same moment.
+ */
+const STORY_HURT = {
+  "chest-pain": { die: "a heart attack after ignoring the chest pain", hurt: "The chest pain came back worse: an ambulance, then a stent." },
+  fall: { die: "a fall at home after ignoring the warning signs", hurt: "You fell again and fractured your wrist." },
+  cycle: { die: "a cycling crash on the fast route without a helmet", hurt: "A van clipped you on the fast route: stitches and a sore shoulder." },
+  "t-joyride": { die: "a crash in the car you took for a joyride", hurt: "You clipped a bollard in the car. Bruised, shaking and in trouble." },
+  "t-party": { die: "alcohol poisoning at the party", hurt: "You were sick all night and ended up in A&E." },
+  "i-broken-arm": { die: "complications from a broken arm left untreated", hurt: "The arm set badly and needed an operation in the end." },
+  "i-illness-scare": { die: "an illness that was found too late", hurt: "When you finally saw the GP, the treatment was much harder." },
+  "i-hospital": { die: "a chest infection after leaving hospital early", hurt: "You were readmitted a week later, weaker than before." },
+  vaccine: { die: "a serious infection the jab would have prevented", hurt: "You caught it badly and spent a week in bed." },
+  "i-jabs": { die: "a serious childhood illness", hurt: "You caught measles and were very poorly for a fortnight." },
+  "i-fever": { die: "a serious infection that got worse overnight", hurt: "By morning you needed hospital: a few nights on the children's ward." },
+};
+export const storyHurt = (id, age) => STORY_HURT[id] ?? { die: riskyCause(age), hurt: age < 13 ? "You got hurt and had to go to the doctor." : "It caught up with you: an injury and a hospital visit." };
+/** An accident from a risky choice, described for the person's age. */
+export const riskyCause = (age) => (age < 13 ? "a tragic accident while playing" : age < 18 ? "a dare that went wrong" : age < 65 ? "an accident that precautions could have prevented" : "a fall at home");
 
 /** A lucky block or a game-show prize changed your life. */
 export function windfall(s0, { title, life }, r = Math.random) {
@@ -528,7 +586,7 @@ export function choose(s0, index, r = Math.random) {
   say(s, `${s.pending.title}: ${opt.label}.`, "choice");
   s.pending = null;
   // Last year's habits change how this turns out.
-  const e = { ...opt.effect };
+  const e = { ...opt.effect, story: s0.pending.id };
   const stat = domain === "faith" ? "walk" : domain === "body" ? "health" : domain ? "happiness" : null;
   const good = stat ? (e[stat] || 0) > 0 && !(e.drift > 0) : false, bad = stat ? (e[stat] || 0) < 0 || e.drift > 0 || !!e.risk : false;
   let why = "";
