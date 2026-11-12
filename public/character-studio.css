@@ -282,3 +282,8 @@
 .cs-skingrid button[aria-pressed="true"] { border-color: #6c3fa8; box-shadow: 0 3px 0 #6c3fa8; background: #f1e8f7; }
 /* The head's front face of a 64×64 skin (8,8 → 16,16), scaled up crisp. */
 .cs-skinface { width: 48px; height: 48px; background-size: 384px 384px; background-position: -48px -48px; image-rendering: pixelated; border: 2px solid #2b1d3a; border-radius: 6px; }
+@keyframes cs-tilt { 0% { transform: perspective(1100px) rotateX(60deg) translateY(80px); opacity: 0; } 70% { transform: perspective(1100px) rotateX(-5deg); opacity: 1; } 100% { transform: none; } }
+@keyframes cs-pop { 0% { transform: scale(.4) rotate(-12deg); opacity: 0; } 70% { transform: scale(1.06) rotate(2deg); opacity: 1; } 100% { transform: none; } }
+.cs-panel { animation: cs-tilt .6s cubic-bezier(.2, .9, .3, 1); }
+.cs-preview { animation: cs-pop .55s cubic-bezier(.2, 1.2, .3, 1); }
+@media (prefers-reduced-motion: reduce) { .cs-panel, .cs-preview { animation: none; } }

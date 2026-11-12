@@ -6475,7 +6475,7 @@ html.dark body:has(.app-theme) {
 .ltbs-world-badge { position: absolute; top: 150px; left: 12px; z-index: 70; padding: 6px 10px; background: #f2c84b; color: #2b1d3a; border: 3px solid #120c18; font: 9px var(--pixel); box-shadow: 3px 3px 0 #120c18; }
 
 /* The Bible: an open book with 3D page turns */
-.bb-backdrop { position: absolute; inset: 0; z-index: 100008; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; gap: 10px; padding: 88px 12px 14px; background: radial-gradient(circle at 50% 40%, #3a2a52cc, #0c0814f0); animation: kp-fade .25s; }
+.bb-backdrop { position: absolute; inset: 0; z-index: 100008; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; gap: 10px; padding: 112px 12px 14px; background: radial-gradient(circle at 50% 40%, #3a2a52cc, #0c0814f0); animation: kp-fade .25s; }
 .bb-bar { display: flex; align-items: center; gap: 12px; width: min(1000px, 100%); color: #fff3d6; }
 .bb-bar b { flex: 1; text-align: center; font: 12px var(--pixel); }
 .bb-bar small { color: #f2c84b; }
@@ -6484,7 +6484,7 @@ html.dark body:has(.app-theme) {
 .bb-book.bb-single { grid-template-columns: 1fr; max-width: 520px; }
 .bb-book::after { content: ""; position: absolute; top: 14px; bottom: 14px; left: 50%; width: 26px; transform: translateX(-50%); background: linear-gradient(90deg, transparent, #0004 40%, #0007 50%, #0004 60%, transparent); pointer-events: none; }
 .bb-single::after { display: none; }
-.bb-ribbon { position: absolute; top: -6px; right: 22%; width: 14px; height: 70%; background: linear-gradient(#b3202d, #8a1520); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 94%, 0 100%); z-index: 3; box-shadow: 2px 0 0 #0003; }
+.bb-ribbon { position: absolute; top: -6px; right: 20px; width: 11px; height: 70%; background: linear-gradient(#b3202d, #8a1520); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 94%, 0 100%); z-index: 3; box-shadow: 2px 0 0 #0003; }
 .bb-page { position: relative; overflow: hidden; padding: 28px 30px 34px; background: linear-gradient(90deg, #f6ecd2, #fbf4e2 12%, #fbf4e2 88%, #efe2c2); color: #2a1d12; font: 16px/1.55 Georgia, "Times New Roman", serif; }
 .bb-left { border-radius: 4px 0 0 4px; box-shadow: inset -14px 0 18px -14px #0005; }
 .bb-right { border-radius: 0 4px 4px 0; box-shadow: inset 14px 0 18px -14px #0005; }
@@ -6524,5 +6524,74 @@ html.dark body:has(.app-theme) {
 .bb-chapters button { text-align: center; border: 2px solid #d8c7a2; border-radius: 4px; }
 .bb-link { margin-top: 14px; border: 0; background: none; color: #6b3fa0; font-weight: 800; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .bb-book, .bb-leaf { animation: none !important; } }
+
+/* ══ Motion-graphics entrances: every panel opens its own way ═══════════════════
+   Each is short (≤ .75s), uses transform / clip-path / filter only, and is turned
+   off for reduced motion. A shine sweep and staggered children finish the look. */
+@keyframes mg-slam { 0% { transform: translateY(70vh) rotate(-9deg) scale(.8); } 60% { transform: translateY(-14px) rotate(2deg) scale(1.03); } 80% { transform: translateY(5px) rotate(-.6deg); } 100% { transform: none; } }
+@keyframes mg-ribbon { 0% { transform: translateX(-110%) skewX(-24deg); opacity: 0; } 65% { transform: translateX(4%) skewX(6deg); opacity: 1; } 100% { transform: none; } }
+@keyframes mg-shutter { 0% { clip-path: inset(50% 0 50% 0); filter: brightness(2.2); } 45% { clip-path: inset(46% 0 46% 0); filter: brightness(1.6); } 100% { clip-path: inset(0 0 0 0); filter: none; } }
+@keyframes mg-iris { 0% { clip-path: circle(0% at 50% 50%); transform: scale(1.08) rotate(-3deg); } 100% { clip-path: circle(150% at 50% 50%); transform: none; } }
+@keyframes mg-wipe { 0% { clip-path: polygon(0 0, 0 0, -30% 100%, 0 100%); } 100% { clip-path: polygon(0 0, 130% 0, 100% 100%, 0 100%); } }
+@keyframes mg-tilt { 0% { transform: perspective(1100px) rotateX(75deg) translateY(120px); opacity: 0; } 70% { transform: perspective(1100px) rotateX(-6deg); opacity: 1; } 100% { transform: none; } }
+@keyframes mg-spin { 0% { transform: rotate(-200deg) scale(0); } 70% { transform: rotate(12deg) scale(1.08); } 100% { transform: none; } }
+@keyframes mg-split { 0% { clip-path: polygon(50% 0, 50% 0, 50% 100%, 50% 100%); } 55% { clip-path: polygon(8% 0, 92% 0, 92% 100%, 8% 100%); } 100% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); } }
+@keyframes mg-glitch { 0% { transform: translate(-50%, -30px) skewX(30deg); opacity: 0; filter: hue-rotate(90deg); } 20% { transform: translate(calc(-50% + 14px), 0) skewX(-12deg); opacity: 1; } 40% { transform: translate(calc(-50% - 9px), 0); filter: hue-rotate(-40deg); } 60% { transform: translate(calc(-50% + 4px), 0); } 100% { transform: translate(-50%, 0); filter: none; } }
+@keyframes mg-drop-bounce { 0% { transform: translateY(-100vh) rotate(4deg); } 55% { transform: translateY(18px) rotate(-1deg); } 72% { transform: translateY(-8px); } 88% { transform: translateY(3px); } 100% { transform: none; } }
+@keyframes mg-zoom-blur { 0% { transform: scale(2.2); filter: blur(14px); opacity: 0; } 100% { transform: none; filter: none; opacity: 1; } }
+@keyframes mg-flip-card { 0% { transform: perspective(1000px) rotateY(-100deg) scale(.8); opacity: 0; } 65% { transform: perspective(1000px) rotateY(12deg); opacity: 1; } 100% { transform: none; } }
+@keyframes mg-stack { 0% { transform: translateY(40px) scale(.7) rotate(-8deg); box-shadow: 0 0 0 #120c18; opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes mg-item { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes mg-shine { from { transform: translateX(-120%) skewX(-20deg); } to { transform: translateX(260%) skewX(-20deg); } }
+@keyframes mg-burst { 0% { clip-path: polygon(50% 50%, 50% 50%, 50% 50%, 50% 50%, 50% 50%, 50% 50%, 50% 50%, 50% 50%); } 60% { clip-path: polygon(50% -20%, 85% 15%, 120% 50%, 85% 85%, 50% 120%, 15% 85%, -20% 50%, 15% 15%); } 100% { clip-path: polygon(50% -80%, 130% -30%, 180% 50%, 130% 130%, 50% 180%, -30% 130%, -80% 50%, -30% -30%); } }
+
+/* Who opens how. */
+.kp-phone { animation: mg-slam .62s cubic-bezier(.2, .9, .25, 1) !important; }
+.kp-appview { animation: mg-ribbon .42s cubic-bezier(.2, .9, .3, 1) !important; }
+.kh-panel { animation: mg-shutter .55s cubic-bezier(.7, 0, .2, 1) !important; }
+.kh-panel-low { animation: mg-ribbon .45s cubic-bezier(.2, .9, .3, 1) !important; }
+.uk-panel { animation: mg-iris .6s cubic-bezier(.6, 0, .2, 1) !important; }
+.uk-journey-card { animation: mg-flip-card .55s cubic-bezier(.2, .9, .3, 1) !important; }
+.pr-hud { animation: mg-glitch .5s steps(10, end) !important; }
+.lh-panel { animation: mg-tilt .6s cubic-bezier(.2, .9, .25, 1) !important; transform-origin: center bottom; }
+.km-mall { animation: mg-wipe .5s cubic-bezier(.7, 0, .2, 1) !important; }
+.ip-room { animation: mg-split .55s cubic-bezier(.7, 0, .2, 1) !important; }
+.gs-studio { animation: mg-zoom-blur .6s cubic-bezier(.2, .9, .3, 1) !important; }
+.world-gate { animation: mg-burst .7s cubic-bezier(.6, 0, .2, 1) !important; }
+.bb-book { animation: bb-open .7s cubic-bezier(.2, .9, .25, 1.05) !important; }
+.gm-play { animation: mg-zoom-blur .45s ease-out !important; }
+.gm-native { animation: mg-flip-card .5s cubic-bezier(.2, .9, .3, 1) !important; }
+.kh-play { animation: mg-stack .4s cubic-bezier(.2, 1.3, .4, 1) !important; }
+[role="dialog"][aria-label="Grace Line island train destinations"] { animation: mg-wipe .5s cubic-bezier(.7, 0, .2, 1) !important; }
+[role="dialog"][aria-label="Thames and Co Bank"] { animation: mg-drop-bounce .7s cubic-bezier(.3, .9, .4, 1) !important; }
+[role="dialog"][aria-label="Car dealership"] { animation: mg-ribbon .5s cubic-bezier(.2, .9, .3, 1) !important; }
+[role="dialog"][aria-label="Bike dock"], [role="dialog"][aria-label="London bus stop"] { animation: mg-spin .55s cubic-bezier(.2, 1.1, .3, 1) !important; }
+[role="dialog"][aria-label="Court hearing"], [role="dialog"][aria-label="Your case"] { animation: mg-shutter .6s cubic-bezier(.7, 0, .2, 1) !important; }
+[role="dialog"][aria-label="Kairos islands map"] { animation: mg-iris .6s cubic-bezier(.6, 0, .2, 1) !important; }
+[role="dialog"][aria-label="How to play"] { animation: mg-tilt .55s cubic-bezier(.2, .9, .25, 1) !important; }
+[role="dialog"][aria-label="Kairos companion"] { animation: mg-stack .45s cubic-bezier(.2, 1.3, .4, 1) !important; }
+[role="dialog"][aria-label="Life"] { animation: mg-split .5s cubic-bezier(.7, 0, .2, 1) !important; }
+
+/* A highlight sweeps across the big panels once as they land. */
+.kh-panel, .uk-panel, .km-mall, .lh-panel, .kp-phone { position: relative; }
+.kh-panel::before, .uk-panel::before, .km-mall::before, .lh-panel::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 35%; z-index: 9; pointer-events: none; background: linear-gradient(90deg, transparent, #ffffff55, transparent); transform: translateX(-120%) skewX(-20deg); animation: mg-shine .9s .35s ease-out forwards; }
+
+/* Content cascades in, item by item. */
+.kh-grid > *, .kh-depts > *, .kh-list > *, .uk-list > *, .uk-opts > *, .gm-list > *, .kp-grid > *, .bb-books > *, .bb-chapters > *, .km-mall-grid > *, .kh-board > *, .pr-actions > * { animation: mg-item .38s cubic-bezier(.2, .9, .3, 1) backwards; }
+:is(.kh-grid, .kh-depts, .kh-list, .uk-list, .uk-opts, .gm-list, .kp-grid, .bb-books, .bb-chapters, .km-mall-grid, .kh-board, .pr-actions) > :nth-child(1) { animation-delay: .12s; }
+:is(.kh-grid, .kh-depts, .kh-list, .uk-list, .uk-opts, .gm-list, .kp-grid, .bb-books, .bb-chapters, .km-mall-grid, .kh-board, .pr-actions) > :nth-child(2) { animation-delay: .16s; }
+:is(.kh-grid, .kh-depts, .kh-list, .uk-list, .uk-opts, .gm-list, .kp-grid, .bb-books, .bb-chapters, .km-mall-grid, .kh-board, .pr-actions) > :nth-child(3) { animation-delay: .2s; }
+:is(.kh-grid, .kh-depts, .kh-list, .uk-list, .uk-opts, .gm-list, .kp-grid, .bb-books, .bb-chapters, .km-mall-grid, .kh-board, .pr-actions) > :nth-child(4) { animation-delay: .24s; }
+:is(.kh-grid, .kh-depts, .kh-list, .uk-list, .uk-opts, .gm-list, .kp-grid, .bb-books, .bb-chapters, .km-mall-grid, .kh-board, .pr-actions) > :nth-child(5) { animation-delay: .28s; }
+:is(.kh-grid, .kh-depts, .kh-list, .uk-list, .uk-opts, .gm-list, .kp-grid, .bb-books, .bb-chapters, .km-mall-grid, .kh-board, .pr-actions) > :nth-child(6) { animation-delay: .32s; }
+:is(.kh-grid, .kh-depts, .kh-list, .uk-list, .uk-opts, .gm-list, .kp-grid, .bb-books, .bb-chapters, .km-mall-grid, .kh-board, .pr-actions) > :nth-child(7) { animation-delay: .36s; }
+:is(.kh-grid, .kh-depts, .kh-list, .uk-list, .uk-opts, .gm-list, .kp-grid, .bb-books, .bb-chapters, .km-mall-grid, .kh-board, .pr-actions) > :nth-child(n+8) { animation-delay: .4s; }
+/* Phone home icons pop like app launches. */
+.kp-grid > * { animation-name: mg-spin; animation-duration: .45s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kp-phone, .kp-appview, .kh-panel, .uk-panel, .uk-journey-card, .pr-hud, .lh-panel, .km-mall, .ip-room, .gs-studio, .world-gate, .gm-play, .gm-native, .kh-play, [role="dialog"], .kh-panel::before, .uk-panel::before, .km-mall::before, .lh-panel::before,
+  :is(.kh-grid, .kh-depts, .kh-list, .uk-list, .uk-opts, .gm-list, .kp-grid, .bb-books, .bb-chapters, .km-mall-grid, .kh-board, .pr-actions) > * { animation: none !important; }
+}
 
 html,body,#world-root{height:100%;margin:0;overflow:hidden}#world-root>div{height:100dvh!important}@media(max-width:700px){.world-lobby-bar{display:none}}

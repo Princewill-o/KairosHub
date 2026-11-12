@@ -36,3 +36,9 @@
   border-radius: 0; border: 2px solid #120c18; font-family: "Kairos Pixel", ui-monospace, monospace; font-size: 9px;
   clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0 50%);
 }
+/* Motion-graphics entrances for the site-level panels. */
+@keyframes mgs-iris { 0% { clip-path: circle(0% at 50% 50%); transform: scale(1.06); } 100% { clip-path: circle(150% at 50% 50%); transform: none; } }
+@keyframes mgs-dock { 0% { transform: translate(-50%, -140%) rotate(-4deg); } 70% { transform: translate(-50%, 8%) rotate(1deg); } 100% { transform: translate(-50%, 0); } }
+.kairos-world-shell .grace-window[open] { animation: mgs-iris .6s cubic-bezier(.6, 0, .2, 1); }
+.kairos-world-shell .world-dock { animation: mgs-dock .7s cubic-bezier(.2, .9, .3, 1); }
+@media (prefers-reduced-motion: reduce) { .kairos-world-shell .grace-window[open], .kairos-world-shell .world-dock { animation: none; } }

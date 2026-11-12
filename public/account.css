@@ -27,3 +27,9 @@
 .acc-link { border: 0; background: none; padding: 0; color: #6b3fa0; font-weight: 800; text-decoration: underline; cursor: pointer; }
 .acc-verse { color: #d9cbea; font-size: 13px; text-align: center; }
 .acc-verse b { color: #f2c84b; }
+@keyframes acc-in { 0% { transform: perspective(1000px) rotateY(-90deg) scale(.85); opacity: 0; } 65% { transform: perspective(1000px) rotateY(10deg); opacity: 1; } 100% { transform: none; } }
+@keyframes acc-item { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.acc-card { animation: acc-in .6s cubic-bezier(.2, .9, .3, 1); }
+.acc-card form > * { animation: acc-item .35s ease-out backwards; }
+.acc-card form > :nth-child(2) { animation-delay: .08s; } .acc-card form > :nth-child(3) { animation-delay: .14s; } .acc-card form > :nth-child(4) { animation-delay: .2s; } .acc-card form > :nth-child(n+5) { animation-delay: .26s; }
+@media (prefers-reduced-motion: reduce) { .acc-card, .acc-card form > * { animation: none; } }
