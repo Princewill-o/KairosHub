@@ -838,7 +838,7 @@ export function WorldView({
             <span className="size-2 rounded-full" style={{ background: status.dot }} aria-hidden />
             {status.text}
             {world.status === "live" && world.ping !== null && <span className="text-[#8d85a0]">· {world.ping} ms</span>}
-            <span className="text-[#8d85a0]">· Kharis London branch</span>
+            <span className="text-[#8d85a0]">· {me.affiliation?.kind === "branch" ? me.affiliation.label.split(" · ")[0].replace(/^KP2 London$/, "Kharis KP2 London") : "Kharis London"} branch</span>
           </span>
         </button>
         <div data-hud="online" data-tone="ink" hidden={Boolean(map.story)} className="rounded-2xl bg-black/70 px-3 py-2 text-xs font-black text-white backdrop-blur" aria-live="polite">

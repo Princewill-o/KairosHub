@@ -683,7 +683,7 @@ export function WorldApp({
     };
     window.addEventListener('message',receive);return()=>window.removeEventListener('message',receive);
   },[goTo,adventure.enter,map.id]);
-  useEffect(()=>{parent.postMessage({type:'kairos-world:location',mapId:map.id,name:map.name},location.origin);},[map.id,map.name]);
+  useEffect(()=>{parent.postMessage({type:'kairos-world:location',mapId:map.id,name:map.name,world:map.id==='scripture-island'||map.id.startsWith('lobby-ltbs')||map.story?'ltbs':'kairos'},location.origin);},[map.id,map.name,map.story]);
   useEffect(()=>{if(mapOpen){setMapOpen(false);openGrace('atlas');}},[mapOpen,openGrace]);
   useEffect(()=>{if(wardrobe){setWardrobe(false);openGrace('character');}},[wardrobe,openGrace]);
   useEffect(()=>{if(bibleOpen){setBibleOpen(false);openGrace('scripture');}},[bibleOpen,openGrace]);
