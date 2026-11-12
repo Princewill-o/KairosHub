@@ -1915,6 +1915,9 @@
   .bg-\[\#2a3346\] {
     background-color: #2a3346;
   }
+  .bg-\[\#2b1d3a\] {
+    background-color: #2b1d3a;
+  }
   .bg-\[\#2b5fd9\] {
     background-color: #2b5fd9;
   }
@@ -2913,6 +2916,9 @@
   }
   .text-\[\#e98a1f\] {
     color: #e98a1f;
+  }
+  .text-\[\#f2c84b\] {
+    color: #f2c84b;
   }
   .text-\[\#f2d9a6\] {
     color: #f2d9a6;
@@ -6421,5 +6427,51 @@ html.dark body:has(.app-theme) {
 .kh-board li i { position: absolute; left: 0; bottom: 0; height: 4px; background: #6b3fa0; }
 .kh-board b { font: 10px var(--pixel); }
 .kh-board em { font-style: normal; font-size: 11px; font-weight: 800; }
+
+/* UK travel map */
+.uk-backdrop { position: absolute; inset: 0; z-index: 100008; display: grid; place-items: center; background: #0c0814b3; padding: 92px 12px 12px; }
+.uk-panel { width: min(860px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; background: #faf5e9; color: #1b1226; border: 3px solid #120c18; box-shadow: 6px 6px 0 #120c18; clip-path: polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px)); }
+.uk-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: #fff; background: linear-gradient(135deg, #2b5fd9 0 45%, #2350bd 45.2% 75%, #1d43a0 75.2%); }
+.uk-head small { font: 7px/1.3 var(--pixel); opacity: .85; }
+.uk-head h2 { margin: 2px 0 0; font: 13px/1.3 var(--pixel); }
+.uk-body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px; padding: 12px; overflow: auto; }
+@media (max-width: 700px) { .uk-body { grid-template-columns: 1fr; } }
+.uk-map { width: 100%; max-height: 66vh; border: 3px solid #120c18; background: #7cc3d6; }
+.uk-pin { cursor: pointer; }
+.uk-pin:focus { outline: none; }
+.uk-pin:focus polygon, .uk-pin:hover polygon { stroke-width: 3; }
+.uk-label { font: 7px var(--pixel); fill: #120c18; paint-order: stroke; stroke: #faf5e9; stroke-width: 3px; pointer-events: none; }
+.uk-label.on { fill: #6b3fa0; font-size: 8px; }
+.uk-inset { font: 7px var(--pixel); fill: #120c18; }
+.uk-side h3 { margin: 0; font: 14px var(--pixel); }
+.uk-region { font-size: 12px; color: #5a4d68; margin: 6px 0 10px; }
+.uk-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; max-height: 52vh; overflow: auto; }
+.uk-list button { width: 100%; display: grid; grid-template-columns: 10px 1fr; column-gap: 8px; align-items: center; text-align: left; padding: 6px 8px; border: 2px solid #120c18; background: #fff; font-weight: 800; cursor: pointer; }
+.uk-list i { grid-row: span 2; align-self: stretch; }
+.uk-list small { font-size: 10px; color: #6a5d78; font-weight: 600; }
+.uk-opts { list-style: none; padding: 0; display: grid; gap: 6px; }
+.uk-opts button { width: 100%; display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 10px; border: 2px solid #120c18; background: #fff; box-shadow: 0 3px 0 #120c18; text-align: left; cursor: pointer; }
+.uk-opts button:disabled { opacity: .45; cursor: default; }
+.uk-opts small { display: block; color: #6a5d78; }
+.uk-opts em { font: 9px var(--pixel); font-style: normal; padding: 5px 7px; background: #f2c84b; border: 2px solid #120c18; }
+.uk-journey { position: absolute; inset: 0; z-index: 100009; display: grid; place-items: center; background: linear-gradient(#7cc3d6 0 55%, #9fca7a 55%); animation: kp-fade .3s; }
+.uk-journey-card { width: min(520px, 92%); padding: 18px; background: #faf5e9; border: 3px solid #120c18; box-shadow: 6px 6px 0 #120c18; text-align: center; }
+.uk-journey-card small { font: 8px var(--pixel); color: #2b5fd9; }
+.uk-track { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; margin: 14px 0; font: 10px var(--pixel); }
+.uk-line { position: relative; height: 6px; background: repeating-linear-gradient(90deg, #120c18 0 10px, transparent 10px 16px); }
+.uk-vehicle { position: absolute; top: -12px; left: 0; width: 34px; height: 26px; border: 3px solid #120c18; background: #6b3fa0; animation: uk-go 3.4s linear forwards; }
+.uk-vehicle.uk-coach { background: #e0483e; border-radius: 4px; }
+@keyframes uk-go { to { left: calc(100% - 34px); } }
+@media (prefers-reduced-motion: reduce) { .uk-vehicle { animation: none; left: 50%; } }
+
+/* LTBS world gate */
+.world-gate { position: absolute; inset: 0; z-index: 100010; display: grid; place-items: center; animation: kp-fade .4s; }
+.world-gate-ltbs { background: radial-gradient(circle at 50% 45%, #ffe9a8, #c79a56 45%, #2b1d3a 100%); }
+.world-gate-kairos { background: radial-gradient(circle at 50% 45%, #d9c8f2, #6b3fa0 50%, #1b1226 100%); }
+.world-gate div { display: grid; gap: 8px; text-align: center; color: #fff; text-shadow: 3px 3px 0 #120c18; }
+.world-gate small { font: 9px var(--pixel); letter-spacing: .2em; }
+.world-gate b { font: 44px/1 var(--pixel); }
+.world-gate span { font-weight: 800; }
+.ltbs-world-badge { position: absolute; top: 150px; left: 12px; z-index: 70; padding: 6px 10px; background: #f2c84b; color: #2b1d3a; border: 3px solid #120c18; font: 9px var(--pixel); box-shadow: 3px 3px 0 #120c18; }
 
 html,body,#world-root{height:100%;margin:0;overflow:hidden}#world-root>div{height:100dvh!important}@media(max-width:700px){.world-lobby-bar{display:none}}

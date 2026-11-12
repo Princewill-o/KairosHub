@@ -1,6 +1,6 @@
 "use client";
 import { TrainFront, X } from "lucide-react";
-import { ISLANDS } from "@/game/core/islands";
+import { GRACE_LINE as ISLANDS } from "@/game/core/islands";
 import { IslandAtlas } from "./island-atlas";
 export type TubeTrip = { kind: "station"; id: string } | { kind: "map"; mapId: string; label: string };
 export function TubeBadge({ size = 28 }: { size?: number }) {

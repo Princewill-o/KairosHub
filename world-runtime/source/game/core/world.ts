@@ -57,6 +57,7 @@ export type PortalTarget =
   | { kind: "bank" }
   | { kind: "guide"; guide: "careers" | "study" | "transport" }
   | { kind: "alight" }
+  | { kind: "uk"; from: string; mode?: "train" | "coach" | "flight" }
   | { kind: "mall"; dept: string };
 
 export interface Portal {

@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { Music2, VolumeX } from "lucide-react";
 
-import { createMusic, type MusicScene } from "../music";
+import { createMusic, SCENE_LABELS, type MusicScene } from "../music";
 
 const KEY = "illuminated-music";
-const LABELS: Record<MusicScene, string> = { city: "City grooves", nature: "Highland air", home: "Home comforts", study: "Quiet focus", station: "Platform pulse", journey: "Window seat", arcade: "Playtime", quiet: "A moment of calm", university: "Next chapter", work: "Finding your rhythm", shop: "Afternoon browse" };
+const LABELS = SCENE_LABELS;
 
 export function SceneMusic({ scene }: { scene: MusicScene }) {
   const engine = useRef<ReturnType<typeof createMusic> | null>(null);

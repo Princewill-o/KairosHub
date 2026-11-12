@@ -1,5 +1,6 @@
 "use client";
 
+import { isChurchMap } from "@/game/core/uk";
 import { CAMERA_VIEW, SEAT, SEAT_POSES, nearestOpenSeat, nextMode, steerInput } from "@/game/core/camera-view";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
@@ -413,14 +414,14 @@ export function WorldView({
         // Sit in the nearest open pew place (church), or stand back up.
         if (SEAT.seat) { standUp(); return; }
         const p = pos.current;
-        const seat = map.id === "church" || map.id === "branch" ? nearestOpenSeat(p.x / TILE, p.y / TILE) : null;
+        const seat = isChurchMap(map.id) ? nearestOpenSeat(p.x / TILE, p.y / TILE) : null;
         if (seat) {
           standFrom.current = { x: p.x, y: p.y };
           SEAT.seat = { x: seat.x, z: seat.z, yaw: Math.PI, pose: "sit" };
           p.x = seat.x * TILE; p.y = seat.z * TILE; p.walking = false;
           CAMERA_VIEW.yaw = -Math.PI / 2; // face the stage
           window.dispatchEvent(new CustomEvent("kairos-seat", { detail: "sit" }));
-        } else window.dispatchEvent(new CustomEvent("kairos-seat", { detail: map.id === "church" || map.id === "branch" ? "none" : "nowhere" }));
+        } else window.dispatchEvent(new CustomEvent("kairos-seat", { detail: isChurchMap(map.id) ? "none" : "nowhere" }));
         return;
       }
       if (k === "h" && !e.repeat && SEAT.seat) {
@@ -883,7 +884,7 @@ export function WorldView({
           stick.current = { x, y };
           if (x || y) target.current = null;
         }} />{!car && <button type="button" aria-label="Jump" onClick={() => { if (!pausedRef.current && pos.current.jumpHeight === 0) pos.current.jumpVelocity = JUMP_IMPULSE; }} className="pointer-events-auto min-h-12 rounded-full bg-[#f0c84b] px-5 font-black text-[#21152e]">Jump</button>}{car && <span className="max-w-28 rounded-lg bg-black/65 p-2 text-[10px] leading-relaxed text-white">↑ Accelerate<br />↓ Brake / reverse<br />← → Steer</span>}</div> : (
-          <p data-hud="hint" data-tone="ink" className="max-w-[min(78%,30rem)] rounded-xl bg-black/60 px-3 py-2 text-[10px] text-[#d8d4e0] sm:text-xs">{car ? "W / ↑ accelerate · S / ↓ reverse · A D steer · Space brake" : map.id === "church" || map.id === "branch" ? "WASD move · ← → turn · Shift run · C sit in a pew · H hands · E interact" : "WASD move · ← → turn · Shift run · Space jump · F/G hands · E interact"}</p>
+          <p data-hud="hint" data-tone="ink" className="max-w-[min(78%,30rem)] rounded-xl bg-black/60 px-3 py-2 text-[10px] text-[#d8d4e0] sm:text-xs">{car ? "W / ↑ accelerate · S / ↓ reverse · A D steer · Space brake" : isChurchMap(map.id) ? "WASD move · ← → turn · Shift run · C sit in a pew · H hands · E interact" : "WASD move · ← → turn · Shift run · Space jump · F/G hands · E interact"}</p>
         )}
       </div>
     </div>

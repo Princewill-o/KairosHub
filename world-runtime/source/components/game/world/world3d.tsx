@@ -50,6 +50,7 @@ import { buildLondon } from "@/game/core/london";
 import { weatherAt } from "@/game/core/needs";
 import { type Pursuit, prisonGuardPositions } from "@/game/core/pursuit";
 import { prisonPhase } from "@/game/core/prison-routine";
+import { isChurchMap } from "@/game/core/uk";
 import { buildHighlands } from "@/game/core/regions";
 import { commuterPhase, residentPaths, residentPose } from "@/game/core/residents";
 import { trafficAdvance } from "@/game/core/traffic-flow";
@@ -1602,7 +1603,7 @@ function interior(world: THREE.Group, map: WorldMap, jobs: Promise<unknown>[], s
   const g = new THREE.Group();
   world.add(g);
   // Blender-built interiors (Kharis sanctuary, Pizzazz) replace the tile walls and floor.
-  const builtInterior = map.id === "church" || map.id === "branch" ? "/world3d/spurgeons-interior.glb?v=2" : map.id === "workplace-pizzazz" ? "/world3d/pizzazz-interior.glb?v=1" : map.id === "flight" ? "/world3d/plane-cabin.glb?v=2" : null;
+  const builtInterior = isChurchMap(map.id) ? "/world3d/spurgeons-interior.glb?v=2" : map.id === "workplace-pizzazz" ? "/world3d/pizzazz-interior.glb?v=1" : map.id === "flight" ? "/world3d/plane-cabin.glb?v=2" : null;
   if (builtInterior) {
     jobs.push(load(builtInterior).then(gltf => {
       const hall = gltf.scene.clone(true);
@@ -2893,9 +2894,9 @@ export function World3D({
     const congregation: Body[] = [];
     let churchScreen: { tex: THREE.CanvasTexture; ctx: CanvasRenderingContext2D; version: number } | null = null;
     let preacher: Body | null = null;
-    if (map.id === "church" || map.id === "branch") {
+    if (isChurchMap(map.id)) {
       const seats = churchSeats();
-      const limit = map.id === "branch" ? Math.min(seats.length, LIFE_WORLD.branch?.members ?? 12) : Math.min(seats.length, Math.max(70, budget.residents * 5)); // packed, front to back
+      const limit = map.id.startsWith("branch-") ? Math.min(seats.length, 40) : map.id === "branch" ? Math.min(seats.length, LIFE_WORLD.branch?.members ?? 12) : Math.min(seats.length, Math.max(70, budget.residents * 5)); // packed, front to back
       seats.filter((_, i) => !isOpenSeat(i)).slice(0, limit).forEach((seat, i) => {
         const b = makeBody(npcLook(i + 140), null, true);
         b.root.position.set(seat.x, 0.18, seat.z);
@@ -3029,7 +3030,7 @@ export function World3D({
         ctx.fillText(`${CHURCH_SCREEN.title} · KJV`, W / 2, H - 35);
       } else {
         ctx.fillStyle = "#f5b83d"; ctx.font = "900 92px system-ui, sans-serif";
-        ctx.fillText(map.id === "branch" ? `KHARIS ${(LIFE_WORLD.branch?.name ?? "").toUpperCase()}` : "KHARIS CHURCH", W / 2, H / 2 - 70);
+        ctx.fillText(map.id.startsWith("branch-") ? map.name.toUpperCase() : map.id === "branch" ? `KHARIS ${(LIFE_WORLD.branch?.name ?? "").toUpperCase()}` : "KHARIS CHURCH", W / 2, H / 2 - 70);
         ctx.fillStyle = "#ffffff"; ctx.font = "600 44px system-ui, sans-serif";
         ctx.fillText("Sunday Service · 2:00pm", W / 2, H / 2 + 20);
         ctx.fillStyle = "#c7b8ea"; ctx.font = "600 32px system-ui, sans-serif";
@@ -3354,7 +3355,7 @@ export function World3D({
 
     // Local ambient residents are fictional, scripted characters, separate from connected players.
     // Populate London and the Kharis woodland generously while keeping indoor rooms calmer.
-    const residentLimit = map.kind === "home" || map.kind === "prison" || map.story || map.id === "branch" || map.id === "flight" ? 0 : Math.min(budget.residents, london || map.id === "woodland" ? budget.residents : highland || map.kind === "station" || map.kind === "campus" ? Math.max(12, budget.residents - 4) : Math.max(8, Math.floor(budget.residents / 2)));
+    const residentLimit = map.kind === "home" || map.kind === "prison" || map.story || isChurchMap(map.id) && map.id !== "church" || map.id === "flight" ? 0 : Math.min(budget.residents, london || map.id === "woodland" ? budget.residents : highland || map.kind === "station" || map.kind === "campus" ? Math.max(12, budget.residents - 4) : Math.max(8, Math.floor(budget.residents / 2)));
     const riderAt = new THREE.Vector3();
     const npcs = residentPaths(map, residentLimit).filter(path=>map.kind !== "prison" || path.x0<25&&path.x1<25).map((path, i) => {
       const body = makeBody(map.kind === "prison" ? {...npcLook(i),...PRISON_LOOK} : (london || map.id === "city") && i % 9 === 4 ? officerLook(i) : npcLook(i), null, true);

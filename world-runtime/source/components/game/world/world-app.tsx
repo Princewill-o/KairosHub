@@ -66,6 +66,8 @@ import { scriptFor } from "./cutscene-scripts";
 import { activeInjury, injure, injurySpeed } from "@/game/core/injury";
 import { InPersonGame } from "./in-person-game";
 import { KharisHub, readKharisTag, type KharisTag } from "./kharis-hub";
+import { isChurchMap, ukCityMap, branchChurchMap, mapForCity, cityById, cityForMap, type TravelMode } from "@/game/core/uk";
+import { UkTravel, UkJourney } from "./uk-travel";
 import { nameTagLabel } from "../../../../../public/kharis-data.mjs";
 import { PoliceVan } from "./police-van";
 import { FIND_CHANCE, TIERS, rollTier, type Tier } from "@/game/core/lucky-blocks";
@@ -135,6 +137,8 @@ function loadMap(id: string): WorldMap | null {
   if (id === "flight") return flightMap();
   if (id === "ferry") return ferryMap();
   if (id === "greater-london") return greaterLondonMap();
+  if (id.startsWith("uk-")) return ukCityMap(id);
+  if (id.startsWith("branch-")) return branchChurchMap(id);
   if (id === "branch") return LIFE_WORLD.branch ? branchMap(LIFE_WORLD.branch.name) : null;
   if (id === "hospital") return hospitalMap();
   if (id === "court") return courtMap();
@@ -181,6 +185,14 @@ export function WorldApp({
   const [kharisOpen, setKharisOpen] = useState(false);
   const me = useMemo(() => kharisTag ? { ...meProp, affiliation: { kind: "branch" as const, label: nameTagLabel(kharisTag.branch, kharisTag.department), icon: "church" as const, logo: "kharis" } } : meProp, [meProp, kharisTag]);
   useEffect(() => { const open = () => { setPhone(false); setKharisOpen(true); }; addEventListener("kairos-open-kharis", open); return () => removeEventListener("kairos-open-kharis", open); }, []);
+  // LTBS is its own world: you pass through a world gate to enter it and to come back.
+  const [worldGate, setWorldGate] = useState<"ltbs" | "kairos" | null>(null);
+  const ltbsOrigin = useRef<{ mapId: string; label: string; spot: { x: number; y: number } } | null>(null);
+  const ltbsGateRef = useRef<(to: "ltbs" | "kairos") => void>(() => {});
+  // UK travel: stations, coach stops and Kairos Air between Kharis branch cities.
+  const [ukTravel, setUkTravel] = useState<{ from: string; mode?: TravelMode } | null>(null);
+  const [ukJourney, setUkJourney] = useState<{ from: string; to: string; mode: TravelMode; minutes: number } | null>(null);
+  useEffect(() => { const open = (e: Event) => { setPhone(false); setUkTravel({ from: (e as CustomEvent<string>).detail }); }; addEventListener("kairos-open-uk", open); return () => removeEventListener("kairos-open-uk", open); }, []);
   const [graceOpen,setGraceOpen]=useState(false);
   const openGrace=useCallback((route='home')=>parent.postMessage({type:'kairos-world:grace',route},location.origin),[]);
   const [wardrobe, setWardrobe] = useState(false);
@@ -584,6 +596,16 @@ export function WorldApp({
     addEventListener("kairos-seat", seat);
     return () => removeEventListener("kairos-seat", seat);
   }, [say]);
+  ltbsGateRef.current = (to) => {
+    if (worldGate) return;
+    if (to === "ltbs") ltbsOrigin.current = { mapId: mapId === "scripture-island" ? "city" : mapId, label: map.name, spot: { x: PLAYER.x, y: PLAYER.y } };
+    setWorldGate(to);
+    setTimeout(() => {
+      if (to === "ltbs") goTo("scripture-island", "LTBS World");
+      else { const o = ltbsOrigin.current; goTo(o?.mapId ?? "city", o?.label ?? "London", o?.spot); }
+      setTimeout(() => setWorldGate(null), 900);
+    }, 1800);
+  };
   openGraceRef.current = openGrace;
   awardChallengeRef.current = (id: string, amount: number, message = "Scripture challenge complete") => {
     const current = readStorySave(), key = id.includes(":") ? id : `challenge:${id}`;
@@ -814,6 +836,9 @@ export function WorldApp({
       if (portal.id === "departures") { setDepartures(true); return; }
       if (portal.id === "branch-home") { setFlightTo({ mapId: "airport", label: "Kairos International, London", title: `Kairos Air KA8 · ${LIFE_WORLD.branch?.name ?? "Branch"} → London` }); }
       if(to.kind==='grace'){openGrace(to.route);return;}
+      if (to.kind === "map" && to.mapId === "scripture-island" && map.id !== "scripture-island") { ltbsGateRef.current("ltbs"); return; }
+      if (to.kind === "uk") { setUkTravel({ from: to.from, mode: to.mode }); return; }
+      if (map.id === "scripture-island" && to.kind === "map" && to.mapId === "city" && portal.id.startsWith("tube-")) { ltbsGateRef.current("kairos"); return; }
       if (to.kind === "mall") { setMallDept(to.dept as Dept); return; }
       if (to.kind === "story-enter") { setMiniGamesOpen(false); adventure.enter(to.story); return; }
       if (to.kind === "story-discover") { adventure.discover(to.index); return; }
@@ -1279,7 +1304,7 @@ export function WorldApp({
   }
 
   if (map.story) return <div className="relative h-[calc(100dvh-56px-64px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] md:h-dvh">
-    <SceneMusic scene="nature" />
+    <SceneMusic scene="ltbs" />
     <WorldView key={`${mapId}:${trip}`} map={map} serverId="solo" me={{...me,avatar:playerAvatar}} arriveAt={arrive} onPortal={onPortal} onChangeServer={adventure.leave} storyPhase={adventure.phase} paused={graceOpen || fading || adventure.phase !== "explore"} />
     <StoryWorldHud adventure={adventure}/>
     <div data-hud="story-wallet" data-tone="ink" className="absolute bottom-3 right-3 z-[100001] rounded-full bg-[#21172c]/90 px-4 py-2 text-xs font-black text-[#ffdd80]">{wallet.toLocaleString()} Grace</div>
@@ -1289,7 +1314,11 @@ export function WorldApp({
   return (
     <div className={cn("relative h-[calc(100dvh-56px-64px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] md:h-dvh", photoMode && "kp-photo-mode")}>
       <SceneMusic scene={
-        bus || map.kind === "train" ? "journey"
+        isChurchMap(map.id) ? "church"
+          : map.id === "scripture-island" || map.id.startsWith("lobby-ltbs") || map.story ? "ltbs"
+          : map.kind === "prison" ? "prison"
+          : map.id.startsWith("uk-") ? "town"
+          : bus || map.kind === "train" ? "journey"
           : map.kind === "office" && map.id !== "kharis-hub" ? "quiet"
                   : shop || dealer || map.id === "supermarket" ? "shop"
                     : map.kind === "station" ? "station"
@@ -1384,9 +1413,15 @@ export function WorldApp({
       <div data-hud="wallet" data-tone="ink" className="absolute top-14 right-3 z-[70] flex min-h-10 items-center gap-2 rounded-full border border-[#f2d15b]/60 bg-[#171221]/95 px-3 text-xs font-black text-[#f2d15b] shadow-lg" aria-label={offline ? `£${wallet.toLocaleString()} (your life's money)` : `${wallet.toLocaleString()} Grace in-game currency`}>
         <Coins className="size-4" aria-hidden /> {offline ? `£${wallet.toLocaleString()}` : `${wallet.toLocaleString()} Grace`}
       </div>
-      <button type="button" data-hud="ltbs" data-tone="violet" onClick={() => setMiniGamesOpen(true)} className="absolute right-3 bottom-40 z-[100001] flex min-h-11 items-center gap-1.5 rounded-full bg-[#6d45a2] px-3 py-1.5 text-xs font-black text-white shadow-lg">
-        <Gamepad2 className="size-4" aria-hidden /> LTBS · Stories & games
-      </button>
+      {map.id === "scripture-island" ? <>
+        <button type="button" data-hud="ltbs" data-tone="violet" onClick={() => ltbsGateRef.current("kairos")} className="absolute right-3 bottom-40 z-[100001] flex min-h-11 items-center gap-1.5 rounded-full bg-[#2b1d3a] px-3 py-1.5 text-xs font-black text-[#f2c84b] shadow-lg">
+          <Gamepad2 className="size-4" aria-hidden /> Back to Kairos World
+        </button>
+        <div className="ltbs-world-badge" aria-hidden>LTBS WORLD</div>
+      </> : <button type="button" data-hud="ltbs" data-tone="violet" onClick={() => ltbsGateRef.current("ltbs")} className="absolute right-3 bottom-40 z-[100001] flex min-h-11 items-center gap-1.5 rounded-full bg-[#6d45a2] px-3 py-1.5 text-xs font-black text-white shadow-lg">
+        <Gamepad2 className="size-4" aria-hidden /> Enter LTBS World
+      </button>}
+      {worldGate && <div className={`world-gate world-gate-${worldGate}`} role="status"><div><small>{worldGate === "ltbs" ? "LEAVING KAIROS WORLD" : "LEAVING LTBS WORLD"}</small><b>{worldGate === "ltbs" ? "LTBS" : "KAIROS WORLD"}</b><span>{worldGate === "ltbs" ? "Walk into the story. Put Scripture into practice." : "Back to London and your life."}</span></div></div>}
       {challenge && map.id === "scripture-island" && !fading && <InPersonGame kind={challenge.type} title={challenge.title} reference={challenge.reference} onClose={()=>setNativeChallenge(null)}><section aria-label={challenge.title} className="ip-game">
         <ScriptureChallenge key={challenge.id} game={challenge} onExit={()=>setNativeChallenge(null)} onAward={(id,amount)=>awardChallengeRef.current(id,amount)}/>
       </section></InPersonGame>}
@@ -1593,6 +1628,14 @@ export function WorldApp({
         </button>
       )}
       {mapId === "train-carriage" && <NextStationBoard ride={RIDE} />}
+      {ukTravel && <UkTravel here={cityForMap(ukTravel.from === "here" ? mapId : `uk-${ukTravel.from}`) } mode={ukTravel.mode} wallet={wallet} currency={(n) => offline ? `£${n}` : `${n} Grace`} onClose={() => setUkTravel(null)} onGo={(dest, mode, fare, minutes) => {
+        const from = cityForMap(ukTravel.from === "here" ? mapId : `uk-${ukTravel.from}`), c = cityById(dest)!;
+        setUkTravel(null); setWallet((w) => w - fare);
+        if (mode === "flight") { setFlightTo({ mapId: mapForCity(dest), label: c.name, title: `Kairos Air · ${cityById(from)?.name} → ${c.name}` }); say(`Boarding Kairos Air to ${c.name}.`, true); goTo("flight", "Kairos Air"); return; }
+        setUkJourney({ from, to: dest, mode, minutes });
+        setTimeout(() => { setUkJourney(null); goTo(mapForCity(dest), c.name); say(`Welcome to ${c.name}. Kharis ${c.name} is up the road.`, true); }, 3600);
+      }} />}
+      {ukJourney && <UkJourney {...ukJourney} />}
       {kharisOpen && <KharisHub tag={kharisTag} onTag={setKharisTag} onClose={() => setKharisOpen(false)}
         onEmote={(anim) => { (globalThis as { __kairosEmote?: { anim: string; until: number } }).__kairosEmote = { anim, until: performance.now() + 2800 }; }}
         onAward={(id, grace, message) => awardChallengeRef.current(id, grace, message)} />}

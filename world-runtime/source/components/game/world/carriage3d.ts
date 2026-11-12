@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { CARRIAGE_DOORS } from "@/game/core/world";
 import { RIDE_DISTANCE, RIDE_TUNNEL, advanceRide, rideFrame, type Ride } from "@/game/core/ride";
-import { ISLANDS } from "@/game/core/islands";
+import { GRACE_LINE as ISLANDS } from "@/game/core/islands";
 
 /**
  * A walk-around Grace Line carriage with the line running past outside.

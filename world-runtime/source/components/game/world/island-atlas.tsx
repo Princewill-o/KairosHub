@@ -1,5 +1,5 @@
 "use client";
-import { ISLANDS } from "@/game/core/islands";
+import { GRACE_LINE as ISLANDS } from "@/game/core/islands";
 import { lowPolyIslandSVG, lowPolyLabelSVG, lowPolyRouteSVG, lowPolySeaSVG } from "../../../../../public/lowpoly-map.mjs";
 const OUTLINE="-84,-15 -60,-38 -34,-34 -12,-50 21,-43 40,-29 69,-31 86,-8 77,14 53,22 38,37 6,32 -13,42 -42,29 -68,24 -90,5";
 function Pine({x,y,size=1}:{x:number;y:number;size?:number}){return <g transform={`translate(${x} ${y}) scale(${size})`}><path d="M-2 0v13h4V0" fill="#805c38"/><path d="M0-25-13 2H13Z" fill="#2c7f65"/><path d="M0-25 0 2H13Z" fill="#205f56"/><path d="M0-17-10 8H10Z" fill="#378c68"/></g>;}

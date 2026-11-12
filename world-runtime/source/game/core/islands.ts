@@ -21,8 +21,10 @@ export const STORY_BIOMES = [
   { story: "daniel", name: "Daniel", theme: "den", x: 31, y: 37, w: 17, h: 6, portal: [39, 38], ref: "Daniel 6", blurb: "Daniel keeps praying three times a day when it is forbidden. Thrown to the lions, he is kept safe by the God he serves." },
 ] as const;
 
+/** LTBS is a separate world (entered through a world gate), so the Grace Line skips it. */
+export const GRACE_LINE = ISLANDS.filter(island => island.id !== "scripture-island");
 export const islandForStation = (id: string) => ISLANDS.find(island => island.station === id);
-export const islandStations = () => ISLANDS.map(island => ({ id: island.station as string, name: island.name, lines: ["grace"], exit: { x: 24, y: 37 }, exitPx: { x: 24.5 * 32, y: 37.5 * 32 } }));
+export const islandStations = () => GRACE_LINE.map(island => ({ id: island.station as string, name: island.name, lines: ["grace"], exit: { x: 24, y: 37 }, exitPx: { x: 24.5 * 32, y: 37.5 * 32 } }));
 
 /** A bounded, independent map; only the active island is constructed by the renderer. */
 export function islandMap(id: string): WorldMap | null {
@@ -38,9 +40,11 @@ export function islandMap(id: string): WorldMap | null {
   const portals: Portal[] = [];
   // Station is at the shore. Its path leads into the island rather than straight to the church.
   fill(20, 34, 9, 3, "X");
-  structures.push({ x: 20, y: 34, w: 9, h: 3, label: `${island.name} Station`, accent: "#6b4598", door: "bottom" });
+  structures.push({ x: 20, y: 34, w: 9, h: 3, label: id === "scripture-island" ? "LTBS World Gate" : `${island.name} Station`, accent: "#6b4598", door: "bottom" });
   // A stairwell cut into the middle of the station: walk down the steps and you're in.
-  portals.push({ id: `tube-${island.station}`, rect: rect(23, 34, 3), label: `${island.name} station · trains to other islands`, to: { kind: "map", mapId: `station-${island.station}`, label: `${island.name} Station` } });
+  portals.push(id === "scripture-island"
+    ? { id: `tube-${island.station}`, rect: rect(23, 34, 3), label: "World gate · back to Kairos World", to: { kind: "map", mapId: "city", label: "Kairos World" } }
+    : { id: `tube-${island.station}`, rect: rect(23, 34, 3), label: `${island.name} station · trains to other islands`, to: { kind: "map", mapId: `station-${island.station}`, label: `${island.name} Station` } });
   fill(22, 30, 6, 4, "-"); fill(22, 37, 6, 5, "-"); fill(23, 34, 3, 3, "-");
   if (id === "woodland") {
     // Dense tree belt, winding south-to-north approach and a lawn revealed at the end.
@@ -62,7 +66,7 @@ export function islandMap(id: string): WorldMap | null {
     fill(16, 8, 9, 1, "-"); fill(12, 17, 28, 1, "-"); fill(12, 24, 28, 1, "-"); fill(4, 33, 44, 1, "-"); fill(23, 18, 4, 7, "-");
     structures.push({ x: 16, y: 4, w: 9, h: 4, label: "London Welcome", accent: "#6b4598", door: "bottom" }, { x: 29, y: 18, w: 9, h: 5, label: "Kharis Events", accent: "#a78b35", door: "bottom" });
     for (const st of structures.slice(1)) fill(st.x, st.y, st.w, st.h, "X");
-    portals.push({ id: "arcade", rect: rect(31, 23), label: "LTBS · walk in to choose a story", to: { kind: "map", mapId: `lobby-ltbs@${id}`, label: "LTBS" } }, { id: "garage", rect: rect(12, 33), label: "London garage", to: { kind: "dealer" } });
+    portals.push({ id: "arcade", rect: rect(31, 23), label: "LTBS World gate · step into the Bible story world", to: { kind: "map", mapId: "scripture-island", label: "LTBS World" } }, { id: "garage", rect: rect(12, 33), label: "London garage", to: { kind: "dealer" } });
   } else {
     fill(23, 12, 4, 22, "-"); fill(9, 20, 35, 3, "-"); fill(10, 9, 31, 8, "g");
     if (id === "fellowship-island") {

@@ -1,4 +1,4 @@
-import { ISLANDS } from "./islands";
+import { GRACE_LINE as ISLANDS } from "./islands";
 
 /**
  * One continuous train ride between two stations: no cutscene. You walk into a

@@ -25,11 +25,12 @@ import { STORE, appById, install, readApps, remove, spiritualReading, writeApps,
 
 type AppId =
   | "phone" | "messages" | "prayer" | "bible" | "tv" | "maps" | "friends" | "grace"
-  | "games" | "stories" | "wardrobe" | "season" | "camera" | "settings" | "followups" | "messagesPlay" | "chat" | "store" | "storeApp" | "gameshow" | "lifehub" | "music" | "web" | "skins" | "kharis";
+  | "games" | "stories" | "wardrobe" | "season" | "camera" | "settings" | "followups" | "messagesPlay" | "chat" | "store" | "storeApp" | "gameshow" | "lifehub" | "music" | "web" | "skins" | "kharis" | "uktravel";
 
 /** Low Poly Icon Sampler art where a matching icon exists; drawn glyphs elsewhere. */
 const ICON = (n: string) => `/world-ui/icons/${n}.png`;
 const APPS: { id: AppId; name: string; glyph: string; color: string; image?: string }[] = [
+  { id: "uktravel", name: "UK Travel", glyph: "map", color: "#2b5fd9" },
   { id: "kharis", name: "Kharis", glyph: "pray", color: "#6b3fa0", image: "/brand/kharis-mark.png" },
   { id: "followups", name: "Follow-ups", glyph: "heart", color: "#e2556b", image: ICON("heart") },
   { id: "prayer", name: "Prayer", glyph: "pray", color: "#8a5bd6", image: ICON("fire") },
@@ -139,6 +140,7 @@ export function KairosPhone(props: PhoneActions) {
     if (id === "wardrobe" || id === "skins") return props.onWardrobe();
     if (id === "camera") return props.onPhoto();
     if (id === "lifehub") { window.dispatchEvent(new CustomEvent("kairos-open-lifehub")); return; }
+    if (id === "uktravel") { window.dispatchEvent(new CustomEvent("kairos-open-uk", { detail: "here" })); return; }
     if (id === "kharis") { window.dispatchEvent(new CustomEvent("kairos-open-kharis")); return; }
     if (id === "gameshow") { window.dispatchEvent(new CustomEvent("kairos-open-gameshow")); return; }
     setApp(id);
