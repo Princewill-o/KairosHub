@@ -27,3 +27,14 @@ Supabase advisors were checked. New-table “RLS enabled, no policy” notices d
 ## Kharis Church (branches, departments, serving)
 
 Migration `20261112000100_kharis_church.sql` adds `kharis_members` (branch and department name tag per player: a parent account or a child session) and `kharis_activity` (serving scenarios and sermon study games, 0–100 per event, idempotent by event id). Same private-schema, Edge-Function-only access model as the family tables. Routes: `GET /api/family/kharis`, `POST /api/family/kharis/member`, `POST /api/family/kharis/activity`. The function bundle imports only small id lists (`server/kharis-ids.mjs`, `server/bible-game-ids.mjs`, `server/check-name.mjs`), kept in step with the browser data by `kharis.test.mjs`. Deployed as `kairos-family` version 5.
+
+## Email verification and welcome emails
+
+Migration `20261112010000_email_verification.sql` adds `family_accounts.email_verified_at` (existing accounts are marked verified) and `family_email_codes` (hashed 6-digit codes, 15 minutes, five tries, one resend a minute). Routes: `POST /api/family/verify`, `POST /api/family/resend`. Templates: `server/emails.mjs` (previews in `docs/emails/`).
+
+Emails send through Resend. Until both secrets are set, sign-up works as before with no verification step:
+
+- `RESEND_API_KEY`: from resend.com → API keys.
+- `KAIROS_MAIL_FROM`: e.g. `Kairos Life <hello@your-domain>` (the domain must be verified in Resend; `onboarding@resend.dev` only delivers to your own Resend email while testing).
+
+Set them in the Supabase dashboard (Edge Functions → Secrets) or `supabase secrets set RESEND_API_KEY=... KAIROS_MAIL_FROM="Kairos Life <hello@...>"`. Deployed as `kairos-family` version 6.

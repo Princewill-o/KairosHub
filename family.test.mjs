@@ -7,6 +7,7 @@ function setup() {
   const db = new DatabaseSync(":memory:");
   db.exec(readFileSync("drizzle/0002_family.sql", "utf8"));
   db.exec(readFileSync("drizzle/0004_kharis.sql", "utf8"));
+  db.exec(readFileSync("drizzle/0005_email_verify.sql", "utf8"));
   const env = {
     DB: {
       prepare(sql) {
@@ -265,4 +266,22 @@ test("a child's own session can join a branch and earn points", async () => {
   await a.call("/play", { childId: child.id });
   const r = await a.call("/kharis/member", { branch: "luton", department: "children" });
   assert.equal(r.status, 201); assert.equal(r.data.name, "Ama");
+});
+test("with email set up: signup sends a branded code, login waits for it, verify opens the account and sends a welcome", async () => {
+  const a = setup();
+  const sent = [];
+  a.env.MAIL = { send: async (m) => sent.push(m) };
+  const r = await a.call("/signup", { ...parent, email: "verify@example.com" });
+  assert.equal(r.status, 201); assert.equal(r.data.verify, true); assert.equal(r.cookie, "");
+  assert.equal(sent.length, 1); assert.equal(sent[0].to, "verify@example.com");
+  const code = sent[0].subject.match(/^(\d{6}) is your Kairos Life code$/)[1];
+  assert.match(sent[0].html, /kairos-life-wordmark-game\.png/); assert.match(sent[0].html, new RegExp(code.split("").join(".*")));
+  const login = await a.call("/login", { email: "verify@example.com", password: parent.password });
+  assert.equal(login.status, 403); assert.equal(login.data.verify, true);
+  assert.equal((await a.call("/verify", { email: "verify@example.com", code: code === "111111" ? "222222" : "111111" })).status, 400);
+  const ok = await a.call("/verify", { email: "verify@example.com", code });
+  assert.equal(ok.status, 200); assert.equal(ok.data.parent.name, parent.name);
+  assert.match(sent.at(-1).subject, /Welcome to Kairos Life/); assert.match(sent.at(-1).html, /Be blessed/);
+  assert.equal((await a.call("")).status, 200);
+  assert.equal((await a.call("/verify", { email: "verify@example.com", code })).status, 400);
 });

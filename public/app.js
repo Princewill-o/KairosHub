@@ -7,6 +7,7 @@ const PUBLIC_PLAY = true;
 import {worldLockedCard} from './world-availability.mjs';
 import {mountPlayMessages} from './playmessages.mjs';
 import {mountFamily} from './family.mjs';
+import {mountAccount} from './account.mjs';
 import {restoreFamily, familyApi, loadCloudProgress, syncStatus} from './family-client.mjs';
 import {mountKairosWorld,worldJourney} from './kairos-world.mjs';
 import {installColorMode} from './color-mode.mjs';
@@ -154,7 +155,7 @@ async function logOut() {
 // The world's main menu can send you back to the landing page, or log you out.
 addEventListener("message", (e) => {
   if (e.origin !== location.origin || e.data?.type !== "kairos-world:leave") return;
-  if (e.data.logout) logOut(); else location.hash = "#landing";
+  if (e.data.logout) logOut(); else location.hash = e.data.route === "account" ? "#account" : "#landing";
 });
 function bindHeader() {
   document.querySelector('#app').insertAdjacentHTML('beforeend',mobileTabs());
@@ -389,6 +390,16 @@ function route() {
     stop();document.documentElement.classList.remove('world-playing');
     document.documentElement.dataset.audience='landing';
     activeModule=mountLanding(document.querySelector('#app'));window.scrollTo(0,0);return;
+  }
+  // Account pages come before the world: sign in, create an account, verify the email.
+  if(!GRACE_EMBED && (hash==='account'||hash.startsWith('account/')||hash.startsWith('family/verify'))){
+    stop();document.documentElement.classList.remove('world-playing');document.documentElement.dataset.audience='landing';
+    const [route,query='']=hash.split('?');
+    activeModule=mountAccount(document.querySelector('#app'),{mode:route==='account/signup'?'signup':route.endsWith('verify')?'verify':'signin',query});window.scrollTo(0,0);return;
+  }
+  if(!GRACE_EMBED && hash==='family'){
+    stop();document.documentElement.classList.remove('world-playing');document.documentElement.dataset.audience='welcome';
+    activeModule=mountFamily(document.querySelector('#app'));window.scrollTo(0,0);return;
   }
   if(hash==='life'||hash==='quickplay'){
     // Kairos Life is the offline mode of Kairos World; quick play is the online mode.

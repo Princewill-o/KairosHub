@@ -62,7 +62,7 @@ function GlassTile({ tile, big, onPick, focus, setFocus }: { tile: Tile; big?: b
 export function KairosMenu({ onPick, initial = "online", onResume }: { onPick: (m: Mode) => void; initial?: Mode; onResume?: () => void }) {
   const [tab, setTab] = useState<Mode>(initial);
   const [settings, setSettings] = useState(false);
-  const leave = (logout: boolean) => { try { parent.postMessage({ type: "kairos-world:leave", logout }, location.origin); } catch { /* not embedded */ } };
+  const leave = (logout: boolean, route?: string) => { try { parent.postMessage({ type: "kairos-world:leave", logout, route }, location.origin); } catch { /* not embedded */ } };
   const [focus, setFocus] = useState(TABS[initial].tiles[0].id);
   const t = TABS[tab];
   const line = t.tiles.find((x) => x.id === focus)?.line ?? t.hint;
@@ -114,6 +114,7 @@ export function KairosMenu({ onPick, initial = "online", onResume }: { onPick: (
         {settings && (
           <div className="km-settings" role="menu" aria-label="Settings">
             <button type="button" role="menuitem" onClick={() => leave(false)}>Back to the home page</button>
+            <button type="button" role="menuitem" onClick={() => leave(false, "account")}>Account · sign in</button>
             <button type="button" role="menuitem" className="km-danger" onClick={() => leave(true)}>Log out</button>
           </div>
         )}

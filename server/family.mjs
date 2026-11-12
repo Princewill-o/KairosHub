@@ -1,5 +1,6 @@
 import { bibleGames } from "./bible-game-ids.mjs";
 import { checkName } from "./check-name.mjs";
+import { verificationEmail, welcomeEmail } from "./emails.mjs";
 import { BRANCH_IDS, DEPARTMENT_IDS, SERVING_IDS, SERMON_IDS } from "./kharis-ids.mjs";
 const COOKIE = "kairos_family";
 const characters = ["kai", "ama", "leo", "mei", "theo"];
@@ -102,6 +103,19 @@ async function throttle(db, key) {
     .bind(key)
     .first();
   if (row.count > 20) fail("Too many attempts. Try again in 15 minutes.", 429);
+}
+// Email verification: a 6-digit code (stored hashed) that lasts 15 minutes, five tries.
+const CODE_MS = 15 * 60000;
+async function sendCode(request, db, env, account) {
+  const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+  const now = Date.now();
+  await db
+    .prepare(
+      "INSERT INTO family_email_codes (email,account_id,code_hash,expires_at,attempts,sent_at) VALUES (?,?,?,?,0,?) ON CONFLICT(email) DO UPDATE SET account_id=excluded.account_id, code_hash=excluded.code_hash, expires_at=excluded.expires_at, attempts=0, sent_at=excluded.sent_at",
+    )
+    .bind(account.email, account.id, await hash(account.email + ":" + code), now + CODE_MS, now)
+    .run();
+  await env.MAIL.send({ to: account.email, ...verificationEmail({ name: account.name, code, email: account.email, origin: new URL(request.url).origin }) });
 }
 async function childFor(db, s, id) {
   if (s.child_id && s.child_id !== id)
@@ -223,7 +237,7 @@ export async function handleFamily(request, env) {
           id = crypto.randomUUID();
         await db
           .prepare(
-            "INSERT INTO family_accounts (id,name,email,password_hash,salt,consent_at,created_at) VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO family_accounts (id,name,email,password_hash,salt,consent_at,created_at,email_verified_at) VALUES (?,?,?,?,?,?,?,?)",
           )
           .bind(
             id,
@@ -233,9 +247,15 @@ export async function handleFamily(request, env) {
             salt,
             Date.now(),
             Date.now(),
+            env.MAIL ? null : Date.now(),
           )
           .run();
         account = { id, name: nm, email: em };
+        // With email set up, the account opens only after the code is confirmed.
+        if (env.MAIL) {
+          await sendCode(request, db, env, account);
+          return json({ verify: true, email: em }, 201);
+        }
       } else {
         const row = await db
           .prepare("SELECT * FROM family_accounts WHERE email = ?")
@@ -248,6 +268,11 @@ export async function handleFamily(request, env) {
         if (!row || !equal(derived, row.password_hash))
           fail("Email or password is incorrect.", 401);
         account = { id: row.id, name: row.name, email: row.email };
+        if (env.MAIL && !row.email_verified_at) {
+          const last = await db.prepare("SELECT sent_at FROM family_email_codes WHERE email = ?").bind(em).first();
+          if (!last || Date.now() - last.sent_at > 60000) await sendCode(request, db, env, account);
+          return json({ error: "Check your email for a 6-digit code to finish signing in.", verify: true, email: em }, 403);
+        }
       }
       const old = await session(request, db);
       if (old)
@@ -268,6 +293,31 @@ export async function handleFamily(request, env) {
         path === "/signup" ? 201 : 200,
         await issue(request, db, account.id),
       );
+    }
+    if (request.method === "POST" && (path === "/verify" || path === "/resend")) {
+      const em = email(body.email);
+      await throttle(db, "verify:" + (await hash(em)));
+      if (path === "/resend") {
+        const acct = await db.prepare("SELECT id,name,email FROM family_accounts WHERE email = ? AND email_verified_at IS NULL").bind(em).first();
+        const last = acct && (await db.prepare("SELECT sent_at FROM family_email_codes WHERE email = ?").bind(em).first());
+        if (acct && env.MAIL && (!last || Date.now() - last.sent_at > 60000)) await sendCode(request, db, env, acct);
+        return json({ ok: true });
+      }
+      const code = String(body.code ?? "").replace(/\D/g, "");
+      const row = await db.prepare("SELECT * FROM family_email_codes WHERE email = ?").bind(em).first();
+      if (!row || row.expires_at < Date.now()) fail("That code has expired. Send a new one.");
+      if (row.attempts >= 5) fail("Too many tries. Send a new code.", 429);
+      if (code.length !== 6 || !equal(await hash(em + ":" + code), row.code_hash)) {
+        await db.prepare("UPDATE family_email_codes SET attempts = attempts + 1 WHERE email = ?").bind(em).run();
+        fail("That code isn't right. Check the email and try again.");
+      }
+      await db.prepare("UPDATE family_accounts SET email_verified_at = ? WHERE id = ?").bind(Date.now(), row.account_id).run();
+      await db.prepare("DELETE FROM family_email_codes WHERE email = ?").bind(em).run();
+      const acct = await db.prepare("SELECT id,name,email FROM family_accounts WHERE id = ?").bind(row.account_id).first();
+      try {
+        if (env.MAIL) await env.MAIL.send({ to: acct.email, ...welcomeEmail({ name: acct.name, origin: url.origin }) });
+      } catch { /* The account is verified even if the welcome email fails. */ }
+      return json({ parent: acct, welcome: true }, 200, await issue(request, db, acct.id));
     }
     const s = await session(request, db);
     if (!s) fail("Sign in to your family account.", 401);

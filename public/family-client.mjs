@@ -68,7 +68,7 @@ export async function familyApi(path = "", body) {
   if (!response.ok)
     throw Object.assign(
       Error(data.error || "Unable to connect. Please retry."),
-      { status: response.status },
+      { status: response.status, data },
     );
   return data;
 }

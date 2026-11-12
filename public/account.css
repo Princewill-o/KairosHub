@@ -1,0 +1,29 @@
+/* Kairos account pages: low-poly, ink-outlined, matching the game. */
+@font-face { font-family: "Kairos Pixel"; src: url("/fonts/press-start-2p.woff2") format("woff2"); font-display: swap; }
+.acc-page { min-height: 100dvh; display: grid; place-items: center; align-content: center; gap: 14px; padding: 24px 14px; background: linear-gradient(160deg, #3a2a52 0 30%, #2b1d3a 30.2% 70%, #1b1226 70.2%); color: #1b1226; font-family: var(--kg-body, system-ui), sans-serif; }
+.acc-back { justify-self: start; max-width: 460px; width: 100%; margin: 0 auto; color: #f2c84b; font-weight: 800; text-decoration: none; }
+.acc-card { width: min(460px, 100%); padding: 22px 24px 20px; background: #faf5e9; border: 4px solid #120c18; box-shadow: 8px 8px 0 #120c18; clip-path: polygon(0 12px, 12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px)); }
+.acc-logo { display: block; width: 240px; max-width: 80%; margin: 0 auto 14px; }
+.acc-eyebrow { margin: 0; font: 8px/1.4 "Kairos Pixel", monospace; color: #6b3fa0; letter-spacing: .12em; }
+.acc-card h1 { margin: 6px 0 10px; font-size: 26px; line-height: 1.2; }
+.acc-card p { line-height: 1.5; }
+.acc-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 12px 0; }
+.acc-tabs button { min-height: 40px; border: 3px solid #120c18; background: #fff; font: 8px "Kairos Pixel", monospace; cursor: pointer; }
+.acc-tabs button[aria-selected="true"] { background: #f2c84b; box-shadow: 0 3px 0 #120c18; }
+.acc-card form { display: grid; gap: 10px; }
+.acc-card label { display: grid; gap: 4px; font-weight: 800; font-size: 14px; }
+.acc-card input:not([type=checkbox]) { min-height: 44px; padding: 0 12px; border: 3px solid #120c18; background: #fff; font-size: 16px; }
+.acc-card input:focus { outline: 3px solid #f2c84b; outline-offset: 1px; }
+.acc-check { grid-template-columns: auto 1fr; align-items: start; font-weight: 600 !important; font-size: 13px !important; }
+.acc-code { font: 26px/1 "Courier New", monospace !important; letter-spacing: .5em; text-align: center; color: #6b3fa0; }
+.acc-btn { display: inline-grid; place-items: center; min-height: 46px; padding: 0 18px; border: 3px solid #120c18; background: #fff; color: #120c18; font-weight: 900; text-decoration: none; cursor: pointer; box-shadow: 4px 4px 0 #120c18; }
+.acc-gold { background: #f2c84b; }
+.acc-soft { background: #efe5d2; }
+.acc-btn:disabled { opacity: .6; }
+.acc-actions { display: grid; gap: 10px; margin-top: 14px; }
+.acc-msg { min-height: 1.2em; margin: 0; color: #b23a3a; font-weight: 700; }
+.acc-msg.good { color: #2f7d4b; }
+.acc-small { font-size: 13px; color: #5a4d68; }
+.acc-link { border: 0; background: none; padding: 0; color: #6b3fa0; font-weight: 800; text-decoration: underline; cursor: pointer; }
+.acc-verse { color: #d9cbea; font-size: 13px; text-align: center; }
+.acc-verse b { color: #f2c84b; }

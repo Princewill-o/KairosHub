@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import { createPostgresFamilyDb } from "../../../server/family-postgres.mjs";
 import { createFamilyEdgeHandler } from "../../../server/family-edge.mjs";
+import { createResendMailer } from "../../../server/emails.mjs";
 const connection = Deno.env.get("SUPABASE_DB_URL");
 if (!connection) throw Error("Family database connection is not configured.");
 // Reuse a bounded pool for this isolate. Supabase keeps database credentials in
@@ -22,5 +23,9 @@ const origins = [
     .filter(Boolean),
 ];
 Deno.serve(
-  createFamilyEdgeHandler({ DB: createPostgresFamilyDb(sql) }, origins),
+  createFamilyEdgeHandler({
+    DB: createPostgresFamilyDb(sql),
+    // Verification and welcome emails go out when RESEND_API_KEY and KAIROS_MAIL_FROM are set.
+    MAIL: createResendMailer(Deno.env.get("RESEND_API_KEY"), Deno.env.get("KAIROS_MAIL_FROM")),
+  }, origins),
 );

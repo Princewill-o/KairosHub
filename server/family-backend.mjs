@@ -1,4 +1,5 @@
 import { handleFamily } from "./family.mjs";
+import { createResendMailer } from "./emails.mjs";
 export const SUPABASE_FAMILY_URL =
   "https://yrqkafiqwllkphroztqk.supabase.co/functions/v1/kairos-family";
 const json = (error, status) =>
@@ -7,7 +8,7 @@ const json = (error, status) =>
     { status, headers: { "Cache-Control": "no-store" } },
   );
 export async function handleFamilyBackend(request, env = {}, fetcher = fetch) {
-  if (env.FAMILY_BACKEND === "d1") return handleFamily(request, env);
+  if (env.FAMILY_BACKEND === "d1") return handleFamily(request, { ...env, MAIL: createResendMailer(env.RESEND_API_KEY, env.KAIROS_MAIL_FROM) });
   const url = new URL(request.url);
   if (!["GET", "POST"].includes(request.method))
     return json("Method not allowed.", 405);

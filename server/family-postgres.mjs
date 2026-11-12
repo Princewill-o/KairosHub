@@ -8,6 +8,7 @@ const tables = [
   "family_auth_limits",
   "kharis_members",
   "kharis_activity",
+  "family_email_codes",
 ];
 const numeric = new Set([
   "runs",
@@ -23,6 +24,9 @@ const numeric = new Set([
   "points",
   "members",
   "score",
+  "email_verified_at",
+  "sent_at",
+  "attempts",
 ]);
 export function postgresQuery(statement) {
   let index = 0;
