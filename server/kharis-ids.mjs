@@ -1,0 +1,6 @@
+// Ids the backend accepts, kept in step with public/kharis-data.mjs by kharis.test.mjs.
+// (The Edge Function bundle stays small: no scenario text on the server.)
+export const BRANCH_IDS = new Set(["london","kp2","birmingham","brighton","bristol","chatham","chelmsford","coventry","croydon","luton","manchester","northampton","nottingham","orpington","reading","accra","freetown"]);
+export const DEPARTMENT_IDS = new Set(["administration","children","design","drama","evangelism","first-aid","follow-up","hospitality","host","music","new-believers","production","sanctuary","setup","social-media","sound","uniform","ushers","welfare"]);
+export const SERVING_IDS = new Set(["admin-baptism","admin-records","children-tears","children-lesson","design-poster","drama-lines","evangelism-street","evangelism-follow","firstaid-faint","followup-visitor","hospitality-pastor","host-welcome","music-mistake","music-heart","nb-question","production-slide","sanctuary-spill","setup-late","social-comment","sound-feedback","uniform-rush","ushers-seat","ushers-offering","welfare-visit"]);
+export const SERMON_IDS = new Set(["spirit-truth","portraits-christ","christian-fast","obedience","restrictions","fellowship","trust-god","thirst-no-more","fear-not"]);

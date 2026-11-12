@@ -883,7 +883,7 @@ export function WorldView({
           stick.current = { x, y };
           if (x || y) target.current = null;
         }} />{!car && <button type="button" aria-label="Jump" onClick={() => { if (!pausedRef.current && pos.current.jumpHeight === 0) pos.current.jumpVelocity = JUMP_IMPULSE; }} className="pointer-events-auto min-h-12 rounded-full bg-[#f0c84b] px-5 font-black text-[#21152e]">Jump</button>}{car && <span className="max-w-28 rounded-lg bg-black/65 p-2 text-[10px] leading-relaxed text-white">↑ Accelerate<br />↓ Brake / reverse<br />← → Steer</span>}</div> : (
-          <p data-hud="hint" data-tone="ink" className="max-w-[min(78%,30rem)] rounded-xl bg-black/60 px-3 py-2 text-[10px] text-[#d8d4e0] sm:text-xs">{car ? "W / ↑ accelerate · S / ↓ reverse · A D steer · Space brake" : "WASD / arrows · Space jump · E interact"}</p>
+          <p data-hud="hint" data-tone="ink" className="max-w-[min(78%,30rem)] rounded-xl bg-black/60 px-3 py-2 text-[10px] text-[#d8d4e0] sm:text-xs">{car ? "W / ↑ accelerate · S / ↓ reverse · A D steer · Space brake" : map.id === "church" || map.id === "branch" ? "WASD move · ← → turn · Shift run · C sit in a pew · H hands · E interact" : "WASD move · ← → turn · Shift run · Space jump · F/G hands · E interact"}</p>
         )}
       </div>
     </div>

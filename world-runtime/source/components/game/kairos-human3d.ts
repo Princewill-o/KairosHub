@@ -151,7 +151,7 @@ export async function buildCharacter(input: Avatar, height = 1.15, _logo: string
       else if (mode === "think") { turn(arm.r, -1.1); turn(arm.rl, -1.9); }
       else if (mode === "read") { turn(arm.r, -0.8); turn(arm.l, -0.8); turn(arm.rl, -1.0); turn(arm.ll, -1.0); }
       else if (mode === "pray") { turn(leg.r, -1.45); turn(leg.l, -1.45); turn(leg.rl, 1.5); turn(leg.ll, 1.5); turn(arm.r, -0.75, 0, 0.32); turn(arm.l, -0.75, 0, -0.32); turn(arm.rl, -1.25); turn(arm.ll, -1.25); if (head) turn(head, 0.35); }
-      else if (mode === "worship") { turn(leg.r, -1.45); turn(leg.l, -1.45); turn(leg.rl, 1.5); turn(leg.ll, 1.5); const sway = reduced ? 0 : Math.sin(time * 1.6) * 0.08; turn(arm.r, -2.7, 0, -0.35 + sway); turn(arm.l, -2.7, 0, 0.35 - sway); if (head) turn(head, -0.2); }
+      else if (mode === "worship" || mode === "sit-worship") { if (mode === "sit-worship") { turn(leg.r, -1.45); turn(leg.l, -1.45); turn(leg.rl, 1.5); turn(leg.ll, 1.5); } const sway = reduced ? 0 : Math.sin(time * 1.6) * 0.08; turn(arm.r, -2.7, 0, -0.35 + sway); turn(arm.l, -2.7, 0, 0.35 - sway); if (head) turn(head, -0.2); }
       else if (mode === "sit") { turn(leg.r, -1.45); turn(leg.l, -1.45); turn(leg.rl, 1.5); turn(leg.ll, 1.5); turn(arm.r, -0.35, 0, 0.1); turn(arm.l, -0.35, 0, -0.1); turn(arm.rl, -0.9); turn(arm.ll, -0.9); }
       else if (mode === "drive") { turn(leg.r, -1.45); turn(leg.l, -1.45); turn(leg.rl, 1.5); turn(leg.ll, 1.5); turn(arm.r, -0.6); turn(arm.l, -0.6); }
       else if (mode === "sleep") { turn(arm.r, 0, 0, -0.1); }

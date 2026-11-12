@@ -65,6 +65,8 @@ import { NextStationBoard } from "./next-station";
 import { scriptFor } from "./cutscene-scripts";
 import { activeInjury, injure, injurySpeed } from "@/game/core/injury";
 import { InPersonGame } from "./in-person-game";
+import { KharisHub, readKharisTag, type KharisTag } from "./kharis-hub";
+import { nameTagLabel } from "../../../../../public/kharis-data.mjs";
 import { PoliceVan } from "./police-van";
 import { FIND_CHANCE, TIERS, rollTier, type Tier } from "@/game/core/lucky-blocks";
 import { MinistryDialog } from "./ministry-dialog";
@@ -143,7 +145,7 @@ function loadMap(id: string): WorldMap | null {
 }
 
 export function WorldApp({
-  me,
+  me: meProp,
   initialMap,
   initialServer,
   initialArrival,
@@ -174,6 +176,11 @@ export function WorldApp({
 }) {
   HOME = home;
   const router = useRouter();
+  // Kharis identity: your branch and department become the name tag over your head.
+  const [kharisTag, setKharisTag] = useState<KharisTag | null>(readKharisTag);
+  const [kharisOpen, setKharisOpen] = useState(false);
+  const me = useMemo(() => kharisTag ? { ...meProp, affiliation: { kind: "branch" as const, label: nameTagLabel(kharisTag.branch, kharisTag.department), icon: "church" as const, logo: "kharis" } } : meProp, [meProp, kharisTag]);
+  useEffect(() => { const open = () => { setPhone(false); setKharisOpen(true); }; addEventListener("kairos-open-kharis", open); return () => removeEventListener("kairos-open-kharis", open); }, []);
   const [graceOpen,setGraceOpen]=useState(false);
   const openGrace=useCallback((route='home')=>parent.postMessage({type:'kairos-world:grace',route},location.origin),[]);
   const [wardrobe, setWardrobe] = useState(false);
@@ -289,7 +296,7 @@ export function WorldApp({
     window.addEventListener("kairos-open-grace", grace);
     return () => { window.removeEventListener("kairos-challenge-award", award); window.removeEventListener("kairos-open-grace", grace); clearInterval(search); window.removeEventListener("kairos-lucky-mine", mine); window.removeEventListener("kairos-open-gameshow", open); window.removeEventListener("kairos-open-lifehub", hub); };
   }, []);
-  const awardChallengeRef = useRef<(id: string, amount: number) => void>(() => {});
+  const awardChallengeRef = useRef<(id: string, amount: number, message?: string) => void>(() => {});
   const openGraceRef = useRef<(route: string) => void>(() => {});
   const [miniGamesOpen, setMiniGamesOpen] = useState(false);
   const [nativeChallenge,setNativeChallenge] = useState<string|null>(null);
@@ -578,12 +585,12 @@ export function WorldApp({
     return () => removeEventListener("kairos-seat", seat);
   }, [say]);
   openGraceRef.current = openGrace;
-  awardChallengeRef.current = (id: string, amount: number) => {
-    const current = readStorySave(), key = `challenge:${id}`;
-    if (current.completed[key]) return;
+  awardChallengeRef.current = (id: string, amount: number, message = "Scripture challenge complete") => {
+    const current = readStorySave(), key = id.includes(":") ? id : `challenge:${id}`;
+    if (current.completed[key] || amount <= 0) { say(message); return; }
     const next = { ...current, grace: current.grace + amount, completed: { ...current.completed, [key]: { choice: 0, grace: amount } } };
     try { localStorage.setItem(LTBS_SAVE_KEY, JSON.stringify(next)); } catch { /* Device storage optional. */ }
-    setWallet((value) => value + amount); void recordKairosActivity("scripture_game"); say(`+${amount} Grace · Scripture challenge complete`);
+    setWallet((value) => value + amount); void recordKairosActivity("scripture_game"); say(`+${amount} Grace · ${message}`);
   };
   const adventure = useStoryAdventure(map, goTo, amount => setWallet(value => value + amount));
   useEffect(() => {
@@ -1586,6 +1593,9 @@ export function WorldApp({
         </button>
       )}
       {mapId === "train-carriage" && <NextStationBoard ride={RIDE} />}
+      {kharisOpen && <KharisHub tag={kharisTag} onTag={setKharisTag} onClose={() => setKharisOpen(false)}
+        onEmote={(anim) => { (globalThis as { __kairosEmote?: { anim: string; until: number } }).__kairosEmote = { anim, until: performance.now() + 2800 }; }}
+        onAward={(id, grace, message) => awardChallengeRef.current(id, grace, message)} />}
       {lifeHub && <LifeHub
         // Offline it's your life's pounds; online, Grace coins convert at £20 each so the online economy doesn't inflate.
         wallet={offline ? wallet : wallet * 20}

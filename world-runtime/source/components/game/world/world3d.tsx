@@ -4338,7 +4338,7 @@ export function World3D({
       tickInmates(dt);
       if (congregation.length) {
         // Seated, with some praying and, during the service, hands raised in worship.
-        congregation.forEach((b, i) => b.char?.play(CHURCH_SCREEN.active && i % 5 === 0 ? "worship" : i % 9 === 4 ? "pray" : "sit"));
+        congregation.forEach((b, i) => b.char?.play(CHURCH_SCREEN.active && i % 5 === 0 ? "sit-worship" : i % 9 === 4 ? "pray" : "sit"));
         if (churchScreen && churchScreen.version !== CHURCH_SCREEN.version) drawChurchScreen();
         if (preacher?.char) preacher.char.play(CHURCH_SCREEN.active ? "wave" : "idle");
       }
@@ -4401,9 +4401,15 @@ export function World3D({
         cycle.traverse(o => { if (o.userData.bikeWheel) o.rotation.z = moving ? -phase : o.rotation.z; });
       };
       if (rideBike && riding) seatRider(me, rideBike, me.root.rotation.y, p.walking, secs * 8);
+      else if (me.char && !getHomeAction?.() && !p.walking && ((globalThis as { __kairosEmote?: { anim: string; until: number } }).__kairosEmote?.until ?? 0) > performance.now()) {
+        // Sermon games: your character acts out the choice (pray, worship, read, walk…).
+        const anim = (globalThis as { __kairosEmote?: { anim: string } }).__kairosEmote!.anim;
+        me.char.play(anim === "walk" ? "walk" : anim);
+        if (SEAT.seat) { me.root.position.set(SEAT.seat.x, 0.18, SEAT.seat.z); me.root.rotation.set(0, SEAT.seat.yaw, 0); }
+      }
       else if (me.char && SEAT.seat && !getHomeAction?.()) {
         // Seated in a pew: on the bench, facing the stage, hands as chosen (H).
-        me.char.play(SEAT.seat.pose);
+        me.char.play(SEAT.seat.pose === "worship" ? "sit-worship" : SEAT.seat.pose);
         me.root.position.set(SEAT.seat.x, 0.18, SEAT.seat.z);
         me.root.rotation.set(0, SEAT.seat.yaw, 0);
       }

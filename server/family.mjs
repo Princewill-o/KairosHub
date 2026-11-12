@@ -1,5 +1,6 @@
-import { bibleGames } from "../public/bible/content.mjs";
-import { checkName } from "../public/accounts.mjs";
+import { bibleGames } from "./bible-game-ids.mjs";
+import { checkName } from "./check-name.mjs";
+import { BRANCH_IDS, DEPARTMENT_IDS, SERVING_IDS, SERMON_IDS } from "./kharis-ids.mjs";
 const COOKIE = "kairos_family";
 const characters = ["kai", "ama", "leo", "mei", "theo"];
 const json = (data, status = 200, cookie) =>
@@ -308,6 +309,48 @@ export async function handleFamily(request, env) {
           .run();
       }
       return json({ child, ...(await childProgress(db, child.id)) });
+    }
+    // Kharis Church identity and serving: branch, department (name tag), and points
+    // from serving scenarios and sermon study games, totalled per branch.
+    if (path === "/kharis" || path.startsWith("/kharis/")) {
+      const owner = s.child_id || s.family_id;
+      const who = s.child_id
+        ? await childFor(db, s, s.child_id)
+        : await db.prepare("SELECT name FROM family_accounts WHERE id = ?").bind(s.family_id).first();
+      if (path === "/kharis/member" && request.method === "POST") {
+        if (!BRANCH_IDS.has(body.branch)) fail("Choose a Kharis branch.");
+        if (body.department != null && !DEPARTMENT_IDS.has(body.department)) fail("Choose a department.");
+        await db
+          .prepare(
+            "INSERT INTO kharis_members (owner_id,family_id,name,branch,department,updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(owner_id) DO UPDATE SET branch=excluded.branch, department=excluded.department, name=excluded.name, updated_at=excluded.updated_at",
+          )
+          .bind(owner, s.family_id, String(who?.name || "Member").slice(0, 20), body.branch, body.department ?? null, Date.now())
+          .run();
+      } else if (path === "/kharis/activity" && request.method === "POST") {
+        const ok =
+          typeof body.eventId === "string" && /^[a-f0-9-]{36}$/.test(body.eventId) &&
+          ((body.kind === "serve" && SERVING_IDS.has(body.ref)) || (body.kind === "sermon" && SERMON_IDS.has(body.ref))) &&
+          Number.isInteger(body.score) && body.score >= 0 && body.score <= 100;
+        if (!ok) fail("Invalid activity.");
+        const member = await db.prepare("SELECT branch FROM kharis_members WHERE owner_id = ?").bind(owner).first();
+        if (!member) fail("Join a Kharis branch first.", 409);
+        await db
+          .prepare(
+            "INSERT INTO kharis_activity (owner_id,event_id,kind,ref,score,branch,completed_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(owner_id,event_id) DO NOTHING",
+          )
+          .bind(owner, body.eventId, body.kind, body.ref, body.score, member.branch, Date.now())
+          .run();
+      } else if (!(path === "/kharis" && request.method === "GET")) return json({ error: "Not found." }, 404);
+      const member = await db.prepare("SELECT name,branch,department,updated_at FROM kharis_members WHERE owner_id = ?").bind(owner).first();
+      const mine = await db
+        .prepare("SELECT kind, COUNT(*) AS n, COALESCE(SUM(score),0) AS points FROM kharis_activity WHERE owner_id = ? GROUP BY kind")
+        .bind(owner)
+        .all();
+      const board = await db
+        .prepare("SELECT branch, COALESCE(SUM(score),0) AS points, COUNT(DISTINCT owner_id) AS members FROM kharis_activity WHERE completed_at > ? GROUP BY branch ORDER BY points DESC LIMIT 17")
+        .bind(Date.now() - 30 * 86400000)
+        .all();
+      return json({ member: member || null, name: who?.name ?? null, mine: mine.results, board: board.results }, request.method === "POST" ? 201 : 200);
     }
     if (s.child_id) fail("Ask your parent to sign in to their dashboard.", 403);
     if (path === "" && request.method === "GET") {

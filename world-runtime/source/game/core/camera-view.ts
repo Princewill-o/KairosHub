@@ -52,11 +52,11 @@ export function churchSeats() {
   for (let z = 7.7; z < 18.6; z += 1.2) for (const x0 of [3.5, 15.5]) for (let x = x0; x < x0 + 6.5; x += 1.05) seats.push({ x, z });
   return seats;
 }
-/** Seats the congregation leaves for you (one in ten along every pew). */
-export const isOpenSeat = (i: number) => (i * 7) % 10 >= 9;
+/** Seats the congregation leaves for you: the aisle end of every row, plus one in ten along the pews. */
+export const isOpenSeat = (i: number) => (i * 7) % 10 >= 9 || i % 14 === 6 || i % 14 === 7;
 
 /** The nearest open pew place within reach of (x, z), or null. */
-export function nearestOpenSeat(x: number, z: number, reach = 2.6) {
+export function nearestOpenSeat(x: number, z: number, reach = 6) {
   let best: { x: number; z: number } | null = null, d = reach * reach;
   churchSeats().forEach((seat, i) => {
     if (!isOpenSeat(i)) return;

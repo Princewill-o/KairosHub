@@ -1,0 +1,2 @@
+// Bible game ids the backend accepts, kept in step with public/bible/content.mjs by kharis.test.mjs.
+export const bibleGames = [{"id":"trivia"},{"id":"quiz"},{"id":"word-search"},{"id":"crossword"},{"id":"charades"},{"id":"memory"},{"id":"verse"},{"id":"jeopardy"},{"id":"pictionary"},{"id":"hangman"},{"id":"bingo"},{"id":"scavenger"},{"id":"character"},{"id":"ordering"},{"id":"map"},{"id":"escape"}];

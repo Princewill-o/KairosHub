@@ -6,6 +6,7 @@ import { handleFamily } from "./server/family.mjs";
 function setup() {
   const db = new DatabaseSync(":memory:");
   db.exec(readFileSync("drizzle/0002_family.sql", "utf8"));
+  db.exec(readFileSync("drizzle/0004_kharis.sql", "utf8"));
   const env = {
     DB: {
       prepare(sql) {
@@ -238,4 +239,30 @@ test("offline completions keep their original date when uploaded later", async (
     at,
   });
   assert.equal(result.data.recent[0].completed_at, at);
+});
+
+test("Kharis branch, department name tag, serving and sermon points total per branch", async () => {
+  const a = setup();
+  assert.equal((await a.call("/kharis")).status, 401);
+  await a.call("/signup", { ...parent, email: "kharis@example.com" });
+  let r = await a.call("/kharis");
+  assert.equal(r.status, 200); assert.equal(r.data.member, null);
+  assert.equal((await a.call("/kharis/activity", { kind: "serve", ref: "ushers-seat", score: 100, eventId: crypto.randomUUID() })).status, 409);
+  assert.equal((await a.call("/kharis/member", { branch: "atlantis" })).status, 400);
+  r = await a.call("/kharis/member", { branch: "croydon", department: "ushers" });
+  assert.equal(r.status, 201); assert.equal(r.data.member.branch, "croydon"); assert.equal(r.data.member.department, "ushers");
+  const id = crypto.randomUUID();
+  await a.call("/kharis/activity", { kind: "serve", ref: "ushers-seat", score: 100, eventId: id });
+  await a.call("/kharis/activity", { kind: "serve", ref: "ushers-seat", score: 100, eventId: id }); // idempotent
+  r = await a.call("/kharis/activity", { kind: "sermon", ref: "fear-not", score: 67, eventId: crypto.randomUUID() });
+  assert.deepEqual(r.data.board[0], { branch: "croydon", points: 167, members: 1 });
+  assert.equal((await a.call("/kharis/activity", { kind: "sermon", ref: "made-up", score: 50, eventId: crypto.randomUUID() })).status, 400);
+});
+test("a child's own session can join a branch and earn points", async () => {
+  const a = setup();
+  await a.call("/signup", { ...parent, email: "kid-kharis@example.com" });
+  const child = (await a.call("/children", { name: "Ama", age: 10, character: "ama" })).data.child;
+  await a.call("/play", { childId: child.id });
+  const r = await a.call("/kharis/member", { branch: "luton", department: "children" });
+  assert.equal(r.status, 201); assert.equal(r.data.name, "Ama");
 });
