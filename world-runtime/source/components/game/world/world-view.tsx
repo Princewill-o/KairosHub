@@ -414,14 +414,15 @@ export function WorldView({
         // Sit in the nearest open pew place (church), or stand back up.
         if (SEAT.seat) { standUp(); return; }
         const p = pos.current;
-        const seat = isChurchMap(map.id) ? nearestOpenSeat(p.x / TILE, p.y / TILE) : null;
+        const near = (list: { x: number; z: number }[]) => list.reduce<{ x: number; z: number } | null>((best, s) => (Math.hypot(s.x - p.x / TILE, s.z - p.y / TILE) < 4 && (!best || Math.hypot(s.x - p.x / TILE, s.z - p.y / TILE) < Math.hypot(best.x - p.x / TILE, best.z - p.y / TILE)) ? s : best), null);
+        const seat = isChurchMap(map.id) ? nearestOpenSeat(p.x / TILE, p.y / TILE) : map.seats ? near(map.seats) : null;
         if (seat) {
           standFrom.current = { x: p.x, y: p.y };
           SEAT.seat = { x: seat.x, z: seat.z, yaw: Math.PI, pose: "sit" };
           p.x = seat.x * TILE; p.y = seat.z * TILE; p.walking = false;
           CAMERA_VIEW.yaw = -Math.PI / 2; // face the stage
           window.dispatchEvent(new CustomEvent("kairos-seat", { detail: "sit" }));
-        } else window.dispatchEvent(new CustomEvent("kairos-seat", { detail: isChurchMap(map.id) ? "none" : "nowhere" }));
+        } else window.dispatchEvent(new CustomEvent("kairos-seat", { detail: isChurchMap(map.id) || map.seats ? "none" : "nowhere" }));
         return;
       }
       if (k === "h" && !e.repeat && SEAT.seat) {
@@ -495,7 +496,7 @@ export function WorldView({
       // the classic view keep arrows and A/D as one steering axis.
       let dx = (k.has("d") || (!walkView && k.has("arrowright")) ? 1 : 0) - (k.has("a") || (!walkView && k.has("arrowleft")) ? 1 : 0);
       let dy = (k.has("s") || k.has("arrowdown") ? 1 : 0) - (k.has("w") || k.has("arrowup") ? 1 : 0);
-      let turn = walkView ? (k.has("arrowright") || k.has("e") && !k.has("shift") ? 1 : 0) - (k.has("arrowleft") || k.has("q") ? 1 : 0) : 0;
+      let turn = walkView ? (k.has("arrowright") ? 1 : 0) - (k.has("arrowleft") ? 1 : 0) : 0;
       if (!dx && !dy && (stick.current.x || stick.current.y)) {
         // Touch stick: push sideways to turn while walking, like a thumbstick in a car game.
         dy = stick.current.y;

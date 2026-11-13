@@ -114,6 +114,7 @@ export function KairosMenu({ onPick, initial = "online", onResume }: { onPick: (
         {settings && (
           <div className="km-settings" role="menu" aria-label="Settings">
             <button type="button" role="menuitem" onClick={() => leave(false)}>Back to the home page</button>
+            <button type="button" role="menuitem" onClick={() => { window.dispatchEvent(new CustomEvent("kairos-replay-training")); onResume?.(); }}>How to play · training room</button>
             <button type="button" role="menuitem" onClick={() => leave(false, "account")}>Account · sign in</button>
             <button type="button" role="menuitem" className="km-danger" onClick={() => leave(true)}>Log out</button>
           </div>

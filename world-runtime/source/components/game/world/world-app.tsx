@@ -69,6 +69,8 @@ import { KharisHub, readKharisTag, type KharisTag } from "./kharis-hub";
 import { isChurchMap, ukCityMap, branchChurchMap, mapForCity, cityById, cityForMap, type TravelMode } from "@/game/core/uk";
 import { UkTravel, UkJourney } from "./uk-travel";
 import { BibleBook } from "./bible-book";
+import { TrainingCoach } from "./training-coach";
+import { trainingMap, TRAINING_DONE_KEY } from "@/game/core/training";
 import { nameTagLabel } from "../../../../../public/kharis-data.mjs";
 import { PoliceVan } from "./police-van";
 import { FIND_CHANCE, TIERS, rollTier, type Tier } from "@/game/core/lucky-blocks";
@@ -138,6 +140,7 @@ function loadMap(id: string): WorldMap | null {
   if (id === "flight") return flightMap();
   if (id === "ferry") return ferryMap();
   if (id === "greater-london") return greaterLondonMap();
+  if (id === "training") return trainingMap();
   if (id.startsWith("uk-")) return ukCityMap(id);
   if (id.startsWith("branch-")) return branchChurchMap(id);
   if (id === "branch") return LIFE_WORLD.branch ? branchMap(LIFE_WORLD.branch.name) : null;
@@ -216,14 +219,9 @@ export function WorldApp({
   const arrivedRef = useRef<(() => void) | null>(null);
   const arrived = useCallback(() => { arrivedRef.current?.(); setWaypoint(null); }, []);
   useEffect(() => setWaypoint(null), [mapId]);
-  useEffect(() => {
-    const key = "kairos-how-to-play-seen";
-    try {
-      const previouslySeen = localStorage.getItem(key) || Object.keys(localStorage).some(item => item.startsWith("world-tutorial-") && localStorage.getItem(item));
-      localStorage.setItem(key, "seen");
-      if (!previouslySeen) setTutorial(true);
-    } catch { /* Keep gameplay accessible when storage is unavailable. */ }
-  }, []);
+  // First time in: the Training Room with Hope, before the main world.
+  const [training, setTraining] = useState(() => { try { return !localStorage.getItem(TRAINING_DONE_KEY); } catch { return false; } });
+  const trainingFrom = useRef<string | null>(null);
   const [dock, setDock] = useState(false);
   const [bike, setBike] = useState<{ brand: BikeBrand; until: number } | null>(null);
   const [wallet, setWallet] = useState(clout);
@@ -613,6 +611,17 @@ export function WorldApp({
       setTimeout(() => setWorldGate(null), 900);
     }, 1800);
   };
+  useEffect(() => {
+    if (training && mapId !== "training") { trainingFrom.current = mapId; goTo("training", "Training Room"); }
+  }, [training]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const replay = () => { setPhone(false); setTraining(true); trainingFrom.current = mapId; goTo("training", "Training Room"); }; addEventListener("kairos-replay-training", replay); return () => removeEventListener("kairos-replay-training", replay); }, [mapId, goTo]);
+  const endTraining = useCallback((skipped: boolean) => {
+    try { localStorage.setItem(TRAINING_DONE_KEY, "1"); localStorage.setItem("kairos-how-to-play-seen", "seen"); } catch { /* storage optional */ }
+    setTraining(false);
+    const back = trainingFrom.current && trainingFrom.current !== "training" ? trainingFrom.current : "city";
+    goTo(back, back === "city" ? "London" : "Back");
+    say(skipped ? "Training skipped. You can replay it any time from Settings → How to play." : "Training complete! Welcome to Kairos World.", true);
+  }, [goTo, say]);
   openGraceRef.current = openGrace;
   awardChallengeRef.current = (id: string, amount: number, message = "Scripture challenge complete") => {
     const current = readStorySave(), key = id.includes(":") ? id : `challenge:${id}`;
@@ -687,6 +696,7 @@ export function WorldApp({
         if(place){const target=loadMap(place.mapId);if(target)goTo(place.mapId,place.name,safeSpot(target,place.x*TILE,place.y*TILE));}
         else if(island)goTo(island.id,island.name);
       }
+      if(event.data?.type==='kairos-world:replay-training')window.dispatchEvent(new CustomEvent('kairos-replay-training'));
     };
     window.addEventListener('message',receive);return()=>window.removeEventListener('message',receive);
   },[goTo,adventure.enter,map.id]);
@@ -847,6 +857,7 @@ export function WorldApp({
       if (portal.id === "branch-home") { setFlightTo({ mapId: "airport", label: "Kairos International, London", title: `Kairos Air KA8 · ${LIFE_WORLD.branch?.name ?? "Branch"} → London` }); }
       if(to.kind==='grace'){openGrace(to.route);return;}
       if (to.kind === "map" && to.mapId === "scripture-island" && map.id !== "scripture-island") { ltbsGateRef.current("ltbs"); return; }
+      if (to.kind === "training") { window.dispatchEvent(new CustomEvent("kairos-training", { detail: to.action })); if (to.action === "talk") say("Hope: “You're doing great! Keep following the steps at the bottom of the screen.”"); if (to.action === "finish" && !training) endTraining(false); return; }
       if (to.kind === "uk") { setUkTravel({ from: to.from, mode: to.mode }); return; }
       if (map.id === "scripture-island" && to.kind === "map" && to.mapId === "city" && portal.id.startsWith("tube-")) { ltbsGateRef.current("kairos"); return; }
       if (to.kind === "mall") { setMallDept(to.dept as Dept); return; }
@@ -966,7 +977,7 @@ export function WorldApp({
         }, 430);
       }
     },
-    [router, mapId, map, me.id, updateLife, say, jailed, gainXp, goTo, adventure, boardTrain, alight, driving],
+    [router, mapId, map, me.id, updateLife, say, jailed, gainXp, goTo, adventure, boardTrain, alight, driving, training, endTraining],
   );
 
   // Kairos Life: a crime you were caught for becomes a wanted level in the world.
@@ -1603,6 +1614,7 @@ export function WorldApp({
       }} />}
       {offline && kl.life && !kl.life.alive && kl.life.ending && <LifeEnding life={kl.life} avatar={playerAvatar} onAgain={() => kl.update(() => null)} />}
       <SceneWipe show={fading} label={sceneName} />
+      {training && mapId === "training" && <TrainingCoach player={PLAYER} phoneOpen={phone} onFinish={() => endTraining(false)} onSkip={() => endTraining(true)} />}
       {tutorial && <Tutorial onClose={() => {
         try { localStorage.setItem("kairos-how-to-play-seen", "seen"); } catch { /* Show again when storage is unavailable. */ }
         setTutorial(false);

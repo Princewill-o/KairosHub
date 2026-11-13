@@ -23,7 +23,7 @@ export function mountKairosWorld(root,profile,{initialRoute=null}={}){
  const frame=root.querySelector('iframe'),loading=root.querySelector('.world-loading'),retry=root.querySelector('.world-retry');
  addEventListener('message',e=>{if(e.origin===location.origin&&e.data?.type==='kairos-world:menu')root.querySelector('.kairos-world-shell')?.classList.toggle('menu-open',!!e.data.open);});
  const guide=root.querySelector('.world-guide');
- root.querySelector('.world-help').onclick=()=>grace.open('help');
+ root.querySelector('.world-help').onclick=()=>{const f=root.querySelector('iframe');try{f.contentWindow.postMessage({type:'kairos-world:replay-training'},location.origin);f.focus();}catch{grace.open('help');}};
  guide.addEventListener('close',()=>{frame.inert=false;frame.focus();});
  const appearance=()=>createAvatarStore(profile.id).get();
  const sendMessage=message=>frame.contentWindow?.postMessage(message,location.origin);

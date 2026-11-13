@@ -335,7 +335,7 @@ type VehicleKind = CoachId | "bus" | "cab" | "boat" | "sedan" | "van" | "suv" | 
 // Everyone on a route keeps the same speed so nobody drives through anybody.
 /** Where the traffic is right now (world px, centre and half-size) and where you are: shared with the game loop. */
 export const TRAFFIC_BOXES: ({ x: number; y: number; hw: number; hh: number; dx: number; dy: number; speed?: number } | undefined)[] = [];
-export const PLAYER = { x: -9999, y: -9999 };
+export const PLAYER: { x: number; y: number } = ((globalThis as { __kairosPlayerPos?: { x: number; y: number } }).__kairosPlayerPos ??= { x: -9999, y: -9999 });
 export const PLAYER_VEHICLE = { active: false, x: 0, y: 0, heading: 0, speed: 0 };
 /** Current local pedestrians, shared by both renderers and the game loop. */
 export const NPC_SPOTS: { x: number; y: number }[] = [];

@@ -3358,7 +3358,7 @@ export function World3D({
 
     // Local ambient residents are fictional, scripted characters, separate from connected players.
     // Populate London and the Kharis woodland generously while keeping indoor rooms calmer.
-    const residentLimit = map.kind === "home" || map.kind === "prison" || map.story || isChurchMap(map.id) && map.id !== "church" || map.id === "flight" ? 0 : Math.min(budget.residents, london || map.id === "woodland" ? budget.residents : highland || map.kind === "station" || map.kind === "campus" ? Math.max(12, budget.residents - 4) : Math.max(8, Math.floor(budget.residents / 2)));
+    const residentLimit = map.kind === "home" || map.kind === "prison" || map.id === "training" || map.story || isChurchMap(map.id) && map.id !== "church" || map.id === "flight" ? 0 : Math.min(budget.residents, london || map.id === "woodland" ? budget.residents : highland || map.kind === "station" || map.kind === "campus" ? Math.max(12, budget.residents - 4) : Math.max(8, Math.floor(budget.residents / 2)));
     const riderAt = new THREE.Vector3();
     const npcs = residentPaths(map, residentLimit).filter(path=>map.kind !== "prison" || path.x0<25&&path.x1<25).map((path, i) => {
       const body = makeBody(map.kind === "prison" ? {...npcLook(i),...PRISON_LOOK} : (london || map.id === "city") && i % 9 === 4 ? officerLook(i) : npcLook(i), null, true);
@@ -3552,6 +3552,17 @@ export function World3D({
         }
       }
     };
+    // Training Room: Hope the guide by the window, and the glowing target pad.
+    let trainingPad: THREE.Mesh | null = null;
+    if (map.id === "training") {
+      const hope = makeBody({ ...npcLook(3), skinUrl: "/skins/youth-worker.png" } as never, null, true);
+      hope.root.position.set(20.5, 0, 5.6); hope.root.rotation.y = 0; scene.add(hope.root);
+      const tag = sign("Hope · your guide", { bg: "#f2c84b", fg: "#120c18", w: 2.6, h: 0.4 }); tag.position.set(20.5, 2.15, 5.6); world.add(tag);
+      trainingPad = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.06, 6), new THREE.MeshBasicMaterial({ color: "#b98aff", transparent: true, opacity: 0.55 }));
+      trainingPad.position.set(14.5, 0.04, 10.5); scene.add(trainingPad);
+      const door = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.2, 2), new THREE.MeshBasicMaterial({ color: "#f2c84b", transparent: true, opacity: 0.5 }));
+      door.position.set(30, 1.1, 10); scene.add(door);
+    }
     if(map.kind === "prison") for(const portal of map.portals.filter(p=>p.to.kind === "prison"&&p.to.action === "talk")) {
       const person=makeBody({...npcLook(portal.id === "inmate-sam"?57:58),...PRISON_LOOK});
       person.root.position.set(portal.rect.x/TILE+0.5,0,portal.rect.y/TILE+0.5);
@@ -4345,6 +4356,7 @@ export function World3D({
       }
       if (ferryBoat) { ferryBoat.position.y = -1.0 + Math.sin(now / 900) * 0.06; ferryBoat.rotation.z = Math.sin(now / 1300) * 0.02; }
       tickInmates(dt);
+      if (trainingPad) { trainingPad.rotation.y += dt * 0.8; (trainingPad.material as THREE.MeshBasicMaterial).opacity = 0.35 + Math.sin(secs * 3) * 0.2; }
       if (congregation.length) {
         // Seated, with some praying and, during the service, hands raised in worship.
         congregation.forEach((b, i) => b.char?.play(CHURCH_SCREEN.active && i % 5 === 0 ? "sit-worship" : i % 9 === 4 ? "pray" : "sit"));

@@ -58,6 +58,7 @@ export type PortalTarget =
   | { kind: "guide"; guide: "careers" | "study" | "transport" }
   | { kind: "alight" }
   | { kind: "uk"; from: string; mode?: "train" | "coach" | "flight" }
+  | { kind: "training"; action: "talk" | "finish" }
   | { kind: "mall"; dept: string };
 
 export interface Portal {
@@ -95,6 +96,8 @@ export interface WorldMap {
   /** Walk-in lobby or mall: what to draw for its cabinets and shops. */
   lobby?: { spec: string; style: "arcade" | "lounge" | "theatre" | "library" | "mall"; cabinets: { x: number; y: number; face: "s" | "e" | "w"; label: string; colour: string }[] };
   story?: { id: "david" | "ruth" | "esther" | "daniel"; chapter: number };
+  /** Places you can sit with C (world units), for maps that aren't a church. */
+  seats?: { x: number; z: number }[];
   island?: boolean;
   id: string;
   kind: "city" | "campus" | "woodland" | "office" | "home" | "station" | "hospital" | "court" | "prison" | "church" | "train" | "flight" | "ferry";
